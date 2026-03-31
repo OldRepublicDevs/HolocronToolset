@@ -343,8 +343,8 @@ def main():
     qasync_installed = False
     with suppress(ImportError):
         RobustLogger().debug("TRACE: Importing qasync")
-        from qasync import (
-            QEventLoop,  # type: ignore[import-not-found, import-untyped, note]  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
+        from qasync import (  # type: ignore[import-not-found, import-untyped, note]  # pyright: ignore[reportMissingImports, reportMissingTypeStubs]
+            QEventLoop,
         )
 
         RobustLogger().debug("TRACE: qasync imported, creating QEventLoop")

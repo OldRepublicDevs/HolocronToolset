@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import time
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, Any
 
 import qtpy
 
