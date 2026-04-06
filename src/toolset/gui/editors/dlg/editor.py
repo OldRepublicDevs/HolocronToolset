@@ -149,7 +149,13 @@ class DLGEditor(Editor):
     ):
         """Initializes the Dialog Editor window."""
         supported: list[ResourceType] = [ResourceType.DLG]
+        self.ui: Ui_MainWindow | None = None
         super().__init__(parent, "Dialog Editor", "dialog", supported, supported, installation)
+        if self.ui is None:
+            from toolset.uic.qtpy.editors.dlg import Ui_MainWindow as _Ui_MainWindow
+
+            self.ui = _Ui_MainWindow()
+            self.ui.setupUi(self)
         self._installation: HTInstallation
 
         self._copy: DLGLink | None = None
@@ -1425,15 +1431,13 @@ Should return 1 or 0, representing a boolean.
         installation: HTInstallation,
     ):
         """Sets up the installation for the UI."""
-        if not hasattr(self, "ui"):
-            return  # UI not initialized yet, will be set up in __init__
+        if self.ui is None:
+            from toolset.uic.qtpy.editors.dlg import Ui_MainWindow
+
+            self.ui = Ui_MainWindow()
+            self.ui.setupUi(self)
         self._installation = installation  # pyright: ignore[reportIncompatibleVariableOverride]
         # Set maxLength for resref FilterComboBox fields (ResRefs are max 16 characters)
-
-        from toolset.uic.qtpy.editors.dlg import Ui_MainWindow
-
-        self.ui: Ui_MainWindow = Ui_MainWindow()
-        self.ui.setupUi(self)
 
         resref_combo_boxes: list[FilterComboBox] = [
             self.ui.script1ResrefEdit,
