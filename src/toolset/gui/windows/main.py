@@ -261,6 +261,8 @@ class ToolWindow(QMainWindow):
         self._file_watcher: QFileSystemWatcher = QFileSystemWatcher(self)
         self._pending_module_changes: list[str] = []
         self._pending_override_changes: list[str] = []
+        self._pending_module_file_modifications: list[str] = []
+        self._pending_override_file_modifications: list[str] = []
         self._last_watcher_update: datetime = datetime.now(tz=timezone.utc).astimezone()
 
         # Debounce timer to batch multiple rapid file changes
@@ -291,6 +293,8 @@ class ToolWindow(QMainWindow):
         # Clear pending changes
         self._pending_module_changes.clear()
         self._pending_override_changes.clear()
+        self._pending_module_file_modifications.clear()
+        self._pending_override_file_modifications.clear()
 
         if self.active is None:
             return
@@ -299,13 +303,49 @@ class ToolWindow(QMainWindow):
         module_path = self.active.module_path()
         if module_path.is_dir():
             self._file_watcher.addPath(str(module_path))
+            self._sync_watched_directory_files(module_path, capsule_only=True)
             RobustLogger().debug(f"File watcher watching modules directory: {module_path}")
 
         # Watch the override directory
         override_path = self.active.override_path()
         if override_path.is_dir():
             self._file_watcher.addPath(str(override_path))
+            self._sync_watched_directory_files(override_path, recursive=True)
             RobustLogger().debug(f"File watcher watching override directory: {override_path}")
+
+    def _sync_watched_directory_files(
+        self,
+        directory_path: Path,
+        *,
+        capsule_only: bool = False,
+        recursive: bool = False,
+    ) -> None:
+        """Ensure watched paths include existing files and directories for the target root."""
+        if not directory_path.is_dir():
+            return
+
+        watched_files = {os.path.normpath(path).lower() for path in self._file_watcher.files()}
+        watched_dirs = {os.path.normpath(path).lower() for path in self._file_watcher.directories()}
+        paths_to_watch: list[Path]
+        if recursive:
+            paths_to_watch = [directory_path, *(path for path in directory_path.rglob("*") if path.is_dir())]
+        else:
+            paths_to_watch = [directory_path]
+
+        for path in paths_to_watch:
+            normalized_dir = os.path.normpath(str(path)).lower()
+            if normalized_dir not in watched_dirs:
+                self._file_watcher.addPath(str(path))
+
+            with suppress(OSError):
+                for child in path.iterdir():
+                    if not child.is_file():
+                        continue
+                    if capsule_only and not is_capsule_file(child.name):
+                        continue
+                    normalized_child = os.path.normpath(str(child)).lower()
+                    if normalized_child not in watched_files:
+                        self._file_watcher.addPath(str(child))
 
     def _clear_file_watcher(self):
         """Clear all watched paths from the file system watcher."""
@@ -317,6 +357,8 @@ class ToolWindow(QMainWindow):
             self._file_watcher.removePaths(watched_files)
         self._pending_module_changes.clear()
         self._pending_override_changes.clear()
+        self._pending_module_file_modifications.clear()
+        self._pending_override_file_modifications.clear()
         self._watcher_debounce_timer.stop()
 
     def _watched_root_paths(self) -> tuple[str, str] | None:
@@ -359,6 +401,81 @@ class ToolWindow(QMainWindow):
         refresh_func(reload=True)
         pending_paths.clear()
 
+    def _refresh_current_module_file(self, changed_module_path: str) -> None:
+        """Reload a watched module file and update the visible module entry when selected."""
+        if self.active is None:
+            return
+
+        module_name = Path(changed_module_path).name.lower()
+        available_modules = self.active.modules_list()
+        module_lookup = {module.lower(): module for module in available_modules}
+        matched_module = module_lookup.get(module_name)
+        if matched_module is None:
+            return
+
+        related_modules: list[str] = [matched_module]
+
+        if self.settings.joinRIMsTogether:
+            module_root = PurePath(matched_module).stem
+            companion_modules = [f"{module_root}_s.rim"]
+            if self.active.game().is_k2():
+                companion_modules.append(f"{module_root}_dlg.erf")
+            related_modules.extend(module_lookup[companion.lower()] for companion in companion_modules if companion.lower() in module_lookup)
+
+        for related_module in related_modules:
+            try:
+                self.active.reload_module(related_module)
+            except Exception:  # noqa: BLE001
+                RobustLogger().exception("Failed to reload watched module '%s'", related_module)
+
+        current_module = self.ui.modulesWidget.ui.sectionCombo.currentData(Qt.ItemDataRole.UserRole)
+        if current_module in related_modules:
+            self.on_module_reload(str(current_module))
+
+    def _refresh_current_override_file(self, changed_override_path: str) -> None:
+        """Reload a watched override file and refresh the current override view when needed."""
+        if self.active is None:
+            return
+
+        try:
+            self.active.reload_override_file(changed_override_path)
+        except Exception:  # noqa: BLE001
+            RobustLogger().exception("Failed to reload watched override file '%s'", changed_override_path)
+            return
+
+        current_directory = self.ui.overrideWidget.ui.sectionCombo.currentData(Qt.ItemDataRole.UserRole)
+        changed_path = Path(changed_override_path)
+        rel_directory_str = "."
+        try:
+            rel_directory_str = changed_path.parent.relative_to(self.active.override_path()).as_posix()
+        except ValueError:
+            rel_directory_str = "."
+        current_directory_str = str(current_directory or ".")
+        if current_directory_str == rel_directory_str:
+            self.on_override_changed(rel_directory_str)
+
+    def _refresh_pending_module_file_modifications(self) -> None:
+        """Apply targeted module reloads for watched file changes."""
+        pending_module_files = list(self._pending_module_file_modifications)
+        if not pending_module_files:
+            return
+
+        RobustLogger().info("Auto-reloading %d watched module files", len(pending_module_files))
+        for changed_module_path in pending_module_files:
+            self._refresh_current_module_file(changed_module_path)
+        self._pending_module_file_modifications.clear()
+
+    def _refresh_pending_override_file_modifications(self) -> None:
+        """Apply targeted override reloads for watched file changes."""
+        pending_override_files = list(self._pending_override_file_modifications)
+        if not pending_override_files:
+            return
+
+        RobustLogger().info("Auto-reloading %d watched override files", len(pending_override_files))
+        for changed_override_path in pending_override_files:
+            self._refresh_current_override_file(changed_override_path)
+        self._pending_override_file_modifications.clear()
+
     @Slot(str)
     def _on_file_system_event(self, path: str, *, is_directory: bool) -> None:
         """Unified handler for file system change events (both directories and files).
@@ -375,11 +492,50 @@ class ToolWindow(QMainWindow):
     def _on_watched_directory_changed(self, path: str):
         """Handle directory change events from QFileSystemWatcher."""
         self._on_file_system_event(path, is_directory=True)
+        if self.active is None:
+            return
+
+        changed_dir = Path(path)
+        if not changed_dir.is_dir():
+            return
+
+        roots = self._watched_root_paths()
+        if roots is None:
+            return
+
+        normalized_path = os.path.normpath(path).lower()
+        module_root, override_root = roots
+        if normalized_path == module_root or normalized_path.startswith(module_root):
+            self._sync_watched_directory_files(changed_dir, capsule_only=True)
+        elif normalized_path == override_root or normalized_path.startswith(override_root):
+            self._sync_watched_directory_files(changed_dir, recursive=True)
 
     @Slot(str)
     def _on_watched_file_changed(self, path: str):
         """Handle file change events from QFileSystemWatcher."""
-        self._on_file_system_event(path, is_directory=False)
+        if self.active is None:
+            return
+
+        normalized_path = os.path.normpath(path).lower()
+        roots = self._watched_root_paths()
+        if roots is None:
+            return
+
+        module_root, override_root = roots
+        RobustLogger().debug("File watcher detected file change: %s", os.path.normpath(path))
+
+        if normalized_path.startswith(module_root):
+            self._append_unique_path(self._pending_module_file_modifications, normalized_path)
+        elif normalized_path.startswith(override_root):
+            self._append_unique_path(self._pending_override_file_modifications, normalized_path)
+
+        changed_path = Path(path)
+        if changed_path.exists() and changed_path.is_file():
+            watched_files = {os.path.normpath(file_path).lower() for file_path in self._file_watcher.files()}
+            if normalized_path not in watched_files:
+                self._file_watcher.addPath(str(changed_path))
+
+        self._watcher_debounce_timer.start()
 
     @Slot()
     def _process_pending_file_changes(self):
@@ -389,19 +545,27 @@ class ToolWindow(QMainWindow):
 
         has_module_changes = bool(self._pending_module_changes)
         has_override_changes = bool(self._pending_override_changes)
+        has_module_file_modifications = bool(self._pending_module_file_modifications)
+        has_override_file_modifications = bool(self._pending_override_file_modifications)
 
-        if not has_module_changes and not has_override_changes:
+        if not any((has_module_changes, has_override_changes, has_module_file_modifications, has_override_file_modifications)):
             return
 
         # Check if window is active/focused
         is_focused = self.isActiveWindow()
+        has_directory_changes = has_module_changes or has_override_changes
 
-        if is_focused:
+        if is_focused and has_directory_changes:
             # Window is focused - ask user if they want to refresh
             self._show_refresh_dialog(has_module_changes, has_override_changes)
         else:
             # Window is not focused - auto-refresh
-            self._auto_refresh_changes(has_module_changes, has_override_changes)
+            self._auto_refresh_changes(
+                has_module_changes,
+                has_override_changes,
+                has_module_file_modifications,
+                has_override_file_modifications,
+            )
 
     def _pending_change_details(self, *, has_module_changes: bool, has_override_changes: bool) -> str:
         """Build detailed refresh-dialog text listing changed files by section."""
@@ -447,19 +611,51 @@ class ToolWindow(QMainWindow):
         result = msg_box.exec()
 
         if result == QMessageBox.StandardButton.Yes:
-            self._auto_refresh_changes(has_module_changes, has_override_changes)
+            self._auto_refresh_changes(
+                has_module_changes,
+                has_override_changes,
+                bool(self._pending_module_file_modifications),
+                bool(self._pending_override_file_modifications),
+            )
         else:
             # User declined, clear pending changes
             self._pending_module_changes.clear()
             self._pending_override_changes.clear()
+            self._pending_module_file_modifications.clear()
+            self._pending_override_file_modifications.clear()
 
-    def _auto_refresh_changes(self, has_module_changes: bool, has_override_changes: bool):
+    def _auto_refresh_changes(
+        self,
+        has_module_changes: bool,
+        has_override_changes: bool,
+        has_module_file_modifications: bool,
+        has_override_file_modifications: bool,
+    ) -> None:
         """Auto-refresh the appropriate lists based on detected changes."""
         if has_module_changes:
             self._refresh_pending_changes(self._pending_module_changes, label="module", refresh_func=self.refresh_module_list)
+            self._pending_module_file_modifications.clear()
+        elif has_module_file_modifications:
+            self._refresh_pending_module_file_modifications()
 
         if has_override_changes:
             self._refresh_pending_changes(self._pending_override_changes, label="override", refresh_func=self.refresh_override_list)
+            self._pending_override_file_modifications.clear()
+        elif has_override_file_modifications:
+            self._refresh_pending_override_file_modifications()
+
+    def _set_sections_preserving_selection(self, resource_widget: ResourceList, items: list[QStandardItem]) -> None:
+        """Replace combo-box sections while preserving the current selection when possible."""
+        section_combo = resource_widget.ui.sectionCombo
+        previous_selection = section_combo.currentData(Qt.ItemDataRole.UserRole)
+        section_combo.blockSignals(True)
+        try:
+            resource_widget.set_sections(items)
+        finally:
+            section_combo.blockSignals(False)
+
+        if previous_selection:
+            resource_widget.change_section(str(previous_selection))
 
     def _show_message(self, icon: QMessageBox.Icon, title: str, text: str) -> None:
         """Show a basic modal message box with icon/title/text."""
@@ -1059,15 +1255,24 @@ class ToolWindow(QMainWindow):
         if not module_file or not module_file.strip():
             return
         RobustLogger().info(f"Reloading module '{module_file}'")
+        available_modules = set(self.active.modules_list())
+        if module_file in available_modules:
+            self.active.reload_module(module_file)
+
         resources: list[FileResource] = self.active.module_resources(module_file)
         module_file_name = PurePath(module_file).name
         if self.settings.joinRIMsTogether and ((is_rim_file(module_file) or is_erf_file(module_file)) and not module_file_name.lower().endswith(("_s.rim", "_dlg.erf"))):
-            resources.extend(self.active.module_resources(f"{PurePath(module_file).stem}_s.rim"))
+            side_rim = f"{PurePath(module_file).stem}_s.rim"
+            if side_rim in available_modules:
+                self.active.reload_module(side_rim)
+            resources.extend(self.active.module_resources(side_rim))
             if self.active.game().is_k2():
-                resources.extend(self.active.module_resources(f"{PurePath(module_file).stem}_dlg.erf"))
+                dlg_erf = f"{PurePath(module_file).stem}_dlg.erf"
+                if dlg_erf in available_modules:
+                    self.active.reload_module(dlg_erf)
+                resources.extend(self.active.module_resources(dlg_erf))
 
         RobustLogger().info(f"Setting {len(resources)} resources for module '{module_file}'")
-        self.active.reload_module(module_file)
         self.ui.modulesWidget.set_resources(resources)
 
     @Slot(str, str)
@@ -2128,7 +2333,7 @@ class ToolWindow(QMainWindow):
                 RobustLogger().exception(f"Failed to get the list of {action}ed modules!")
 
         try:
-            self.ui.modulesWidget.set_sections(module_items)
+            self._set_sections_preserving_selection(self.ui.modulesWidget, module_items)
         except Exception:  # noqa: BLE001
             RobustLogger().exception(f"Failed to call setSections on the {action}ed modulesWidget!")
 
@@ -2232,7 +2437,7 @@ class ToolWindow(QMainWindow):
     ):
         """Refreshes the list of override directories in the overrideFolderCombo combobox."""
         override_items = self._get_override_list(reload=reload)
-        self.ui.overrideWidget.set_sections(override_items)
+        self._set_sections_preserving_selection(self.ui.overrideWidget, override_items)
 
     def _get_texture_pack_list(self) -> list[QStandardItem] | None:
         assert self.active is not None, "No installation set. This should never happen!"
