@@ -1379,8 +1379,6 @@ Label=Value
 Value=2DAMEMORY20
 ```
 
-<<<<<<< HEAD
-=======
 ## Best Practices
 
 1. Unique labels across each [GFF](GFF-File-Format) hierarchy level
@@ -1419,8 +1417,6 @@ field type compatibility:
 - Nested structures supported
 - Memory tokens supported
 - Dynamic paths supported
-
->>>>>>> 5be92464342446d66dc3d86baf7cd406f19d5b2d
 ## Additional Resources
 
 ### Documentation
