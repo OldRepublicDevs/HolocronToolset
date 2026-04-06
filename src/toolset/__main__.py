@@ -67,7 +67,7 @@ try:
 except Exception:
     pass
 
-from toolset.utils.pykotor_mdl_aabb_hotfix import ensure_mdl_aabb_hotfix  # noqa: E402
+from toolset.utils import ensure_mdl_aabb_hotfix  # noqa: E402
 
 ensure_mdl_aabb_hotfix()
 os.environ["QT_QPA_PLATFORM"] = ""

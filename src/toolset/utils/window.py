@@ -330,8 +330,9 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
     if restype in {ResourceType.MDL, ResourceType.MDX}:
         import importlib
 
+        mdl_editor_class = None
         try:
-            from toolset.utils.pykotor_mdl_aabb_hotfix import (
+            from toolset.utils import (
                 ensure_mdl_aabb_hotfix,
                 reload_mdl_modules_after_hotfix,
             )
@@ -340,11 +341,12 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
             reload_mdl_modules_after_hotfix()
             mdl_mod = importlib.import_module("toolset.gui.editors.mdl")
             importlib.reload(mdl_mod)
-            _MDLEditor = mdl_mod.MDLEditor
+            mdl_editor_class = mdl_mod.MDLEditor
         except Exception:  # noqa: BLE001
-            from toolset.gui.editors.mdl import MDLEditor as _MDLEditor
+            mdl_mod = importlib.import_module("toolset.gui.editors.mdl")
+            mdl_editor_class = mdl_mod.MDLEditor
 
-        editor = _instantiate_editor(_MDLEditor)
+        editor = _instantiate_editor(mdl_editor_class)
 
     elif restype.target_type().contents == "gff" and editor is None:
         editor = _instantiate_editor(GFFEditor)

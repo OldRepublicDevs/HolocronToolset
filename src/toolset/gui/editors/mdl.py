@@ -123,7 +123,7 @@ class MDLEditor(Editor):
         # set_model/read_mdl use fixed MDLBinaryReader (stale imports would still crash).
         import importlib
 
-        from toolset.utils.pykotor_mdl_aabb_hotfix import (
+        from toolset.utils import (
             ensure_mdl_aabb_hotfix,
             reload_mdl_modules_after_hotfix,
         )
