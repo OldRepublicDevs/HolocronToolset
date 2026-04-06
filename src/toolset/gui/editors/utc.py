@@ -11,6 +11,8 @@ from qtpy.QtCore import QSettings, Qt
 from qtpy.QtGui import QImage, QPixmap, QTransform
 from qtpy.QtWidgets import QApplication, QComboBox, QListWidgetItem, QMenu, QMessageBox
 
+from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+
 from loggerplus import RobustLogger
 from pykotor.common.language import Gender, Language
 from pykotor.common.misc import Game, ResRef
@@ -39,7 +41,7 @@ if TYPE_CHECKING:
 
     from qtpy.QtCore import QPoint
     from qtpy.QtGui import QClipboard
-    from qtpy.QtWidgets import QComboBox, QLineEdit, QListWidget, QPlainTextEdit, QWidget
+    from qtpy.QtWidgets import QLineEdit, QListWidget, QPlainTextEdit, QWidget
     from typing_extensions import Literal  # pyright: ignore[reportMissingModuleSource]
 
     from pykotor.common.language import LocalizedString
@@ -79,11 +81,10 @@ class UTCEditor(Editor):
             - Creates new empty creature.
         """
         supported: list[ResourceType] = [ResourceType.UTC, ResourceType.BTC, ResourceType.BIC]
-        super().__init__(parent, "Creature Editor", "creature", supported, supported, installation)
-
         self.settings: UTCSettings = UTCSettings()
         self.global_settings: GlobalSettings = GlobalSettings()
         self._utc: UTC = UTC()
+        super().__init__(parent, "Creature Editor", "creature", supported, supported, installation)
         self.setMinimumSize(0, 0)
 
         from toolset.uic.qtpy.editors.utc import Ui_MainWindow  # pyright: ignore[reportImportType]
@@ -139,7 +140,14 @@ class UTCEditor(Editor):
         assert file_menu is not None, f"`file_menu = context_menu.addMenu('File...')` {file_menu.__class__.__name__}: {file_menu}"
         locations: dict[ResourceIdentifier, list[LocationResult]] = self._installation.locations(
             ([portrait], [ResourceType.TGA, ResourceType.TPC]),
-            order=[SearchLocation.OVERRIDE, SearchLocation.TEXTURES_GUI, SearchLocation.TEXTURES_TPA, SearchLocation.TEXTURES_TPB, SearchLocation.TEXTURES_TPC, SearchLocation.CHITIN],
+            order=[
+                SearchLocation.OVERRIDE,
+                SearchLocation.TEXTURES_GUI,
+                SearchLocation.TEXTURES_TPA,
+                SearchLocation.TEXTURES_TPB,
+                SearchLocation.TEXTURES_TPC,
+                SearchLocation.CHITIN,
+            ],
         )
         flat_locations: list[LocationResult] = [item for sublist in locations.values() for item in sublist]
         if flat_locations:
@@ -1309,6 +1317,7 @@ class UTCSettings:
     @alwaysSaveK2Fields.setter
     def alwaysSaveK2Fields(self, value: bool):
         self.settings.setValue("alwaysSaveK2Fields", value)
+
 
 if __name__ == "__main__":
     import sys

@@ -8,7 +8,7 @@ from contextlib import suppress
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
-from qtpy.QtWidgets import QMessageBox, QSizePolicy
+from qtpy.QtWidgets import QComboBox, QMessageBox, QSizePolicy
 
 from loggerplus import RobustLogger
 from pykotor.common.misc import ResRef
@@ -29,7 +29,7 @@ from toolset.gui.widgets.settings.installations import GlobalSettings
 from toolset.utils.window import open_resource_editor
 
 if TYPE_CHECKING:
-    from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+    from qtpy.QtWidgets import QLineEdit, QPlainTextEdit, QWidget
     from typing_extensions import Literal
 
     from pykotor.extract.file import ResourceResult
@@ -61,12 +61,12 @@ class UTPEditor(Editor):
             7. Update 3D preview and call new() to initialize editor.
         """
         supported: list[ResourceType] = [ResourceType.UTP, ResourceType.BTP]
+        self.globalSettings: GlobalSettings = GlobalSettings()
+        self._utp: UTP = UTP()
         super().__init__(parent, "Placeable Editor", "placeable", supported, supported, installation)
 
-        self.globalSettings: GlobalSettings = GlobalSettings()
         if installation is not None:
             self._placeables2DA: TwoDA | None = installation.ht_get_cache_2da("placeables")
-        self._utp: UTP = UTP()
 
         from toolset.uic.qtpy.editors.utp import Ui_MainWindow
 
