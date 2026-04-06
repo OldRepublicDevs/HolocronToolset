@@ -42,7 +42,7 @@ Those resources use the usual [resource resolution order](Concepts#resource-reso
 
 Loading uses the same [resource resolution order](Concepts#resource-resolution-order).
 
-PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21), identifies them as [`GFFContent.ARE`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L159), and decodes them through the shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) pipeline; Holocron Toolset exposes the same fields in its [`are.py` area editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/are.py). Other implementations keep ARE in the generic GFF path too, including reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora pipeline, while workflow guidance for packing areas and their walkmeshes is best read alongside [Home — Community sources](Home#community-sources-and-archives), [Area Modding and Room Transitions](Area-Modding-and-Room-Transitions), and the normative [BWM section](Level-Layout-Formats#bwm).
+PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21), identifies them as [`GFFContent.ARE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L159), and decodes them through the shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) pipeline; Holocron Toolset exposes the same fields in its [`are.py` area editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/are.py). Other implementations keep ARE in the generic GFF path too, including reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora pipeline, while workflow guidance for packing areas and their walkmeshes is best read alongside [Home — Community sources](Home#community-sources-and-archives), [Area Modding and Room Transitions](Area-Modding-and-Room-Transitions), and the normative [BWM section](Level-Layout-Formats#bwm).
 
 ## Core Identity fields
 
@@ -79,8 +79,8 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `SunFogOn` | [byte](GFF-File-Format#gff-data-types) | Enable fog rendering |
-| `SunFogNear` | float | Fog start distance |
-| `SunFogFar` | float | Fog end distance |
+| `SunFogNear` | float | Fog start distance (default 10000.0) [[`are.py` L380](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L380)] |
+| `SunFogFar` | float | Fog end distance (default 10000.0) [[`are.py` L381](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L381)] |
 | `SunFogColor` | color | Fog color RGB |
 
 **Fog Rendering:**
@@ -187,8 +187,8 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | ----- | ---- | ----------- |
 | `DefaultEnvMap` | *ResRef* | Default environment map [texture](Texture-Formats#tpc) |
 | `CameraStyle` | [int32](GFF-File-Format#gff-data-types) | Camera behavior type |
-| `AlphaTest` | [byte](GFF-File-Format#gff-data-types) | Alpha testing threshold |
-| `WindPower` | [int32](GFF-File-Format#gff-data-types) | Wind strength for effects |
+| `AlphaTest` | float | Alpha testing threshold (default 0.2) [[`are.py` L368](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L368), [reone `are.cpp` L302](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L302)] |
+| `WindPower` | [int32](GFF-File-Format#gff-data-types) | Wind strength for effects (`AREWindPower`: Still=0, Weak=1, Strong=2) [[`are.py` L298](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L298), [reone `are.cpp` L383](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L383)] |
 | `LightingScheme` | [int32](GFF-File-Format#gff-data-types) | Lighting scheme identifier (unused) |
 
 **Environment Mapping:**
@@ -210,6 +210,12 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `StealthXPEnabled` | [byte](GFF-File-Format#gff-data-types) | Award stealth XP |
 | `StealthXPLoss` | [int32](GFF-File-Format#gff-data-types) | Stealth detection XP penalty |
 | `StealthXPMax` | [int32](GFF-File-Format#gff-data-types) | Maximum stealth XP per area |
+| `DayNightCycle` | [byte](GFF-File-Format#gff-data-types) | Day/night cycle enabled (unused by engine) [[`are.py` L421](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L421), [reone `are.cpp` L309](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L309)] |
+| `LoadScreenID` | UInt16 | Loading screen to display [[`are.py` L422](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L422), [reone `are.cpp` L339](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L339)] |
+| `NoRest` | [byte](GFF-File-Format#gff-data-types) | Prevent resting in this area (unused by engine) [[`are.py` L423](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L423), [reone `are.cpp` L359](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L359)] |
+| `NoHangBack` | [byte](GFF-File-Format#gff-data-types) | No hang-back behavior (unused by engine) [[`are.py` L424](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L424)] |
+| `PlayerOnly` | [byte](GFF-File-Format#gff-data-types) | Player-only area flag (unused by engine) [[`are.py` L425](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L425)] |
+| `PlayerVsPlayer` | [byte](GFF-File-Format#gff-data-types) | PvP enabled flag (unused by engine) [[`are.py` L426](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L426)] |
 
 **Stealth System:**
 
@@ -646,18 +652,18 @@ Part of the [GFF File Format Documentation](GFF-File-Format).
 
 [GIT files](GFF-File-Format#git-game-instance-template) store dynamic instance data for areas, defining where creatures, doors, placeables, triggers, waypoints, stores, encounters, sounds, and cameras are positioned in the game world. While [ARE](GFF-Module-and-Area#are) files define static environmental properties, [GIT files](GFF-File-Format#git-game-instance-template) hold **instance lists** and **root-level audio/music ints** used when the area loads. GIT files are loaded with the same [resource resolution order](Concepts#resource-resolution-order) as other resources (override, MOD/SAV, KEY/BIF).
 
-PyKotor carries area instance state through [`GIT`, its `GITCreature` / `GITDoor` / related subclasses, plus `construct_git`, `read_git`, and `write_git`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L53), labels the resource as [`GFFContent.GIT`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L162), and parses it through [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82); Holocron Toolset mirrors that data in its [`git.py` instance editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/git/git.py) and related module-resource workflows. The same generic-GFF treatment appears in reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader stack.
+PyKotor carries area instance state through [`GIT`, its `GITCreature` / `GITDoor` / related subclasses, plus `construct_git`, `read_git`, and `write_git`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57), labels the resource as [`GFFContent.GIT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L162), and parses it through [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82); Holocron Toolset mirrors that data in its [`git.py` instance editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/git/git.py) and related module-resource workflows. The same generic-GFF treatment appears in reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader stack.
 
 ## Root properties (ambient audio and music)
 
-These fields are stored on the **GIT root** (see PyKotor `construct_git` / `dismantle_git` around the `Properties` struct in [`git.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py)). They overlap conceptually with music/ambient columns on [ARE](GFF-Module-and-Area#are); treat [ARE](GFF-Module-and-Area#are) as the place for **static area metadata** (lighting, fog, minimap, hooks) and this section as **GIT-carried ints** the engine reads with the instance template.
+These fields are stored inside the **`AreaProperties` nested struct** within the GIT root (see PyKotor [`construct_git` / `dismantle_git` around L1135](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1135): `root.acquire("AreaProperties", GFFStruct())`). All engines confirm this nesting: KotOR.js [`ModuleArea.ts` L1017](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModuleArea.ts#L1017), reone [`git.cpp` L180](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/git.cpp#L180). They overlap conceptually with music/ambient columns on [ARE](GFF-Module-and-Area#are); treat [ARE](GFF-Module-and-Area#are) as the place for **static area metadata** (lighting, fog, minimap, hooks) and this section as **GIT-carried ints** the engine reads with the instance template.
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `AmbientSndDay` | Int | Day ambient sound ID |
 | `AmbientSndDayVol` | Int | Day ambient volume (0-127) |
 | `AmbientSndNight` | Int | Night ambient sound ID |
-| `AmbientSndNightVol` | Int | Night ambient volume |
+| `AmbientSndNitVol` | Int | Night ambient volume [[`git.py` L1329](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1329), [reone `git.cpp` L185](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/git.cpp#L185), [KotOR.js `ModuleArea.ts` L1033](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModuleArea.ts#L1033)] |
 | `EnvAudio` | Int | Environment audio type |
 | `MusicBattle` | Int | Battle music track ID |
 | `MusicDay` | Int | Standard/exploration music ID |
@@ -789,9 +795,9 @@ Each instance type has common fields plus type-specific data:
 | `XOrientation`, `YOrientation`, `ZOrientation` | Float | orientation |
 | `Geometry` | List | Trigger volume [vertices](MDL-MDX-File-Format#vertex-structure) |
 
-**[geometry](MDL-MDX-File-Format#geometry-header) Struct:**
+**Geometry Struct:**
 
-- List of Vector3 points
+- List of points, each with fields `PointX`, `PointY`, `PointZ` (Float) [[`git.py` L1283-1286](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1283)]
 - Defines trigger boundary polygon
 - Planar geometry (Z-axis extrusion)
 
@@ -842,13 +848,14 @@ Each instance type has common fields plus type-specific data:
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `TemplateResRef` | *ResRef* | [UTM](GFF-File-Format#utm-merchant) template |
+| `ResRef` | *ResRef* | Store ResRef [[`git.py` L1248](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1248)] |
 | `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Store identifier |
 | `X`, `Y`, `Z` | Float | Position (for UI, not physical) |
 | `XOrientation`, `YOrientation` | Float | orientation |
 
 **Store System:**
 
-- Stores don't have physical presence
+- Store instances carry a `ResRef` field pointing to a [UTM](GFF-Items-and-Economy#utm) file [[`git.py` L1248](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1248)]
 - position used for toolset only
 - Accessed via conversations or scripts
 
@@ -875,7 +882,7 @@ Each instance type has common fields plus type-specific data:
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `CameraID` | Int | Camera identifier |
-| `FOV` | Float | field of view (degrees) |
+| `FieldOfView` | Float | Field of view (degrees) [[`git.py` L1149](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1149)] |
 | `Height` | Float | Camera height |
 | `MicRange` | Float | Audio capture range |
 | `Orientation` | Vector4 | Camera rotation ([quaternion](MDL-MDX-File-Format#node-header)) |
@@ -886,7 +893,7 @@ Each instance type has common fields plus type-specific data:
 
 - Defines fixed camera angles
 - Used for cutscenes and dialogue
-- FOV controls zoom level
+- FieldOfView controls zoom level
 
 ## Implementation Notes
 
@@ -1004,7 +1011,7 @@ IFO files define module-level metadata including entry configuration, expansion 
 - [KEY](Container-Formats#key)
 - [BIF](Container-Formats#bif)
 
-PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, and `write_ifo`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L18), tags them as [`GFFContent.IFO`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L164), and decodes them through the same shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) path that Holocron Toolset builds on for entry points, area lists, and module scripts in its getting-started, module-editor, and module-resources flows. Reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader likewise treat IFO as a typed GFF root rather than a separate binary dialect.
+PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, and `write_ifo`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L18), tags them as [`GFFContent.IFO`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L164), and decodes them through the same shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) path that Holocron Toolset builds on for entry points, area lists, and module scripts in its getting-started, module-editor, and module-resources flows. Reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader likewise treat IFO as a typed GFF root rather than a separate binary dialect.
 
 ## Core Module Identity
 
@@ -1013,6 +1020,7 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 | `Mod_ID` | Void (16 bytes) | Unique module identifier (GUID) |
 | `Mod_Tag` | [CExoString](GFF-File-Format#gff-data-types) | Module tag identifier |
 | `Mod_Name` | [CExoLocString](GFF-File-Format#gff-data-types) | Module name (localized) |
+| `Mod_Description` | [CExoLocString](GFF-File-Format#gff-data-types) | Module description (localized) [[`ifo.py` L132](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L132), [reone `ifo.cpp` L43](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ifo.cpp#L43)] |
 | `Mod_Creator_ID` | UInt32 | Toolset creator ID |
 | `Mod_Version` | UInt32 | Module version number |
 | `Mod_VO_ID` | [CExoString](GFF-File-Format#gff-data-types) | Voice-over folder name |
@@ -1114,19 +1122,21 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Mod_IsSaveGame` | [byte](GFF-File-Format#gff-data-types) | Module is from save file |
-| `Mod_CacheNSSData` | [byte](GFF-File-Format#gff-data-types) | Cache compiled scripts |
 | `Mod_XPScale` | [byte](GFF-File-Format#gff-data-types) | Experience point multiplier (0-200%) |
 
 **Module flags:**
 
 - **Mod_IsSaveGame**: Internal flag (always 0 in files)
-- **Mod_CacheNSSData**: Performance optimization
 - **Mod_XPScale**: 100 = normal, 200 = double XP
 
 ## DawnStar Property (Unused)
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
+| `Mod_StartMonth` | UInt32 | Module start month (unused in KotOR) [[`ifo.py` L137](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L137), [reone `ifo.cpp` L69](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ifo.cpp#L69)] |
+| `Mod_StartDay` | UInt32 | Module start day (unused in KotOR) [[`ifo.py` L138](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L138)] |
+| `Mod_StartHour` | UInt32 | Module start hour (unused in KotOR) [[`ifo.py` L139](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L139)] |
+| `Mod_StartYear` | UInt32 | Module start year (unused in KotOR) [[`ifo.py` L140](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L140)] |
 | `Mod_DawnHour` | [byte](GFF-File-Format#gff-data-types) | Dawn start hour (unused) |
 | `Mod_DuskHour` | [byte](GFF-File-Format#gff-data-types) | Dusk start hour (unused) |
 | `Mod_MinPerHour` | UInt32 | Minutes per hour (unused) |
@@ -1151,10 +1161,8 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 | `Mod_OnModStart` | *ResRef* | Fires after player spawned |
 | `Mod_OnPlrDeath` | *ResRef* | Fires when player dies |
 | `Mod_OnPlrDying` | *ResRef* | Fires when player HP reaches 0 |
-| `Mod_OnPlrEqItm` | *ResRef* | Fires when equipment changed |
 | `Mod_OnPlrLvlUp` | *ResRef* | Fires on level up |
 | `Mod_OnPlrRest` | *ResRef* | Fires when player rests |
-| `Mod_OnPlrUnEqItm` | *ResRef* | Fires when equipment removed |
 | `Mod_OnSpawnBtnDn` | *ResRef* | Fires on spawn button (multiplayer) |
 | `Mod_OnUnAqreItem` | *ResRef* | Fires when item lost/sold |
 | `Mod_OnUsrDefined` | *ResRef* | Fires on user-defined events |
