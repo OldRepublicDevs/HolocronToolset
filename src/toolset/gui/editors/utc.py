@@ -33,6 +33,7 @@ from toolset.gui.editor import Editor
 from toolset.gui.widgets.settings.installations import GlobalSettings
 from toolset.utils.misc import get_qsettings_organization
 from toolset.utils.window import add_window, open_resource_editor
+from utility.gui.qt.widgets.widgets.combobox import FilterComboBox
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -48,7 +49,6 @@ if TYPE_CHECKING:
     from pykotor.resource.formats.tpc.tpc_data import TPC, TPCMipmap
     from pykotor.resource.formats.twoda.twoda_data import TwoDA
     from pykotor.tools.path import CaseAwarePath
-    from utility.gui.qt.widgets.widgets.combobox import FilterComboBox
 
 
 class UTCEditor(Editor):
