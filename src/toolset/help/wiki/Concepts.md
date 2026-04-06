@@ -105,7 +105,7 @@ Use this table as the **wiki SSOT** for numeric IDs and typical text encodings. 
 | Spanish  | 4  | cp1252     | |
 | Polish   | 5  | cp1250     | *KotOR 1 Polish* retail (**`cp-1250`**); see also **`dialogf.tlk`** in [TSLPatcher `[TLKList]` implementation](TSLPatcher-TLKList-Syntax) |
 
-**Where the ID appears:** [Audio-and-Localization-Formats#tlk](Audio-and-Localization-Formats#tlk) file header and tooling; [Container-Formats#erf](Container-Formats#erf) localized description list per language; [GFF-File-Format](GFF-File-Format) `LocalizedString` embedded strings. KotOR often ignores the [TLK](Audio-and-Localization-Formats#tlk) header language field and loads the `dialog.tlk` that matches the installation—see [Audio-and-Localization-Formats#tlk](Audio-and-Localization-Formats#localization). Torlack’s Aurora basics notes, archived in [xoreos-docs](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/basics.html), cross-reference these IDs for NWN-era context that applies to KotOR.
+**Where the ID appears:** [Audio-and-Localization-Formats#tlk](Audio-and-Localization-Formats#tlk) file header and tooling; [Container-Formats#erf](Container-Formats#erf) localized description list per language; [GFF-File-Format](GFF-File-Format) `LocalizedString` embedded strings. KotOR often ignores the [TLK](Audio-and-Localization-Formats#tlk) header language field and loads the `dialog.tlk` that matches the installation—see [Audio-and-Localization-Formats#localization](Audio-and-Localization-Formats#localization). Torlack’s Aurora basics notes, archived in [xoreos-docs](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/basics.html), cross-reference these IDs for NWN-era context that applies to KotOR.
 
 ### See also
 

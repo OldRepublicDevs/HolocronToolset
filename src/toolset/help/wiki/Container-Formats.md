@@ -69,11 +69,11 @@ The *KEY* indexes [BIF](Container-Formats#bif) entries only (step 4 in that orde
   - Data model: [`KeyEntry`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/key/key_data.py#L154-L288)
   - Data model: [`KEY`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/key/key_data.py#L291-L473)
 
-- **[reone](https://github.com/modawan/reone)** ([historical upstream / mirror: seedhartha/reone](https://github.com/modawan/reone))
+- **[reone](https://github.com/seedhartha/reone)**
 
-  - [`keyreader.cpp` `KeyReader::load`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L29-L39)
-  - [`loadFiles` / `readFileEntry`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L41-L66)
-  - [`loadKeys` / `readKeyEntry`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L68-L86)
+  - [`keyreader.cpp` `KeyReader::load`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L29-L39)
+  - [`loadFiles` / `readFileEntry`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L41-L66)
+  - [`loadKeys` / `readKeyEntry`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L68-L86)
   - Notes: reone lowercases ResRefs and splits `resource_id` into BIF index and resource index. It reads the 8-byte `"KEY V1 "` signature as one block, then the four table counts/offsets; it does not surface build year/day in this reader (those bytes are still present in KotOR `chitin.key` after the offsets).
 
 - **[xoreos](https://github.com/xoreos/xoreos)**
@@ -162,7 +162,7 @@ The drive system was originally designed so the engine could:
 - Optimize installation by allowing users to choose what to install vs. run from [CD](https://en.wikipedia.org/wiki/Compact_disc)
 - Support partial installs to save disk space (common in the early 2000s)
 
-That filename-table and drive-flag record layout is directly reflected in reone's KEY reader ([keyreader.cpp `loadFiles` / `readFileEntry` L41-L66](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L41-L66)).
+That filename-table and drive-flag record layout is directly reflected in reone's KEY reader ([keyreader.cpp `loadFiles` / `readFileEntry` L41-L66](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L41-L66)).
 
 ### Filename Table
 
@@ -188,7 +188,7 @@ Each *KEY* entry is `22` (`0x16`) bytes in size:
 
 On non-Intel platforms, this alignment requirement may cause alignment faults unless the compiler provides an "unaligned" type or special care is taken when accessing the `UInt32` field. The structure should be explicitly packed to ensure the `UInt32` starts at offset `18` (`0x12`) rather than being aligned to a `4-[byte](https://en.wikipedia.org/wiki/Byte)` or `8-[byte](https://en.wikipedia.org/wiki/Byte)` boundary.
 
-That byte-level layout matches reone's [`loadKeys` / `readKeyEntry`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L68-L86), which reads a 16-byte ResRef, a `uint16` type, and the unaligned `uint32` resource id before splitting it with `>> 20` and `& 0xFFFFF`.
+That byte-level layout matches reone's [`loadKeys` / `readKeyEntry`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L68-L86), which reads a 16-byte ResRef, a `uint16` type, and the unaligned `uint32` resource id before splitting it with `>> 20` and `& 0xFFFFF`.
 
 ---
 
@@ -235,7 +235,7 @@ Resource Index: 0x23456 (Resource Index: `144,470` within that [BIF](Container-F
 
 The encoding allows a single 32-bit integer to precisely locate any resource in the entire [BIF](Container-Formats#bif) system (e.g. `0x00123456` for the 5th resource in the 1st [BIF](Container-Formats#bif) file).
 
-This split is implemented directly in reone's [`readKeyEntry`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/keyreader.cpp#L82-L84) as `bifIdx = resId >> 20` and `resIdx = resId & 0xfffff`, and Torlack's historical [`key.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/key.html) documents the same packed-ID interpretation with worked examples.
+This split is implemented directly in reone's [`readKeyEntry`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/keyreader.cpp#L82-L84) as `bifIdx = resId >> 20` and `resIdx = resId & 0xfffff`, and Torlack's historical [`key.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/key.html) documents the same packed-ID interpretation with worked examples.
 
 ---
 
@@ -308,12 +308,12 @@ The [modular structure](https://en.wikipedia.org/wiki/Modular_programming) allow
   - binary I/O: [`BIFBinaryReader`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/bif/io_bif.py#L51-L180) (`load` L83–L89, signature L91–L109, header L111–L120, resource table L122–L155, payload L157–L179)
   - [`BIFBinaryWriter`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/bif/io_bif.py#L183-L256)
   - raw LZMA helper for BZF: [`_decompress_bzf_payload` L20–L48](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/bif/io_bif.py#L20-L48)
-- **[reone](https://github.com/modawan/reone)** ([historical upstream / mirror: seedhartha/reone](https://github.com/modawan/reone)):
+- **[reone](https://github.com/seedhartha/reone)**:
 
-  - [`bifreader.cpp` `BifReader::load` L27–L31](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L27-L31) (expects an 8-byte signature: `BIFFV1` plus one trailing ASCII space)
-  - [`loadHeader` L34–L41](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L34-L41)
-  - [`loadResources` L43–L50](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L43-L50)
-  - [`readResourceEntry` L52–L67](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L52-L67)
+  - [`bifreader.cpp` `BifReader::load` L27–L31](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L27-L31) (expects an 8-byte signature: `BIFFV1` plus one trailing ASCII space)
+  - [`loadHeader` L34–L41](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L34-L41)
+  - [`loadResources` L43–L50](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L43-L50)
+  - [`readResourceEntry` L52–L67](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L52-L67)
 - **[xoreos](https://github.com/xoreos/xoreos)** — [`biffile.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/biffile.cpp) (Aurora-family BIF: fixed vs variable resource handling, KEY merge helpers)
 - **[xoreos-tools](https://github.com/xoreos/xoreos-tools)** — [`biffile.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/aurora/biffile.cpp) (CLI / tooling)
 - **[KotOR.js](https://github.com/KobaltBlu/KotOR.js)**:
@@ -351,7 +351,7 @@ The file header is 20 (0x14) bytes in size:
 **References:**
 
 - [xoreos `biffile.cpp` L64–L67](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/biffile.cpp#L64-L67) (fixed count must be 0)
-- [reone `loadHeader` L34–L41](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L34-L41)
+- [reone `loadHeader` L34–L41](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L34-L41)
 - [Kotor.NET `FileHeader` L35–L47](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorBIF/BIFBinaryStructure.cs#L35-L47)
 - [Torlack `bif.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/bif.html).
 
@@ -372,7 +372,7 @@ Entries are read sequentially from the variable resource table. The table is loc
 
 **References:**
 
-- [reone `readResourceEntry` L52–L67](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L52-L67)
+- [reone `readResourceEntry` L52–L67](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L52-L67)
 - [Kotor.NET `VariableResource` L49–L64](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorBIF/BIFBinaryStructure.cs#L49-L64)
 - [xoreos `biffile.cpp` L84–L96](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/biffile.cpp#L84-L96)
 - PyKotor table loop [`io_bif.py` L122–L141](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/bif/io_bif.py#L122-L141).
@@ -404,7 +404,7 @@ The engine reads resources through the following process:
 5. **Entry Lookup**: Find the resource entry at the specified index in the *variable resource table*
 6. **Data Reading**: Seek to the offset specified in the entry and read the number of bytes specified by the file size
 
-That lookup flow matches xoreos's [`biffile.cpp`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/biffile.cpp#L84-L123), which reads each variable-resource row and merges the result with KEY metadata, reone's [`loadResources`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L43-L50), and Torlack's [`bif.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/bif.html) description of the row semantics.
+That lookup flow matches xoreos's [`biffile.cpp`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/biffile.cpp#L84-L123), which reads each variable-resource row and merges the result with KEY metadata, reone's [`loadResources`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L43-L50), and Torlack's [`bif.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/bif.html) description of the row semantics.
 
 **Resource IDs:**
 
@@ -422,7 +422,7 @@ The *Resource ID* in the *BIF* file's *variable resource table* must match the *
 
 - [KEY File Format](Container-Formats#resource-id-encoding)
 - [Torlack `key.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/key.html) (worked examples)
-- [reone `readResourceEntry` L54–L56](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L54-L56) (reads `id` field from each 16-byte row).
+- [reone `readResourceEntry` L54–L56](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L54-L56) (reads `id` field from each 16-byte row).
 
 ---
 
@@ -471,7 +471,7 @@ The *BZF* wrapper is completely transparent to the game engine - once decompress
 - PyKotor **version string** (`BIFBinaryReader` accepts `V1` + two ASCII spaces or `V1.1` in the 8-byte signature for **both** BIF and BZF) — [`io_bif.py` L107–L109](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/bif/io_bif.py#L107-L109)
 - Some distributions describe mobile BZF as `V1.0` in prose—verify against real headers if a file fails to load.
 - [xoreos `biffile.h` L56–L60](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/biffile.h#L56-L60)
-- [reone `BifReader::load` L27–L31](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/bifreader.cpp#L27-L31)
+- [reone `BifReader::load` L27–L31](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/bifreader.cpp#L27-L31)
 
 ---
 
@@ -614,7 +614,7 @@ See:
 - read path [`ERFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L51-L169)
 - write path [`ERFBinaryWriter.write`](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L186-L256)
 
-Other engines and tools cover the same container family in parallel: reone's [`erfreader.cpp`](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/erfreader.cpp#L29-L92) and [`erfreader.h`](https://github.com/modawan/reone/blob/master/include/reone/resource/format/erfreader.h) parse `ERF V1.0` and `MOD V1.0` but intentionally skip localized strings and do not expose explicit `SAV` fourcc handling; KotOR.js's [`ERFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L69-L346) covers header, localized strings, keys, resource records, and serialization; Kotor.NET's [`ERFBinaryStructure.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L25-L161) reads the core structures but skips the description StrRef and reserved tail; the local Andastra `vendor/sotor/core` Rust implementation covers the same header, localized-string, key-list, and resource-list read path in `src/formats/erf/read.rs` with matching in-memory structures in `src/formats/erf/mod.rs`; xoreos and xoreos-tools both use [`erffile.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/erffile.cpp) style Aurora readers; KotOR-Unity ships its own [`ERFObject.cs`](https://github.com/reubenduncan/KotOR-Unity/blob/master/Assets/Scripts/FileObjects/ERFObject.cs); and the [`bioware-kaitai-formats`](https://github.com/OpenKotOR/bioware-kaitai-formats) project provides declarative ERF specs for code generation. More repo cross-links are cataloged on [Home — Cross-reference: other tools and engines](Home#cross-reference-other-tools-and-engines).
+Other engines and tools cover the same container family in parallel: reone's [`erfreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/erfreader.cpp#L29-L92) and [`erfreader.h`](https://github.com/seedhartha/reone/blob/master/include/reone/resource/format/erfreader.h) parse `ERF V1.0` and `MOD V1.0` but intentionally skip localized strings and do not expose explicit `SAV` fourcc handling; KotOR.js's [`ERFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L69-L346) covers header, localized strings, keys, resource records, and serialization; Kotor.NET's [`ERFBinaryStructure.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L25-L161) reads the core structures but skips the description StrRef and reserved tail; the local Andastra `vendor/sotor/core` Rust implementation covers the same header, localized-string, key-list, and resource-list read path in `src/formats/erf/read.rs` with matching in-memory structures in `src/formats/erf/mod.rs`; xoreos and xoreos-tools both use [`erffile.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/erffile.cpp) style Aurora readers; KotOR-Unity ships its own [`ERFObject.cs`](https://github.com/reubenduncan/KotOR-Unity/blob/master/Assets/Scripts/FileObjects/ERFObject.cs); and the [`bioware-kaitai-formats`](https://github.com/OpenKotOR/bioware-kaitai-formats) project provides declarative ERF specs for code generation. More repo cross-links are cataloged on [Home — Cross-reference: other tools and engines](Home#cross-reference-other-tools-and-engines).
 
 ---
 
@@ -731,7 +731,7 @@ Each [KEY](Container-Formats#key) entry is 24 bytes and maps ResRefs to resource
 
 Resource names are padded with NULL bytes to 16 characters, but are not necessarily [null-terminated](https://en.cppreference.com/w/c/string/byte). If a resource name is exactly 16 characters long, no [null terminator](https://en.cppreference.com/w/c/string/byte) exists. Resource names can be mixed case, though most are lowercase in practice.
 
-PyKotor's reader and writer, KotOR.js's key loop, Kotor.NET's `KeyEntry` reader, reone's `readKeyEntry`, and Torlack's padding notes all agree on the 24-byte layout; the main behavioral difference is casing, because PyKotor preserves the stored ResRef while reone lowercases it during import ([`io_erf.py` L148-L155](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L148-L155), [`io_erf.py` L242-L246](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L242-L246), [`ERFObject.ts` L101-L108](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L101-L108), [`ERFBinaryStructure.cs` L128-L134](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L128-L134), [`erfreader.cpp` L62-L71](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/erfreader.cpp#L62-L71), [xoreos-docs `specs/torlack/mod.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/mod.html)).
+PyKotor's reader and writer, KotOR.js's key loop, Kotor.NET's `KeyEntry` reader, reone's `readKeyEntry`, and Torlack's padding notes all agree on the 24-byte layout; the main behavioral difference is casing, because PyKotor preserves the stored ResRef while reone lowercases it during import ([`io_erf.py` L148-L155](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L148-L155), [`io_erf.py` L242-L246](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L242-L246), [`ERFObject.ts` L101-L108](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L101-L108), [`ERFBinaryStructure.cs` L128-L134](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L128-L134), [`erfreader.cpp` L62-L71](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/erfreader.cpp#L62-L71), [xoreos-docs `specs/torlack/mod.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/mod.html)).
 
 ### Resource List
 
@@ -742,7 +742,7 @@ Each resource entry is 8 bytes:
 | offset to data | UInt32 | 0 (0x00) | 4    | offset to resource data in file                                  |
 | Resource size | UInt32 | 4 (0x04) | 4    | size of resource data in bytes                                   |
 
-PyKotor, KotOR.js, Kotor.NET, and reone all implement the resource list as a compact `(offset, size)` array and then use those pairs to seek into the payload region, with PyKotor also mirroring the layout on write ([`io_erf.py` L159-L162](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L159-L162), [`io_erf.py` L248-L252](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L248-L252), [`ERFObject.ts` L112-L116](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L112-L116), [`ERFBinaryStructure.cs` L157-L161](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L157-L161), [`erfreader.cpp` L84-L92](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/erfreader.cpp#L84-L92)).
+PyKotor, KotOR.js, Kotor.NET, and reone all implement the resource list as a compact `(offset, size)` array and then use those pairs to seek into the payload region, with PyKotor also mirroring the layout on write ([`io_erf.py` L159-L162](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L159-L162), [`io_erf.py` L248-L252](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/erf/io_erf.py#L248-L252), [`ERFObject.ts` L112-L116](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/ERFObject.ts#L112-L116), [`ERFBinaryStructure.cs` L157-L161](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorERF/ERFBinaryStructure.cs#L157-L161), [`erfreader.cpp` L84-L92](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/erfreader.cpp#L84-L92)).
 
 ### Resource data
 
@@ -820,7 +820,7 @@ Generic ERF files serve miscellaneous purposes:
 - Campaign-specific resources
 - Developer test containers
 
-reone's `ErfReader::checkSignature` shows the usual practical acceptance rule used by tooling: treat `ERF V1.0` and `MOD V1.0` as the expected shipped signatures once the stream is open, then dispatch the rest of the parse from the shared container layout ([`erfreader.cpp` L42-L52](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/erfreader.cpp#L42-L52)).
+reone's `ErfReader::checkSignature` shows the usual practical acceptance rule used by tooling: treat `ERF V1.0` and `MOD V1.0` as the expected shipped signatures once the stream is open, then dispatch the rest of the parse from the shared container layout ([`erfreader.cpp` L42-L52](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/erfreader.cpp#L42-L52)).
 
 ---
 
@@ -1026,10 +1026,10 @@ For a side-by-side narrative aimed at ERF readers, see [RIM versus ERF](Containe
   - `RIMBinaryReader.load` L120–L127
   - vanilla-style writer: [`RIMBinaryWriter.write` L142–L198](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/rim/io_rim.py#L142-L198)
 - **[Kotor.NET](https://github.com/NickHugi/Kotor.NET)**: [`RIMBinaryStructure.cs` `FileRoot` / `FileHeader` / `ResourceEntry` L16–L116](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorRIM/RIMBinaryStructure.cs#L16-L116) — reads the **20-byte** logical header then seeks `OffsetToResources` (vanilla **120**).
-- **[reone](https://github.com/modawan/reone)** ([historical upstream / mirror: seedhartha/reone](https://github.com/modawan/reone)):
+- **[reone](https://github.com/seedhartha/reone)**:
 
-  - [`rimreader.cpp` `RimReader::load` L27–L35](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/rimreader.cpp#L27-L35)
-  - [`readResource` L47–L58](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/rimreader.cpp#L47-L58) — **`UInt16` type** plus **`skipBytes(6)`**; **not** the same 32-byte KotOR row as PyKotor/Kotor.NET
+  - [`rimreader.cpp` `RimReader::load` L27–L35](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/rimreader.cpp#L27-L35)
+  - [`readResource` L47–L58](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/rimreader.cpp#L47-L58) — **`UInt16` type** plus **`skipBytes(6)`**; **not** the same 32-byte KotOR row as PyKotor/Kotor.NET
 - **[KotOR.js](https://github.com/KobaltBlu/KotOR.js)**:
 
   - [`RIMObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/master/src/resource/RIMObject.ts) — uses **`UInt16` + `UInt16`** after ResRef

@@ -106,7 +106,7 @@ Dozens of other extensions are documented across this wiki.
 - [`GFFStruct` L689+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L689)
 - XML/JSON/Twine variants in `io_gff_xml`, `io_gff_json`, `io_gff_twine`
 
-Comparable open implementations include reone's reader, writer, and core GFF types ([gffreader.cpp](https://github.com/modawan/reone/blob/master/src/libs/resource/format/gffreader.cpp), [gffwriter.cpp](https://github.com/modawan/reone/blob/master/src/libs/resource/format/gffwriter.cpp), [gff.cpp](https://github.com/modawan/reone/blob/master/src/libs/resource/gff.cpp)), xoreos and xoreos-tools Aurora loaders ([xoreos `gff3file.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/gff3file.cpp), [xoreos-tools `gff3file.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/aurora/gff3file.cpp)), KotOR.js's parser ([GFFObject.ts L24+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24)), Kotor.NET's managed reader/writer ([GFF.cs L18+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18)), KotOR-Unity's loader ([GFFObject.cs](https://github.com/reubenduncan/KotOR-Unity/blob/master/Assets/Scripts/FileObjects/GFFObject.cs)), and the GFF Kaitai specifications in [bioware-kaitai-formats](https://github.com/OpenKotOR/bioware-kaitai-formats).
+Comparable open implementations include reone's reader, writer, and core GFF types ([gffreader.cpp](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), [gffwriter.cpp](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffwriter.cpp), [gff.cpp](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp)), xoreos and xoreos-tools Aurora loaders ([xoreos `gff3file.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/gff3file.cpp), [xoreos-tools `gff3file.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/aurora/gff3file.cpp)), KotOR.js's parser ([GFFObject.ts L24+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24)), Kotor.NET's managed reader/writer ([GFF.cs L18+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18)), KotOR-Unity's loader ([GFFObject.cs](https://github.com/reubenduncan/KotOR-Unity/blob/master/Assets/Scripts/FileObjects/GFFObject.cs)), and the GFF Kaitai specifications in [bioware-kaitai-formats](https://github.com/OpenKotOR/bioware-kaitai-formats).
 
 ### See also
 
@@ -140,7 +140,7 @@ The *GFF file header* is 56 bytes in size (0x38):
 | List Indices Offset  | UInt32  | 48 (0x30) | 4    | Offset to list indices array                  |
 | List Indices Count   | UInt32  | 52 (0x34) | 4    | Number of list indices                        |
 
-PyKotor implements (GFF binary header loading [io_gff.py L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82)), and the reone engine provides reference implementation ([gffreader.cpp L30–L44](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/gffreader.cpp#L30-L44)).
+PyKotor implements (GFF binary header loading [io_gff.py L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82)), and the reone engine provides reference implementation ([gffreader.cpp L30–L44](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L30-L44)).
 
 ### Label Array
 
@@ -150,7 +150,7 @@ Labels are 16-[byte](https://en.wikipedia.org/wiki/Byte) [null-terminated](https
 | ------ | -------- | ---- | ---------------------------------------------------------------- |
 | Labels | [char](GFF-File-Format#gff-data-types) | 16×N | array of field name labels (null-padded to 16 bytes)            |
 
-Label parsing is referenced in the reone implementation ([gffreader.cpp L151–L154](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/gffreader.cpp#L151-L154)).
+Label parsing is referenced in the reone implementation ([gffreader.cpp L151–L154](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L151-L154)).
 
 ### Struct Array
 
@@ -162,7 +162,7 @@ Each struct entry is 12 bytes:
 | Data/Offset| UInt32 | 4 (0x04) | 4    | field index (if 1 field) or offset to field indices (if multiple) |
 | Field Count| UInt32 | 8 (0x08) | 4    | Number of fields in this struct (0, 1, or >1)                   |
 
-Struct array layout is documented in the reone implementation ([gffreader.cpp L40–L62](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/gffreader.cpp#L40-L62)).
+Struct array layout is documented in the reone implementation ([gffreader.cpp L40–L62](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L40-L62)).
 
 ### Field Array
 
@@ -174,7 +174,7 @@ Each field entry is 12 bytes:
 | Label Index | UInt32 | 4 (0x04) | 4    | index into label array for field name                           |
 | Data/Offset | UInt32 | 8 (0x08) | 4    | Inline data (simple types) or offset to field data (complex types) |
 
-Field array structure is implemented in the reone engine ([gffreader.cpp L67–L76](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/gffreader.cpp#L67-L76)).
+Field array structure is implemented in the reone engine ([gffreader.cpp L67–L76](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L67-L76)).
 
 ### Field Data
 
@@ -192,7 +192,7 @@ Complex field types store their data in the field data section:
 | Vector3           | 12 bytes (3×float)                                                   |
 | Vector4           | 16 bytes (4×float)                                                   |
 
-Complex payload decoding for these field-data-backed types is visible in the reone reader implementation ([gffreader.cpp L78-L146](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/gffreader.cpp#L78-L146)).
+Complex payload decoding for these field-data-backed types is visible in the reone reader implementation ([gffreader.cpp L78-L146](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L78-L146)).
 
 <a id="field-indices-multiple-element-map--multimap"></a>
 ### field Indices (Multiple Element Map / MultiMap)
@@ -454,3 +454,4 @@ Complex types require accessing data from the *field data section*:
 - [Community sources and archives](Home#community-sources-and-archives) -- DeadlyStream, forums for GFF structure and modding
 
 ---
+

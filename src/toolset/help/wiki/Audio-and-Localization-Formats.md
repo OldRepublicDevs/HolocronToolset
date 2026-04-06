@@ -52,10 +52,10 @@ TLK files store localized strings in a binary format. The game loads `dialog.tlk
   - [`_load_tlk_legacy` L66–L120](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L66-L120)
   - [`TLKBinaryReader.load` L149–L156](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L149-L156)
   - write path: [`TLKBinaryWriter` L168–L219](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L168-L219) (`_write_file_header` L183–L192, `_write_entry` L194–L219)
-- **[reone](https://github.com/modawan/reone)** ([historical upstream / mirror: seedhartha/reone](https://github.com/modawan/reone)):
+- **[reone](https://github.com/seedhartha/reone)**:
 
-  - [`tlkreader.cpp` `TlkReader::load` L34–L43](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/tlkreader.cpp#L34-L43) (8-byte `"TLK V3.0"` signature + language/count/offset)
-  - [`loadStrings` L45–L71](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/tlkreader.cpp#L45-L71) (40-byte rows, **lowercases** sound ResRef)
+  - [`tlkreader.cpp` `TlkReader::load` L34–L43](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/tlkreader.cpp#L34-L43) (8-byte `"TLK V3.0"` signature + language/count/offset)
+  - [`loadStrings` L45–L71](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/tlkreader.cpp#L45-L71) (40-byte rows, **lowercases** sound ResRef)
   - flag constants L28–L32
 - **[xoreos](https://github.com/xoreos/xoreos)** — [`talktable.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/talktable.cpp) (Aurora talk table shared with other Aurora titles)
 - **[xoreos-tools](https://github.com/xoreos/xoreos-tools)** — [`talktable.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/aurora/talktable.cpp) (CLI / tooling)
@@ -88,7 +88,7 @@ The file header is 20 bytes in size:
 
 **References:**
 
-- [reone `TlkReader::load` L34–L43](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/tlkreader.cpp#L34-L43)
+- [reone `TlkReader::load` L34–L43](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/tlkreader.cpp#L34-L43)
 - PyKotor header parse — [`_load_tlk_legacy` L71–L75](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L71-L75)
 - PyKotor Kaitai path — [`_load_tlk_from_kaitai` L35–L44](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L35-L44)
 - [Kotor.NET `FileHeader` L66–L76](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorTLK/TLKBinaryStructure.cs#L66-L76)
@@ -112,7 +112,7 @@ The string data table contains metadata for each string entry. Each entry is 40 
 
 - [Kotor.NET `StringData` L92–L129](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorTLK/TLKBinaryStructure.cs#L92-L129)
 - PyKotor row decode [`_load_tlk_legacy` L96–L112](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/tlk/io_tlk.py#L96-L112)
-- [reone `loadStrings` L45–L69](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/tlkreader.cpp#L45-L69)
+- [reone `loadStrings` L45–L69](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/tlkreader.cpp#L45-L69)
 - [KotOR.js `LoadFromBuffer` L65–L75](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/TLKObject.ts#L65-L75).
 
 **flag bits:**
@@ -276,12 +276,12 @@ To modify SSF files in mods, see the [TSLPatcher SSFList syntax guide](TSLPatche
 
 - SSF — Sound Set File
   - Table of Contents
-  - [File structure overview](#file-structure-overview)
-  - [Binary Format](#binary-format)
-    - [File Header](#file-header)
+  - [File structure overview](#file-structure-overview-1)
+  - [Binary Format](#binary-format-1)
+    - [File Header](#file-header-1)
     - [Sound Table](#sound-table)
   - [Sound event types](#sound-event-types)
-  - [Cross-reference: implementations](#cross-reference-implementations)
+  - [Cross-reference: implementations](#cross-reference-implementations-1)
 
 ---
 
@@ -311,7 +311,7 @@ SSF files define **28** logical sound slots (indices `0`–`27`) that creatures 
   - reader dispatch: [`SSFBinaryReader.load` L152–L159](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ssf/io_ssf.py#L152-L159)
   - writer: [`SSFBinaryWriter.write` L171–L181](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ssf/io_ssf.py#L171-L181)
   - enum + semantics: [`SSFSound` L123–L234](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ssf/ssf_data.py#L123-L234)
-- **[reone](https://github.com/modawan/reone)** — [`ssfreader.cpp` `SsfReader::load` L28–L36](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/resource/format/ssfreader.cpp#L28-L36) (validates `SSF V1.1`, seeks to table offset, reads **all** remaining `int32`s into an array — works for 28- or 40-word tables).
+- **[reone](https://github.com/seedhartha/reone)** — [`ssfreader.cpp` `SsfReader::load` L28–L36](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/ssfreader.cpp#L28-L36) (validates `SSF V1.1`, seeks to table offset, reads **all** remaining `int32`s into an array — works for 28- or 40-word tables).
 - **[xoreos](https://github.com/xoreos/xoreos)** — Aurora SSF (`src/aurora/ssffile.cpp`), shared with other Aurora titles.
 - **[KotOR.js](https://github.com/KobaltBlu/KotOR.js)**:
 
@@ -391,7 +391,7 @@ Indices are fixed; **do not reorder**. PyKotor names are authoritative for this 
 | --------- | -------- |
 | SSF data model (`SSF`) | [`ssf_data.py` `SSF` L26–L121](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ssf/ssf_data.py#L26-L121) |
 | SSF data model (`SSFSound`) | [`SSFSound` L123–L234](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ssf/ssf_data.py#L123-L234) |
-| Binary I/O | [`io_ssf.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/ssf/io_ssf.py) (see [File structure overview](#file-structure-overview) for line-level anchors) |
+| Binary I/O | [`io_ssf.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/ssf/io_ssf.py) (see [File structure overview](#file-structure-overview-1) for line-level anchors) |
 
 ---
 
@@ -410,13 +410,12 @@ LIP is always paired with a [WAV](Audio-and-Localization-Formats#wav) of matchin
 
 - LIP — Lip Synchronization
   - Table of Contents
-  - [File Structure Overview](#file-structure-overview)
-  - [Binary format](#binary-format)
+  - [File Structure Overview](#file-structure-overview-2)
+  - [Binary format](#binary-format-2)
     - [Header](#header)
     - [Keyframe Table](#keyframe-table)
   - [Mouth Shapes (Viseme Table)](#mouth-shapes-viseme-table)
   - [Animation Rules](#animation-rules)
-  - [Cross-reference: implementations](#cross-reference-implementations)
 
 ---
 
@@ -428,7 +427,7 @@ LIP is always paired with a [WAV](Audio-and-Localization-Formats#wav) of matchin
 - [keyframes](MDL-MDX-File-Format#controller-structure) are sorted chronologically and store a timestamp (float seconds) plus a 1-[byte](https://en.wikipedia.org/wiki/Byte) viseme index (0–15).  
 - The layout is identical across these implementations (header / [keyframe](MDL-MDX-File-Format#controller-structure) offsets below are cross-confirmed):
 
-  - [reone](https://github.com/modawan/reone)
+  - [reone](https://github.com/seedhartha/reone)
   - [xoreos](https://github.com/xoreos/xoreos)
   - [Kotor.NET](https://github.com/NickHugi/Kotor.NET)
   - [KotOR.js](https://github.com/KobaltBlu/KotOR.js)
@@ -442,7 +441,7 @@ LIP is always paired with a [WAV](Audio-and-Localization-Formats#wav) of matchin
 - data model in `lip_data.py`
 - XML/JSON in `io_lip_xml`, `io_lip_json`
 
-Comparable LIP implementations include reone's C++ parser ([lipreader.cpp L27+](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/graphics/format/lipreader.cpp#L27)), xoreos's Aurora reader ([lipfile.cpp](https://github.com/xoreos/xoreos/blob/master/src/aurora/lipfile.cpp)), KotOR.js's LIP object and binary reader ([LIPObject.ts L26+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L26), [`readBinary` L112-L136](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L112-L136)), and Kotor.NET's in-memory DTO layer ([LIP.cs L11+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorLIP/LIP.cs#L11)).
+Comparable LIP implementations include reone's C++ parser ([lipreader.cpp L27+](https://github.com/seedhartha/reone/blob/master/src/libs/graphics/format/lipreader.cpp#L27)), xoreos's Aurora reader ([lipfile.cpp](https://github.com/xoreos/xoreos/blob/master/src/aurora/lipfile.cpp)), KotOR.js's LIP object and binary reader ([LIPObject.ts L26+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L26), [`readBinary` L112-L136](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L112-L136)), and Kotor.NET's in-memory DTO layer ([LIP.cs L11+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorLIP/LIP.cs#L11)).
 
 ### See also
 
@@ -463,7 +462,7 @@ Comparable LIP implementations include reone's C++ parser ([lipreader.cpp L27+](
 | Sound Length  | [float32](GFF-File-Format#gff-data-types) | 8 (0x08)   | 4    | Duration in seconds (must equal [WAV](Audio-and-Localization-Formats#wav) length) |
 | Entry count   | UInt32  | 12 (0x0C)   | 4    | Number of [keyframes](MDL-MDX-File-Format#controller-structure) immediately following |
 
-The LIP header layout is corroborated by reone's parser ([lipreader.cpp L27-L42](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/graphics/format/lipreader.cpp#L27-L42)).
+The LIP header layout is corroborated by reone's parser ([lipreader.cpp L27-L42](https://github.com/seedhartha/reone/blob/master/src/libs/graphics/format/lipreader.cpp#L27-L42)).
 
 ### [keyframe](MDL-MDX-File-Format#controller-structure) Table
 
@@ -477,7 +476,7 @@ The LIP header layout is corroborated by reone's parser ([lipreader.cpp L27-L42]
 - Entries are stored sequentially and **must** be sorted ascending by timestamp.  
 - Libraries average multiple implementations to validate this layout:
 
-  - [reone](https://github.com/modawan/reone)
+  - [reone](https://github.com/seedhartha/reone)
   - [xoreos](https://github.com/xoreos/xoreos)
   - [KotOR.js](https://github.com/KobaltBlu/KotOR.js)
   - [Kotor.NET](https://github.com/NickHugi/Kotor.NET)
@@ -522,7 +521,7 @@ PyKotor's [`LIPShape` table and related phoneme helpers](https://github.com/Open
 
 ---
 
-PyKotor's LIP reader and data model ([io_lip.py](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/lip/io_lip.py), [lip_data.py](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/lip/lip_data.py)) stay aligned with the same header and keyframe encoding used by reone ([lipreader.cpp L27+](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/graphics/format/lipreader.cpp#L27)), xoreos ([lipfile.cpp](https://github.com/xoreos/xoreos/blob/master/src/aurora/lipfile.cpp)), KotOR.js ([LIPObject.ts L26+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L26)), and Kotor.NET ([LIP.cs L11+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorLIP/LIP.cs#L11)).
+PyKotor's LIP reader and data model ([io_lip.py](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/lip/io_lip.py), [lip_data.py](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/lip/lip_data.py)) stay aligned with the same header and keyframe encoding used by reone ([lipreader.cpp L27+](https://github.com/seedhartha/reone/blob/master/src/libs/graphics/format/lipreader.cpp#L27)), xoreos ([lipfile.cpp](https://github.com/xoreos/xoreos/blob/master/src/aurora/lipfile.cpp)), KotOR.js ([LIPObject.ts L26+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/LIPObject.ts#L26)), and Kotor.NET ([LIP.cs L11+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorLIP/LIP.cs#L11)).
 
 
 ---
@@ -552,12 +551,12 @@ Hex type id **`0x0004`** is listed under [Resource type identifiers](Resource-Fo
 
 **Cross-reference implementations (line anchors are against `master` and may drift):**
 
-- **[reone](https://github.com/modawan/reone)** ([historical upstream / mirror: seedhartha/reone](https://github.com/modawan/reone)) — [`wavreader.cpp` — `WavReader::load` L32+](https://github.com/modawan/reone/blob/61531089341caf5827abbc54346c8c959b03d449/src/libs/audio/format/wavreader.cpp#L32) (470-byte SFX signature `FF F3 60 C4` then seek `0x1DA`, RIFF/`fmt`/`data`, MP3-in-WAV edge case).
+- **[reone](https://github.com/seedhartha/reone)** — [`wavreader.cpp` — `WavReader::load` L32+](https://github.com/seedhartha/reone/blob/master/src/libs/audio/format/wavreader.cpp#L32) (470-byte SFX signature `FF F3 60 C4` then seek `0x1DA`, RIFF/`fmt`/`data`, MP3-in-WAV edge case).
 - **[KotOR.js](https://github.com/KobaltBlu/KotOR.js)** — [`AudioFile.ts`](https://github.com/KobaltBlu/KotOR.js/blob/master/src/audio/AudioFile.ts) — SFX probe [`fakeHeaderTest` / `riffHeaderTest` L12-L13](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/audio/AudioFile.ts#L12-L13), strip 470-byte prefix [`processFile` L118-L124](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/audio/AudioFile.ts#L118-L124), MP3-in-WAV `riffSize == 50` branch [L131-L137](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/audio/AudioFile.ts#L131-L137).
 - **[Kotor.NET](https://github.com/NickHugi/Kotor.NET)** — no dedicated `KotorWAV` reader on the default branch; creature sound **StrRefs** (resolved to `.wav` via [TLK](Audio-and-Localization-Formats#tlk) at runtime) are modeled in [`Kotor.NET/Formats/KotorSSF/SSF.cs` L12+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorSSF/SSF.cs#L12). For byte-level RIFF/SFX layout, prefer the implementations above:
 
   - PyKotor (`io_wav.py` in this section)
-  - [reone](https://github.com/modawan/reone)
+  - [reone](https://github.com/seedhartha/reone)
   - [KotOR.js](https://github.com/KobaltBlu/KotOR.js)
 
 **For mod developers:** WAV files are referenced from:
@@ -578,19 +577,19 @@ See [HoloPatcher README for Mod Developers](HoloPatcher#mod-developers).
 
 - WAV — Audio
   - Table of Contents
-  - File Types
+  - [File Types](#file-types)
   - [Standard RIFF/WAVE Structure](#standard-riffwave-structure)
     - [Format Chunk](#format-chunk)
     - [Data Chunk](#data-chunk)
   - [KotOR SFX Header](#kotor-sfx-header)
   - [Encoding Details](#encoding-details)
-  - [Cross-reference: implementations](#cross-reference-implementations)
+  - [Cross-reference: implementations](#cross-reference-implementations-2)
 
 ---
 
 ## File types
 
-| type | Usage | Description |
+| Type | Usage | Description |
 | ---- | ----- | ----------- |
 | **VO (Voice-over)** | Dialogue lines (`*.wav` referenced by [TLK](Audio-and-Localization-Formats#tlk) [StrRefs](Audio-and-Localization-Formats#string-references-strref)). | Plain RIFF/WAVE PCM files readable by any media player. |
 | **SFX (Sound effects)** | Combat, UI, ambience, `.wav` files under `StreamSounds`/`SFX`. | Contains a Bioware 470-[byte](https://en.wikipedia.org/wiki/Byte) obfuscation header followed by the same RIFF data. |
@@ -603,7 +602,7 @@ PyKotor exposes these via the `WAVType` enum (`VO` vs. `SFX`) so tools know whet
 
 KotOR sticks to the canonical RIFF chunk order:
 
-| offset | field | Description |
+| Offset | Field | Description |
 | ------ | ----- | ----------- |
 | 0 (0x00) | `"RIFF"` | Chunk ID |
 | 4 (0x04) | `<uint32>` | file size minus 8 |
@@ -628,7 +627,7 @@ KotOR sticks to the canonical RIFF chunk order:
 
 After the `fmt` chunk (and any optional `fact` chunk), the `"data"` chunk begins:
 
-| field | Description |
+| Field | Description |
 | ----- | ----------- |
 | `"data"` | Chunk ID. |
 | `<uint32>` | Number of bytes of raw audio. |
@@ -638,11 +637,11 @@ KotOR voice-over WAVs add a `"fact"` chunk with a 32-bit sample count, which PyK
 
 ---
 
-## KotOR SFX header
+## KotOR [*SFX*](https://wiki.xoreos.org/index.php?title=Running_xoreos) header
 
 - SFX assets start with 470 bytes of obfuscated metadata (magic numbers plus filler `0x55`).  
 - After this header, the file resumes at the `"RIFF"` signature described above.  
-- When exporting SFX, PyKotor recreates the header verbatim so the game recognizes the asset (`io_wav.py:150-163`).  
+- When exporting SFX, PyKotor recreates the header verbatim so the game recognizes the asset ([`io_wav.py:150-163`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/io/io_wav.py#L150-L163)).  
 
 *(See **Cross-reference implementations** above for reone / KotOR.js / Kotor.NET line anchors.)*
 
@@ -651,7 +650,7 @@ KotOR voice-over WAVs add a `"fact"` chunk with a 32-bit sample count, which PyK
 ## Encoding Details
 
 - **PCM (`audio_format = 0x0001`)**: Most dialogue is 16-bit mono PCM, which streams directly through the engine mixer.  
-- **IMA ADPCM (`audio_format = 0x0011`)**: Some ambient SFX use compressed ADPCM frames; when present, the `fmt` chunk includes the extra coefficient block defined by the WAV spec.  
+- **IMA ADPCM (`audio_format = 0x0011`)**: Some ambient *SFX* use compressed [*ADPCM frames*](https://en.wikipedia.org/wiki/Adaptive_differential_pulse-code_modulation); when present, the `fmt` chunk includes the extra coefficient block defined by the [WAV](https://en.wikipedia.org/wiki/WAV) spec.  
 - KotOR requires `block_align` and `bytes_per_sec` to match the values implied by the codec; mismatched headers can crash the in-engine decoder.  
 
 External tooling such as SithCodec and `SWKotOR-Audio-Encoder` implement the same formats; PyKotor simply exposes the metadata so conversions stay lossless.
@@ -659,11 +658,11 @@ External tooling such as SithCodec and `SWKotOR-Audio-Encoder` implement the sam
 ### Community context (workflow)
 
 - Deadly Stream — [SithCodec](https://deadlystream.com/files/file/1716-sithcodec/) (Windows tool for KotOR audio header strip/add; pair with PyKotor `io_wav` when verifying bytes).
-- Deadly Stream — [Extracting dialogue](https://deadlystream.com/topic/9437-extracting-dialogue/) — **community-reported** layout notes (e.g. some assets under `StreamWaves` / `StreamVoice`); treat thread as **workflow hints**, not normative RIFF layout—verify against **PyKotor** / **reone** / **KotOR.js** above.
+- Deadly Stream — [Extracting Dialogue](https://deadlystream.com/topic/9437-extracting-dialogue/) — **Community-Reported** layout notes (e.g. some assets under `StreamWaves` / `StreamVoice`); treat thread as **Workflow Hints**, not normative [*RIFF*](https://en.wikipedia.org/wiki/Resource_Interchange_File_Format)
 
 ### Historical context (LucasForums Archive)
 
-TSLPatcher-era threads discuss **Streamsounds** / **Streamwaves** paths, codec issues in Miles-based workflows, and DLG-related **`StreamVoice`** layout (e.g. `alienvo.2da` → `StreamVoice\AVO\`). Treat these as **dated player/modder reports**, not engine specifications—pair with **SithCodec**, **PyKotor `io_wav`**, and the cross-refs at the top of this page.
+TSLPatcher-era threads discuss **`StreamSounds`** / **`StreamWaves`** paths, codec issues in Miles-based workflows, and DLG-related **`StreamVoice`** layout (e.g. `alienvo.2da` → `StreamVoice\AVO\`). Treat these as **dated player/modder reports**, not engine specifications—pair with **SithCodec**, **PyKotor [`io_wav`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/io/io_wav.py)**, and the cross-refs at the top of this page.
 
 - [Convert KOTOR sounds to a usable audio file](https://www.lucasforumsarchive.com/thread/208881-convert-kotor-sounds-to-a-usable-audio-file)
 - [Editing KotOR voiceover files — which program?](https://www.lucasforumsarchive.com/thread/208744-editing-kotor-voiceover-files-program)
@@ -674,7 +673,7 @@ TSLPatcher-era threads discuss **Streamsounds** / **Streamwaves** paths, codec i
 
 ## Cross-reference: implementations
 
-- **Reference implementations (engines):** same as **Cross-reference implementations** at the top of this page (PyKotor `io_wav.py`, reone `wavreader.cpp`, KotOR.js `AudioFile.ts`).
+- **Reference implementations (engines):** same as **Cross-reference implementations** at the top of this page (PyKotor [`io_wav.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/io/io_wav.py), reone [`wavreader.cpp`](https://github.com/reone/wavreader.cpp), KotOR.js [`AudioFile.ts`](https://github.com/KotOR.js/AudioFile.ts)).
 - **Community tooling (not normative):** **[SithCodec](https://github.com/BBBrassil/SithCodec)** — encode/decode helper; **[SWKotOR-Audio-Encoder](https://github.com/LoranRendel/SWKotOR-Audio-Encoder)** — batch-friendly encoder. Prefer verifying headers against **PyKotor** / **reone** / **KotOR.js** when debugging engine mismatches.
 
 With this structure, WAV assets authored in PyKotor will play identically in the base game and in the other vendor tools.
@@ -691,3 +690,4 @@ With this structure, WAV assets authored in PyKotor will play identically in the
 
 
 ---
+
