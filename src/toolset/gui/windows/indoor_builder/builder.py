@@ -165,6 +165,12 @@ def get_kits_path() -> Path:
     return kits_path
 
 
+def _navigation_settings():
+    from toolset.gui.widgets.settings.widgets.module_designer import ModuleDesignerSettings
+
+    return ModuleDesignerSettings()
+
+
 @dataclass
 class SnapResult:
     """Result of a snap operation."""
@@ -182,12 +188,6 @@ class SnapResult:
 
 
 class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
-    @staticmethod
-    def _navigation_settings():
-        from toolset.gui.widgets.settings.widgets.module_designer import ModuleDesignerSettings
-
-        return ModuleDesignerSettings()
-
     def __init__(
         self,
         parent: QWidget | None,
@@ -287,7 +287,7 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self.ui.mapRenderer,
             get_content_bounds=self._content_bounds,
             get_selection_bounds=self._selection_bounds,
-            settings=self._navigation_settings(),
+            settings=_navigation_settings(),
         )
 
         # Initialize Options UI to match renderer state
@@ -1978,7 +1978,7 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             buttons,
             keys,
             is_indoor_builder=True,
-            settings=self._navigation_settings(),
+            settings=_navigation_settings(),
         )
 
         if not handled_cam and (self._painting_walkmesh or Qt.Key.Key_Shift in keys) and Qt.MouseButton.LeftButton in buttons and Qt.Key.Key_Control not in keys:
@@ -2333,11 +2333,9 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             keys.add(Qt.Key.Key_Shift)
         if modifiers & Qt.KeyboardModifier.AltModifier:
             keys.add(Qt.Key.Key_Alt)
-        nav_buttons: set[Qt.MouseButton] = set()
-
         if self._nav_helper.handle_key_pressed(
             keys,
-            buttons=nav_buttons,
+            buttons=set(),
             pan_step=max(1.0, 48.0 / max(1.0, renderer.camera.zoom())),
         ):
             return
