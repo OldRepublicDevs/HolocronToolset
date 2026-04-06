@@ -14,12 +14,11 @@ from typing import TYPE_CHECKING, ClassVar
 import qtpy
 
 from qtpy import QtCore
-from qtpy.QtCore import QTimer, Qt
+from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QPainter, QPen, QPolygonF
 from qtpy.QtWidgets import (
     QApplication,
     QMessageBox,
-    QOpenGLWidget,  # pyright: ignore[reportPrivateImportUsage]
 )
 
 from loggerplus import RobustLogger
@@ -28,6 +27,7 @@ from pykotor.resource.formats.bwm.bwm_data import BWM
 from pykotor.resource.formats.lyt.lyt_data import LYT
 from pykotor.resource.generics.git import GITInstance
 from pykotor.resource.type import ResourceType
+from toolset.gui.widgets.renderer.base import OpenGLSceneRenderer
 from toolset.utils.misc import keyboard_modifiers_to_qt_keys
 from utility.common.geometry import Vector2, Vector3, Vector4
 from utility.error_handling import assert_with_variable_trace
@@ -39,7 +39,6 @@ if TYPE_CHECKING:
         QPointF,  # pyright: ignore[reportAttributeAccessIssue]
     )
     from qtpy.QtGui import (
-        QFocusEvent,
         QKeyEvent,
         QMouseEvent,
         QOpenGLContext,
@@ -98,7 +97,7 @@ class FrameStats:
         return (len(self._timestamps) - 1) / elapsed
 
 
-class ModuleRenderer(QOpenGLWidget):
+class ModuleRenderer(OpenGLSceneRenderer):
     sig_renderer_initialized: ClassVar[QtCore.Signal] = QtCore.Signal()  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when the context is being setup, the QMainWindow must be in an activated/unhidden state."""
 
@@ -127,10 +126,9 @@ class ModuleRenderer(QOpenGLWidget):
     """Signal emitted when an object has been selected through the renderer."""
 
     sig_lyt_updated: ClassVar[QtCore.Signal] = QtCore.Signal(object)  # pyright: ignore[reportPrivateImportUsage]
-    """Signal emitted when the LYT data has been updated."""
 
     def __init__(self, parent: QWidget):
-        super().__init__(parent)
+        initial_mouse = Vector2(QApplication.cursor().pos().x(), QApplication.cursor().pos().y())
 
         from toolset.gui.windows.module_designer import (
             ModuleDesignerSettings,  # noqa: PLC0415  # pylint: disable=C0415
@@ -139,20 +137,15 @@ class ModuleRenderer(QOpenGLWidget):
             get_renderer_loop_interval_ms,  # noqa: PLC0415  # pylint: disable=C0415
         )
 
-        self.scene: Scene | None = None
+        super().__init__(parent, initial_mouse_prev=initial_mouse, loop_interval_ms=get_renderer_loop_interval_ms())
+
         self.settings: ModuleDesignerSettings = ModuleDesignerSettings()
         self._module: Module | None = None
         self._installation: HTInstallation | None = None
         self._lyt: LYT | None = None
 
-        self.loop_timer: QTimer = QTimer(self)
+        self.loop_timer.timeout.disconnect()
         self.loop_timer.timeout.connect(self.loop)
-        self.loop_interval: int = get_renderer_loop_interval_ms()  # from settings (default: auto = monitor Hz)
-
-        self._render_time: int = 0
-        self._keys_down: set[Qt.Key] = set()
-        self._mouse_down: set[Qt.MouseButton] = set()
-        self._mouse_prev: Vector2 = Vector2(self.cursor().pos().x(), self.cursor().pos().y())
         self._mouse_press_time: float = monotonic()  # seconds (monotonic clock, cheap)
         # Cached mouse world position computed inside paintGL (GL context is current there).
         # This is intentionally separate from `scene.cursor` (which is the camera focal point).
@@ -180,9 +173,8 @@ class ModuleRenderer(QOpenGLWidget):
         self._vis_overlay_matrix: dict[int, set[int]] = {}
         self._show_vis_overlay: bool = True
 
-    @property
-    def _scene(self) -> Scene | None:
-        return self.scene
+    def _on_loop_timer_timeout(self) -> None:
+        self.loop()
 
     def show_scene_not_ready_message(self):
         from toolset.gui.common.localization import translate as tr
@@ -218,8 +210,8 @@ class ModuleRenderer(QOpenGLWidget):
         # Qt calls initializeGL() when the widget is first shown (requires a real display).
         max_attempts = 50
         for attempt in range(max_attempts):
-            ctx = self.context()
-            if ctx is not None and ctx.isValid():
+            current_context = self.context()
+            if current_context is not None and current_context.isValid():
                 try:
                     self.makeCurrent()
                     break
@@ -257,8 +249,7 @@ class ModuleRenderer(QOpenGLWidget):
 
         assert self.scene is not None, "Scene is not initialized"
         self.scene.camera.fov = self.settings.fieldOfView
-        self.scene.camera.width = self.width()
-        self.scene.camera.height = self.height()
+        self._sync_camera_drawable_size()
         self.sig_scene_initialized.emit()
         self.resume_render_loop()
 
@@ -308,8 +299,7 @@ class ModuleRenderer(QOpenGLWidget):
         if self.scene is None:
             RobustLogger().debug("ignoring scene camera width/height updates in ModuleRenderer resizeGL - the scene is not initialized yet.")
             return
-        self.scene.camera.width = width
-        self.scene.camera.height = height
+        self._sync_camera_drawable_size()
 
     def resume_render_loop(self) -> None:
         """Resumes the rendering loop by starting the timer."""
@@ -324,8 +314,7 @@ class ModuleRenderer(QOpenGLWidget):
         else:
             self.loop_timer.setInterval(self.loop_interval)
         assert self.scene is not None, "Scene is not initialized"
-        self.scene.camera.width = self.width()
-        self.scene.camera.height = self.height()
+        self._sync_camera_drawable_size()
 
     def pause_render_loop(self) -> None:
         """Pauses the rendering loop by stopping the timer."""
@@ -475,13 +464,17 @@ class ModuleRenderer(QOpenGLWidget):
 
         # Ensure OpenGL context is current before any GL calls
         self.makeCurrent()
+        drawable_width, drawable_height = self._sync_camera_drawable_size()
         super().paintGL()
 
         # Handle object selection (only when requested)
         if self.do_select:
             self.do_select = False
             assert self.scene is not None, "Scene is not initialized"
-            obj: RenderObject | None = self.scene.pick(self._mouse_prev.x, self.height() - self._mouse_prev.y)
+            mouse_x, mouse_y = self._logical_to_drawable_coords(self._mouse_prev.x, self._mouse_prev.y)
+            pick_x = max(0, min(drawable_width - 1, int(mouse_x)))
+            pick_y = max(0, min(drawable_height - 1, drawable_height - 1 - int(mouse_y)))
+            obj: RenderObject | None = self.scene.pick(pick_x, pick_y)
 
             if obj is not None and isinstance(obj.data, GITInstance):
                 self.sig_object_selected.emit(obj.data)
@@ -519,15 +512,22 @@ class ModuleRenderer(QOpenGLWidget):
         # Update cached mouse world position from the *current* depth buffer.
         # This avoids the extremely expensive `Scene.screen_to_world()` extra render pass,
         # which was a major FPS bottleneck during interactive editing.
-        # Single glReadPixels is negligible; we update every frame when mouse is in bounds.
-        x = float(self._mouse_prev.x)
-        y = float(self._mouse_prev.y)
-        if 0.0 <= x < float(self.width()) and 0.0 <= y < float(self.height()):
+        # Only read depth when the mouse has actually moved since last read to avoid
+        # unnecessary GPU→CPU stalls from glReadPixels.
+        logical_x = float(self._mouse_prev.x)
+        logical_y = float(self._mouse_prev.y)
+        _mouse_moved = (
+            self._mouse_world_last_screen is None
+            or abs(self._mouse_world_last_screen.x - logical_x) > 0.5
+            or abs(self._mouse_world_last_screen.y - logical_y) > 0.5
+        )
+        if _mouse_moved and 0.0 <= logical_x < float(self.width()) and 0.0 <= logical_y < float(self.height()):
             try:
                 assert self.scene is not None, "Scene is not initialized"
-                world = self.scene.screen_to_world_from_depth_buffer(int(x), int(y))
+                world_x, world_y = self._logical_to_drawable_coords(logical_x, logical_y)
+                world = self.scene.screen_to_world_from_depth_buffer(int(world_x), int(world_y))
                 self._mouse_world = world
-                self._mouse_world_last_screen = Vector2(x, y)
+                self._mouse_world_last_screen = Vector2(logical_x, logical_y)
             except Exception:  # noqa: BLE001
                 # If context is lost during teardown, keep last cached value.
                 pass
@@ -718,7 +718,7 @@ class ModuleRenderer(QOpenGLWidget):
 
         point = QtCore.QPointF(float(screen_x), float(screen_y))
         lines = self._object_gizmo_lines(position)
-        best_axis: str | None = None
+        closest_axis: str | None = None
         best_distance = float("inf")
 
         for axis, (start_world, end_world) in lines.items():
@@ -730,11 +730,11 @@ class ModuleRenderer(QOpenGLWidget):
             distance = self._point_segment_distance_screen(point, start_screen, end_screen)
             if distance < best_distance:
                 best_distance = distance
-                best_axis = axis
+                closest_axis = axis
 
-        if best_axis is None or best_distance > max_distance_px:
+        if closest_axis is None or best_distance > max_distance_px:
             return None
-        return best_axis
+        return closest_axis
 
     def _project_world_to_screen(self, point: Vector3) -> QPointF | None:
         if self.scene is None:
@@ -760,11 +760,13 @@ class ModuleRenderer(QOpenGLWidget):
         return QtCore.QPointF(screen_x, screen_y)
 
     def _draw_walkmesh_selection_overlay(self) -> None:
-        selected = self._selected_walkmesh_face
+        selected: tuple[BWM, int, Vector3] | None = self._selected_walkmesh_face
         if selected is None:
             return
 
-        walkmesh, face_index, room_offset = selected
+        walkmesh: BWM = selected[0]
+        face_index: int = selected[1]
+        room_offset: Vector3 = selected[2]
         if not (0 <= face_index < len(walkmesh.faces)):
             return
 
@@ -1351,12 +1353,6 @@ class ModuleRenderer(QOpenGLWidget):
     # endregion
 
     # region Events
-
-    def focusOutEvent(self, e: QFocusEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        self._mouse_down.clear()  # Clears the set when focus is lost
-        self._keys_down.clear()  # Clears the set when focus is lost
-        super().focusOutEvent(e)  # Ensures that the default handler is still executed
-        print("ModuleRenderer.focusOutEvent: clearing all keys/buttons held down.")
 
     def wheelEvent(self, e: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         super().wheelEvent(e)

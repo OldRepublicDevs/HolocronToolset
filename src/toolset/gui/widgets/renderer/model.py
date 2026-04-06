@@ -10,11 +10,9 @@ import qtpy
 
 from qtpy.QtCore import (
     QPoint,
-    QTimer,
     Signal,  # pyright: ignore[reportPrivateImportUsage]
 )
 from qtpy.QtGui import QCursor
-from qtpy.QtWidgets import QOpenGLWidget  # pyright: ignore[reportPrivateImportUsage]
 
 from loggerplus import RobustLogger
 from pykotor.gl import vec3
@@ -24,19 +22,14 @@ from pykotor.resource.formats.twoda import read_2da
 from pykotor.resource.generics.git import GIT
 from pykotor.resource.type import ResourceType
 from toolset.data.misc import ControlItem
+from toolset.gui.widgets.renderer.base import OpenGLSceneRenderer
 from toolset.gui.widgets.settings.widgets.module_designer import ModuleDesignerSettings
 from utility.common.geometry import Vector2, Vector3
 from utility.error_handling import assert_with_variable_trace
 
 if TYPE_CHECKING:
-    from qtpy.QtCore import (
-        Qt,  # pyright: ignore[reportPrivateImportUsage]
-    )
     from qtpy.QtGui import (
-        QCloseEvent,
-        QFocusEvent,
         QKeyEvent,
-        QKeySequence,
         QMouseEvent,
         QResizeEvent,
         QWheelEvent,
@@ -48,42 +41,27 @@ if TYPE_CHECKING:
     from pykotor.resource.generics.uti import UTI
 
 
-class ModelRenderer(QOpenGLWidget):
+class ModelRenderer(OpenGLSceneRenderer):
     # Signal emitted when textures/models finish loading
     resourcesLoaded = Signal()
 
     def __init__(self, parent: QWidget):
-        super().__init__(parent)
+        super().__init__(parent, initial_mouse_prev=Vector2(0, 0), loop_interval_ms=33)
         self._last_texture_count: int = 0
         self._last_pending_texture_count: int = 0
         self._last_requested_texture_count: int = 0
 
-        self._scene: Scene | None = None
         self._installation: Installation | None = None  # Use private attribute with property
         self._model_to_load: tuple[bytes, bytes] | None = None
         self._creature_to_load: UTC | None = None
         self._pending_camera_reset: bool = False
 
-        self._keys_down: set[int | QKeySequence | Qt.Key] = set()
-        self._mouse_down: set[int | Qt.MouseButton] = set()
-        self._mouse_prev: Vector2 = Vector2(0, 0)
         self._controls = ModelRendererControls()
 
-        self._loop_timer: QTimer = QTimer(self)
-        self._loop_timer.setInterval(33)
-        self._loop_timer.setSingleShot(False)
-        self._loop_timer.timeout.connect(self._render_loop)
-
-    def _render_loop(self):
-        if not self.isVisible() or self._scene is None:
+    def _on_loop_timer_timeout(self) -> None:
+        if not self.isVisible() or self.scene is None:
             return
         self.update()
-
-    @property
-    def scene(self) -> Scene:
-        if self._scene is None:
-            raise ValueError("Scene must be constructed before this operation.")
-        return self._scene
 
     @property
     def installation(self) -> Installation | None:
@@ -94,22 +72,21 @@ class ModelRenderer(QOpenGLWidget):
         self._installation = value
         # If scene already exists, update its installation and load 2DA tables.
         # set_installation() loads appearance.2da etc. that the renderer needs.
-        if self._scene is not None and value is not None and self._scene.installation is None:
-            self._scene.installation = value
-            self._scene.set_installation(value)
+        if self.scene is not None and value is not None and self.scene.installation is None:
+            self.scene.installation = value
+            self.scene.set_installation(value)
             RobustLogger().debug("ModelRenderer.installation setter: Updated existing scene with installation")
 
     def initializeGL(self):
         # Ensure OpenGL context is current
         self.makeCurrent()
 
-        self._scene = Scene(installation=self._installation)
+        self.scene = Scene(installation=self._installation)
         self.scene.camera.fov = self._controls.fieldOfView
         self.scene.camera.distance = 0  # Set distance to 0
 
         self.scene.camera.yaw = math.pi / 2
-        self.scene.camera.width = self.width()
-        self.scene.camera.height = self.height()
+        self._sync_camera_drawable_size()
         self.scene.show_cursor = False
 
         self.scene.git = GIT()
@@ -119,10 +96,10 @@ class ModelRenderer(QOpenGLWidget):
         if self.scene._module is None:
             self.scene.enable_frustum_culling = False
 
-        self._loop_timer.start()
+        self.loop_timer.start()
 
     def paintGL(self):
-        if self._scene is None:
+        if self.scene is None:
             return
 
         ctx = self.context()
@@ -131,6 +108,7 @@ class ModelRenderer(QOpenGLWidget):
 
         # Ensure OpenGL context is current before rendering
         self.makeCurrent()
+        self._sync_camera_drawable_size()
 
         if self._model_to_load is not None:
             self.scene.models["model"] = gl_load_mdl(self.scene, *self._model_to_load)
@@ -159,7 +137,8 @@ class ModelRenderer(QOpenGLWidget):
         # Check if textures/models FINISHED LOADING this frame (not just requested)
         # Only emit signal when textures are ACTUALLY LOADED - not when they're first requested
         texture_lookup_info = getattr(self.scene, "texture_lookup_info", {})
-        requested_texture_names = getattr(self.scene, "requested_texture_names", set())
+        requested_texture_names_obj: object = getattr(self.scene, "requested_texture_names", set())
+        requested_texture_names: set[str] = cast("set[str]", requested_texture_names_obj)
         current_texture_count = len(texture_lookup_info)
         pending_textures = getattr(self.scene, "_pending_texture_futures", {})
         previous_pending_count = getattr(self, "_last_pending_texture_count", len(pending_textures))
@@ -197,21 +176,13 @@ class ModelRenderer(QOpenGLWidget):
                 self.reset_camera()
                 self._pending_camera_reset = False
 
-    def closeEvent(self, event: QCloseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        self.shutdown_renderer()
-        super().closeEvent(event)
-
     def shutdown_renderer(self):
-        if self._loop_timer.isActive():
-            self._loop_timer.stop()
-
-        if self._scene is not None:
-            scene = self._scene
-            self._scene = None
-            del scene
+        super().shutdown_renderer()
+        if self.scene is not None:
+            del self.scene
 
     def clear_model(self):
-        if self._scene is not None and "model" in self.scene.objects:
+        if self.scene is not None and "model" in self.scene.objects:
             del self.scene.objects["model"]
             # Scene caches object lists; invalidate so removals take effect.
             if hasattr(self.scene, "_invalidate_object_cache"):
@@ -291,12 +262,12 @@ class ModelRenderer(QOpenGLWidget):
         show_cursor: bool | None = None,
     ):
         """Apply render/view overrides for parity with module renderer APIs."""
-        if self._scene is None:
+        if self.scene is None:
             return
         if field_of_view is not None:
-            self._scene.camera.fov = field_of_view
+            self.scene.camera.fov = field_of_view
         if show_cursor is not None:
-            self._scene.show_cursor = show_cursor
+            self.scene.show_cursor = show_cursor
         self.update()
 
     def snap_camera_to_point(
@@ -314,18 +285,11 @@ class ModelRenderer(QOpenGLWidget):
             self.scene.camera.distance = distance
 
     # region Events
-    def focusOutEvent(self, e: QFocusEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        self._mouse_down.clear()  # Clears the set when focus is lost
-        self._keys_down.clear()  # Clears the set when focus is lost
-        super().focusOutEvent(e)  # Ensures that the default handler is still executed
-        RobustLogger().debug("ModelRenderer.focusOutEvent: clearing all keys/buttons held down.")
-
     def resizeEvent(self, e: QResizeEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         super().resizeEvent(e)
 
-        if self._scene is not None:
-            self.scene.camera.width = e.size().width()
-            self.scene.camera.height = e.size().height()
+        if self.scene is not None:
+            self._sync_camera_drawable_size()
 
     def wheelEvent(self, e: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         if self._controls.moveZCameraControl.satisfied(self._mouse_down, self._keys_down):
