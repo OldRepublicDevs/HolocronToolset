@@ -78,8 +78,8 @@ class Viewport2DNavigationHelper:
     def handle_mouse_scroll(
         self,
         delta: Vector2,
-        buttons: set[int],
-        keys: set[int],
+        buttons: set[int] | set[Qt.MouseButton],
+        keys: set[int] | set[Qt.Key],
         *,
         zoom_sensitivity: int,
     ) -> bool:
@@ -92,12 +92,12 @@ class Viewport2DNavigationHelper:
 
     def handle_key_pressed(
         self,
-        keys: set[int],
+        keys: set[int] | set[Qt.Key],
         *,
         pan_step: float,
-        buttons: set[int] | None = None,
+        buttons: set[int] | set[Qt.MouseButton] | None = None,
     ) -> bool:
-        active_buttons = set() if buttons is None else buttons
+        active_buttons: set[int] | set[Qt.MouseButton] = set() if buttons is None else buttons
 
         if self._bind("frameAll2dBind", ({Qt.Key.Key_Home}, set())).satisfied(active_buttons, keys):
             return self.frame_all()
