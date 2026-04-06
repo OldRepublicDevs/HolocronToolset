@@ -70,12 +70,14 @@ class UTIEditor(Editor):
         supported: list[ResourceType] = [ResourceType.UTI]
         self.globalSettings: GlobalSettings = GlobalSettings()
         self._uti: UTI = UTI()
-        super().__init__(parent, "Item Editor", "item", supported, supported, installation)
 
         from toolset.uic.qtpy.editors.uti import Ui_MainWindow
 
         self.ui: Ui_MainWindow = Ui_MainWindow()
+        self._ui_ready: bool = False
+        super().__init__(parent, "Item Editor", "item", supported, supported, installation)
         self.ui.setupUi(self)
+        self._ui_ready = True
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
@@ -540,6 +542,8 @@ class UTIEditor(Editor):
 
         Hides BOTH the preview renderer AND the model info groupbox when preview is hidden.
         """
+        if not self._ui_ready:
+            return
         show_preview = self.globalSettings.showPreviewUTI
         self.ui.previewRenderer.setVisible(show_preview)
         self.ui.itemModelInfoGroupBox.setVisible(show_preview)
