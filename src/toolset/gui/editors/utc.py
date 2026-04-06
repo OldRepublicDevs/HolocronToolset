@@ -9,9 +9,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from qtpy.QtCore import QSettings, Qt
 from qtpy.QtGui import QImage, QPixmap, QTransform
-from qtpy.QtWidgets import QApplication, QComboBox, QListWidgetItem, QMenu, QMessageBox
-
-from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+from qtpy.QtWidgets import QApplication, QComboBox, QLineEdit, QListWidgetItem, QMenu, QMessageBox, QPlainTextEdit, QWidget
 
 from loggerplus import RobustLogger
 from pykotor.common.language import Gender, Language
@@ -41,7 +39,6 @@ if TYPE_CHECKING:
 
     from qtpy.QtCore import QPoint
     from qtpy.QtGui import QClipboard
-    from qtpy.QtWidgets import QLineEdit, QListWidget, QPlainTextEdit, QWidget
     from typing_extensions import Literal  # pyright: ignore[reportMissingModuleSource]
 
     from pykotor.common.language import LocalizedString
