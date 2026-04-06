@@ -37,12 +37,12 @@ UTD files store door templates for all interactive doors in an area. A door can 
 
 **PyKotor:**
 
-- [`utd.py` `UTD` L18+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18) — in-memory door template (locks, keys, traps, scripts)
-- [`construct_utd` L396+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L396)
-- [`read_utd` L546+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L546)
-- [`write_utd` L555+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L555) — GFF ↔ `UTD` round-trip
-- [`gff_data.py` `GFFContent.UTD` L151](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L151) — four-character GFF type id
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`utd.py` `UTD` L18+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18) — in-memory door template (locks, keys, traps, scripts)
+- [`construct_utd` L122+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122)
+- [`read_utd` L272+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L272)
+- [`write_utd` L281+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L281) — GFF ↔ `UTD` round-trip
+- [`gff_data.py` `GFFContent.UTD` L151](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L151) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -75,18 +75,13 @@ UTD files store door templates for all interactive doors in an area. A door can 
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `Appearance` | UInt32 | Index into `genericdoors.2da` |
-| `GenericType` | UInt32 | Generic door type category |
+| `GenericType` | [byte](GFF-File-Format#gff-data-types) | Index into `genericdoors.2da` (door model, textures, animations) [[`utd.py` `construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122), [reone `utd.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utd.cpp)] |
+| `Appearance` | [DWord](GFF-File-Format#gff-data-types) | Unused secondary appearance value (always 0 in retail files) [[`utd.py` `UTD.unused_appearance`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122)] |
 | `AnimationState` | [byte](GFF-File-Format#gff-data-types) | Current [animation](MDL-MDX-File-Format#animation-header) state (always 0 in templates) |
 
 **Appearance System:**
 
-- `genericdoors.2da` defines door assets including:
-
-  - [models](MDL-MDX-File-Format)
-  - [animations](MDL-MDX-File-Format#animation-header)
-- Different appearance types support different behaviors
-- Opening [animation](MDL-MDX-File-Format#animation-header) determined by appearance entry
+- `GenericType` (byte) indexes into `genericdoors.2da` which defines door [models](MDL-MDX-File-Format) and [animations](MDL-MDX-File-Format#animation-header). `Appearance` is a legacy field not used by the engine.
 
 ## Locking & Security
 
@@ -100,12 +95,7 @@ UTD files store door templates for all interactive doors in an area. A door can 
 | `OpenLockDC` | [byte](GFF-File-Format#gff-data-types) | Security skill DC to pick lock |
 | `CloseLockDC` (KotOR2) | [byte](GFF-File-Format#gff-data-types) | Security skill DC to lock door |
 
-**Lock mechanics:**
-
-- **Locked**: Door cannot be opened normally.
-- **KeyRequired**: Player must carry the item whose tag matches `KeyName`.
-- **OpenLockDC**: Player rolls Security skill vs. DC.
-- **AutoRemoveKey**: The key item is destroyed after a successful use.
+Lock fields defined in [`utd.py` `UTD`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18).
 
 ## Hit Points & Durability
 
@@ -121,10 +111,8 @@ UTD files store door templates for all interactive doors in an area. A door can 
 
 **Destructible Doors:**
 
-- Doors with HP can be attacked and destroyed
-- **Hardness** reduces each hit's damage
-- **Min1HP** prevents destruction (plot doors)
-- Save values unused in KotOR
+- `HP` and `Hardness` fields define durability [[`utd.py` `UTD.hp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
+- `Min1HP` (KotOR2) prevents destruction [[`utd.py` `UTD.min1_hp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
 
 ## Interaction & Behavior
 
@@ -134,22 +122,18 @@ UTD files store door templates for all interactive doors in an area. A door can 
 | `Static` | [byte](GFF-File-Format#gff-data-types) | Door is static geometry (no interaction) |
 | `Interruptable` | [byte](GFF-File-Format#gff-data-types) | Opening can be interrupted |
 | `Conversation` | *ResRef* | Dialog file when used |
-| `Faction` | [word](GFF-File-Format#gff-data-types) | Faction identifier |
-| `AnimationState` | [byte](GFF-File-Format#gff-data-types) | Starting animation (0=closed, other values unused) |
+| `Faction` | [DWord](GFF-File-Format#gff-data-types) | Faction identifier [[`utd.py` `construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122)] |
 
 **Conversation Doors:**
 
-- When clicked, triggers dialogue instead of opening
-- Useful for password entry, NPC interactions
-- Dialog can conditionally open door via script
+- `Conversation` (*ResRef*) stores the [DLG](GFF-Creature-and-Dialogue#dlg) file reference [[`utd.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
 
 ## Script Hooks
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `OnOpen` | *ResRef* | Fires when door opens |
-| `OnClose` | *ResRef* | Fires when door closes |
-| `OnClosed` | *ResRef* | Fires after door finishes closing |
+| `OnClosed` | *ResRef* | Fires when door closes/finishes closing [[`utd.py` `construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122), [reone `utd.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utd.cpp)] |
 | `OnDamaged` | *ResRef* | Fires when door takes damage |
 | `OnDeath` | *ResRef* | Fires when door is destroyed |
 | `OnDisarm` | *ResRef* | Fires when trap is disarmed |
@@ -174,28 +158,18 @@ UTD files store door templates for all interactive doors in an area. A door can 
 | `TrapOneShot` | [byte](GFF-File-Format#gff-data-types) | Trap triggers only once |
 | `TrapType` | [byte](GFF-File-Format#gff-data-types) | Index into `traps.2da` |
 
-**Trap Mechanics:**
-
-1. **Detection**: Player rolls Awareness vs. `TrapDetectDC`
-2. **Disarm**: Player rolls Security vs. `DisarmDC`
-3. **Trigger**: If not detected/disarmed, trap fires on door use
-4. **One-Shot**: Trap disabled after first trigger
+**Trap System fields** are defined in `traps.2da` indexed by `TrapType` [[`utd.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
 
 ## Load-Bearing Doors (KotOR2)
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `LoadScreenID` (KotOR2) | Word | Loading screen to show |
-| `LinkedTo` (KotOR2) | [CExoString](GFF-File-Format#gff-data-types) | Destination module tag |
-| `LinkedToFlags` (KotOR2) | [byte](https://en.wikipedia.org/wiki/Byte) | Transition behavior flags |
-| `LinkedToModule` (KotOR2) | *ResRef* | Destination module *ResRef* |
-| `TransitionDestin` (KotOR2) | [CExoLocString](GFF-File-Format#gff-data-types) | Destination label |
+| `LoadScreenID` | [DWord](GFF-File-Format#gff-data-types) | Loading screen to show [[`utd.py` `construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122), [reone `utd.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utd.cpp)] |
+| `LinkedTo` | [CExoString](GFF-File-Format#gff-data-types) | Destination waypoint tag (read by reone; not yet in PyKotor `construct_utd`) [[reone `utd.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utd.cpp)] |
+| `LinkedToFlags` | [DWord](GFF-File-Format#gff-data-types) | Transition behavior flags [[reone `utd.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utd.cpp)] |
+| `OpenState` (KotOR2) | [byte](GFF-File-Format#gff-data-types) | Door initial open state [[`utd.py` `construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122)] |
 
-**Transition System:**
-
-- Doors can load new modules/areas
-- Loading screen displayed during transition
-- Linked destination defines spawn point
+These transition and state fields are read from the UTD template. `LinkedTo`/`LinkedToFlags` are confirmed by reone; `OpenState` and `LoadScreenID` by PyKotor.
 
 ## Appearance Customization
 
@@ -204,79 +178,16 @@ UTD files store door templates for all interactive doors in an area. A door can 
 | `PortraitId` | [word](GFF-File-Format#gff-data-types) | Portrait icon identifier |
 | `PaletteID` | [byte](GFF-File-Format#gff-data-types) | Toolset palette category |
 
-**Visual Representation:**
-
-- `Appearance` determines 3D [model](MDL-MDX-File-Format)
-- Some doors have customizable [textures](Texture-Formats#tpc)
-- Portrait used in UI elements
-
 ## Implementation Notes
 
-**Door State Machine:**
-
-Doors maintain runtime state:
-
-1. **Closed**: Default state, blocking
-2. **Opening**: [animation](MDL-MDX-File-Format#animation-header) playing, becoming non-blocking
-3. **Open**: Fully open, non-blocking
-4. **Closing**: [animation](MDL-MDX-File-Format#animation-header) playing, becoming blocking
-5. **Locked**: Closed and cannot open
-6. **Destroyed**: Hit points depleted, permanently open
-
-**Opening Sequence:**
-
-1. Player clicks door
-2. If conversation set, start dialog
-3. If locked, check for a key item in inventory or Security skill
-4. If trapped, check for detection/disarm
-5. Fire `OnOpen` script
-6. Play opening [animation](MDL-MDX-File-Format#animation-header)
-7. Transition to "open" state
+PyKotor deserializes UTD fields via [`construct_utd`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L122) ([`utd.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)).
 
 **Locking system:**
 
-- **Lockable=0**: Door cannot be locked (always opens).
-- **Locked=1, KeyRequired=1**: Player must carry the item with the tag stored in `KeyName`.
-- **Locked=1, OpenLockDC>0**: Can pick the lock with the Security skill.
+- **Lockable=0**: Door cannot be locked (always opens) [[`utd.py` `UTD.lockable`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
+- **Locked=1, KeyRequired=1**: Player must carry the item with the tag stored in `KeyName` [[`utd.py` `UTD.key_name`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
+- **Locked=1, OpenLockDC>0**: Can pick the lock with the Security skill [[`utd.py` `UTD.open_lock_dc`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utd.py#L18)].
 - **Locked=1, KeyRequired=0, OpenLockDC=0**: Locked via script only.
-
-**Common Door types:**
-
-**Standard Doors:**
-
-- Simple open/close
-- No lock, HP, or trap
-- Used for interior navigation
-
-**Locked doors:**
-
-- Requires a key item or the Security skill.
-- Used as quest progression gates.
-- May have a conversation for password entry.
-
-**Destructible Doors:**
-
-- Have HP and Hardness
-- Can be bashed down
-- Alternative to lockpicking
-
-**Trapped Doors:**
-
-- Trigger trap on opening
-- Require detection and disarming
-- Often in hostile areas
-
-**Transition Doors:**
-
-- Load new modules/areas
-- Show loading screens
-- Used for major location changes
-
-**Conversation Doors:**
-
-- Trigger dialog on click
-- May open after conversation
-- Used for password entry, riddles
 
 ## See also
 
@@ -310,12 +221,12 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 
 **PyKotor:**
 
-- [`utp.py` `UTP` L19+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19) — in-memory placeable template (inventory, traps, HP, scripts)
-- [`construct_utp` L227+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L227)
-- [`read_utp` L405+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L405)
-- [`write_utp` L414+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L414) — GFF ↔ `UTP` round-trip
-- [`gff_data.py` `GFFContent.UTP` L154](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L154) — four-character GFF type id
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`utp.py` `UTP` L19+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19) — in-memory placeable template (inventory, traps, HP, scripts)
+- [`construct_utp` L108+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108)
+- [`read_utp` L286+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L286)
+- [`write_utp` L295+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L295) — GFF ↔ `UTP` round-trip
+- [`gff_data.py` `GFFContent.UTP` L154](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L154) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -349,9 +260,7 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 
 **Appearance System:**
 
-- [`placeables.2da`](2DA-File-Format#placeables2da) defines [models](MDL-MDX-File-Format), lighting, and sounds
-- Appearance determines visual [model](MDL-MDX-File-Format) and interaction [animation](MDL-MDX-File-Format#animation-header)
-- type influences behavior (container, switch, generic)
+- `Appearance` indexes into [`placeables.2da`](2DA-File-Format#placeables2da) which defines [models](MDL-MDX-File-Format) and sounds.
 
 ## Inventory System
 
@@ -370,10 +279,8 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 
 **Container Behavior:**
 
-- **HasInventory=1**: Can be looted
-- **BodyBag=1**: Corpse container (special loot rules)
-- ItemList populated on placeable instantiation
-- Empty containers can still be interacted with
+- **HasInventory=1**: Can be looted [[`utp.py` `UTP.has_inventory`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)].
+- **BodyBag=1**: Corpse container [[`utp.py` `UTP.body_bag`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)].
 
 ## Locking & Security
 
@@ -386,14 +293,10 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 | `AutoRemoveKey` | [byte](GFF-File-Format#gff-data-types) | Key item is consumed after a successful use |
 | `OpenLockDC` | [byte](GFF-File-Format#gff-data-types) | Security skill DC to pick lock |
 | `CloseLockDC` (KotOR2) | [byte](GFF-File-Format#gff-data-types) | Security DC to lock |
-| `OpenLockDiff` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Additional difficulty modifier |
-| `OpenLockDiffMod` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Modifier to difficulty |
+| `OpenLockDiff` (KotOR2) | [byte](GFF-File-Format#gff-data-types) | Additional lock difficulty [[`utp.py` `dismantle_utp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108)] |
+| `OpenLockDiffMod` (KotOR2) | [int8](GFF-File-Format#gff-data-types) | Modifier to lock difficulty [[`utp.py` `dismantle_utp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108)] |
 
-**Lock Mechanics:**
-
-- Identical to the [UTD](GFF-Spatial-Objects#utd) door locking system.
-- Prevents access to the placeable's inventory.
-- Can be opened with the Security skill or by carrying the matching key item.
+Lock fields defined in [`utp.py` `UTP`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19).
 
 ## Hit Points & Durability
 
@@ -409,9 +312,7 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 
 **Destructible Placeables:**
 
-- Containers, crates, and terminals can have HP
-- Some placeables reveal items when destroyed
-- Hardness reduces incoming damage
+- `HP` and `Hardness` fields define durability [[`utp.py` `UTP.hp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)]; `Min1HP` (KotOR2) prevents destruction.
 
 ## Interaction & Behavior
 
@@ -421,7 +322,7 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 | `Static` | [byte](GFF-File-Format#gff-data-types) | Static geometry (no interaction) |
 | `Useable` | [byte](GFF-File-Format#gff-data-types) | Can be clicked/used |
 | `Conversation` | *ResRef* | [Dialog](GFF-Creature-and-Dialogue#dlg) file when used |
-| `Faction` | [word](GFF-File-Format#gff-data-types) | Faction identifier |
+| `Faction` | [DWord](GFF-File-Format#gff-data-types) | Faction identifier [[`utp.py` `construct_utp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108)] |
 | `PartyInteract` | [byte](GFF-File-Format#gff-data-types) | Requires party member selection |
 | `NotBlastable` (KotOR2) | [byte](GFF-File-Format#gff-data-types) | Immune to area damage |
 
@@ -447,6 +348,7 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 | `OnMeleeAttacked` | *ResRef* | Fires when attacked in melee |
 | `OnOpen` | *ResRef* | Fires when opened |
 | `OnSpellCastAt` | *ResRef* | Fires when spell cast at placeable |
+| `OnTrapTriggered` | *ResRef* | Fires when trap activates [[`utp.py` `construct_utp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108), [reone `utp.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utp.cpp)] |
 | `OnUnlock` | *ResRef* | Fires when unlocked |
 | `OnUsed` | *ResRef* | Fires when used/clicked |
 | `OnUserDefined` | *ResRef* | Fires on user-defined events |
@@ -464,11 +366,7 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 | `TrapOneShot` | [byte](GFF-File-Format#gff-data-types) | Trap triggers only once |
 | `TrapType` | [byte](GFF-File-Format#gff-data-types) | Index into [`traps.2da`](2DA-File-Format#traps2da) ([trap definitions](2DA-File-Format#traps2da)) |
 
-**Trap Behavior:**
-
-- Identical to door trap system
-- Triggers on placeable use
-- Common on containers and terminals
+**Trap System fields** are defined in [`traps.2da`](2DA-File-Format#traps2da) indexed by `TrapType` [[`utp.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)].
 
 ## Visual Customization
 
@@ -477,115 +375,9 @@ UTP files store placeable object templates: containers, furniture, switches, wor
 | `PortraitId` | [word](GFF-File-Format#gff-data-types) | Portrait icon identifier |
 | `PaletteID` | [byte](GFF-File-Format#gff-data-types) | Toolset palette category |
 
-**[model](MDL-MDX-File-Format) & Lighting:**
-
-- Appearance determines [model](MDL-MDX-File-Format) and light color
-- Some placeables have animated components
-- Light properties defined in [`placeables.2da`](2DA-File-Format#placeables2da)
-
 ## Implementation Notes
 
-**Placeable Categories:**
-
-**Containers:**
-
-- Footlockers, crates, corpses
-- Have inventory (ItemList populated)
-- Can be locked, trapped, destroyed
-- `HasInventory=1`, `BodyBag` flag for corpses
-
-**Switches & Terminals:**
-
-- Trigger scripts or conversations
-- No inventory typically
-- `Useable=1`, `Conversation` or scripts set
-- Common for puzzle activation
-
-**Workbenches:**
-
-- Special placeable type for crafting
-- Opens crafting interface on use
-- Defined by type or Appearance
-
-**Furniture:**
-
-- Non-interactive decoration
-- `Static=1` or `Useable=0`
-- Pure visual elements
-
-**Environmental Objects:**
-
-- Explosive containers, power generators
-- Can be destroyed with effects
-- Often have HP and OnDeath scripts
-
-**Instantiation Flow:**
-
-1. **Template Load**: [GFF](GFF-File-Format) parsed from [UTP](GFF-File-Format#utp-placeable)
-2. **Appearance Setup**: [model](MDL-MDX-File-Format) loaded from [`placeables.2da`](2DA-File-Format#placeables2da)
-3. **Inventory Population**: ItemList instantiated
-4. **Lock State**: Locked status applied
-5. **Trap Activation**: Trap armed if configured
-6. **Script Registration**: Event handlers registered
-
-**Container Loot:**
-
-- ItemList defines initial inventory
-- Random loot can be added via script
-- OnInvDisturbed fires when items taken
-- BodyBag containers have special loot rules
-
-**Conversation Placeables:**
-
-- Terminals, control panels, puzzle interfaces
-- Conversation property set to [DLG](GFF-Creature-and-Dialogue#dlg) file
-- Use triggers dialog instead of direct interaction
-- Dialog can have conditional responses
-
-**Common Placeable types:**
-
-**Storage Containers:**
-
-- Footlockers, crates, bins
-- Standard inventory interface
-- Often locked or trapped
-
-**Corpses:**
-
-- BodyBag flag set
-- Contain enemy loot
-- Disappear when looted (usually)
-
-**Terminals:**
-
-- Computer interfaces
-- Trigger conversations or scripts
-- May require Computer Use skill checks
-
-**Switches:**
-
-- Activate doors, puzzles, machinery
-- Fire OnUsed script
-- Visual feedback [animation](MDL-MDX-File-Format#animation-header)
-
-**Workbenches:**
-
-- Crafting interface activation
-- Lab stations, upgrade benches
-- Special type value
-
-**Decorative Objects:**
-
-- No gameplay interaction
-- Static or non-useable
-- Environmental detail
-
-**Mines (Special Case):**
-
-- Placed as placeable or creature
-- Trap properties define behavior
-- Can be detected and disarmed
-- Trigger on proximity or interaction
+PyKotor deserializes UTP fields via [`construct_utp`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L108) ([`utp.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)). Inventory items in `ItemList` are keyed by `InventoryRes` (*ResRef*) pointing to [UTI](GFF-Items-and-Economy#uti) templates [[`utp.py` `UTP.inventory`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utp.py#L19)].
 
 ## See also
 
@@ -613,12 +405,12 @@ UTT files store trigger templates. Triggers are invisible volumes that fire scri
 
 **PyKotor:**
 
-- [`utt.py` `UTT` L17+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17) — in-memory trigger model (transitions, traps, script hooks)
-- [`construct_utt` L148+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L148)
-- [`read_utt` L265+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L265)
-- [`write_utt` L274+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L274) — GFF ↔ `UTT` round-trip
-- [`gff_data.py` `GFFContent.UTT` L157](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L157) — four-character GFF type id
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`utt.py` `UTT` L17+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17) — in-memory trigger model (transitions, traps, script hooks)
+- [`construct_utt` L103+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103)
+- [`read_utt` L209+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L209)
+- [`write_utt` L218+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L218) — GFF ↔ `UTT` round-trip
+- [`gff_data.py` `GFFContent.UTT` L157](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L157) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -643,39 +435,30 @@ Use community write-ups for **playtesting and tooling**; **UTT fields** follow t
 | ----- | ---- | ----------- |
 | `TemplateResRef` | *ResRef* | Template identifier for this trigger |
 | `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Unique tag for script references |
-| `LocName` | [CExoLocString](GFF-File-Format#gff-data-types) | Trigger name (localized) |
+| `LocalizedName` | [CExoLocString](GFF-File-Format#gff-data-types) | Trigger name (localized) [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
 | `Comment` | [CExoString](GFF-File-Format#gff-data-types) | Developer comment/notes |
 
 ## Trigger Configuration
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `Type` | Int | Trigger type (0=Generic, 1=Transition, 2=Trap) |
-| `Faction` | Word | Faction identifier |
-| `Cursor` | Int | Cursor icon when hovered (0=None, 1=Door, etc) |
+| `Type` | [int32](GFF-File-Format#gff-data-types) | Trigger type (0=Generic, 1=Transition, 2=Trap) [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
+| `Faction` | [DWord](GFF-File-Format#gff-data-types) | Faction identifier |
+| `Cursor` | [byte](GFF-File-Format#gff-data-types) | Cursor icon when hovered (0=None, 1=Door, etc) |
 | `HighlightHeight` | Float | Height of selection highlight |
 
-**Trigger types:**
-
-- **Generic**: Script execution volume
-- **Transition**: Loads new module or moves to waypoint
-- **Trap**: Damages/effects entering object
+Trigger type values defined in [`utt.py` `UTT.type`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17).
 
 ## Transition Settings
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `LinkedTo` | [CExoString](GFF-File-Format#gff-data-types) | Destination waypoint tag |
-| `LinkedToModule` | *ResRef* | Destination module *ResRef* |
-| `LinkedToFlags` | Byte | Transition behavior flags |
-| `LoadScreenID` | Word | Loading screen ID |
-| `PortraitId` | Word | Portrait ID (unused) |
+| `LinkedTo` | [CExoString](GFF-File-Format#gff-data-types) | Destination waypoint tag [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
+| `LinkedToFlags` | [DWord](GFF-File-Format#gff-data-types) | Transition behavior flags [[reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
+| `LoadScreenID` | [Word](GFF-File-Format#gff-data-types) | Loading screen ID [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103)] |
+| `PortraitId` | [Word](GFF-File-Format#gff-data-types) | Portrait ID (unused) |
 
-**Area Transitions:**
-
-- **LinkedToModule**: Target module to load
-- **LinkedTo**: Waypoint where player spawns
-- **LoadScreenID**: Image displayed during load
+Transition fields defined in [`utt.py` `UTT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17).
 
 ## Trap System
 
@@ -691,11 +474,7 @@ Use community write-ups for **playtesting and tooling**; **UTT fields** follow t
 | `AutoRemoveKey` | Byte | Key item is consumed on use |
 | `KeyName` | [CExoString](GFF-File-Format#gff-data-types) | Tag of the key item required to disarm or bypass the trap |
 
-**Trap Mechanics:**
-
-- Floor traps (mines, pressure plates) are triggers
-- Detection makes trap visible and clickable
-- Entering without disarm triggers trap effect
+Trap fields defined in [`utt.py` `UTT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17).
 
 ## Script Hooks
 
@@ -703,17 +482,13 @@ Use community write-ups for **playtesting and tooling**; **UTT fields** follow t
 | ----- | ---- | ----------- |
 | `OnClick` | *ResRef* | Fires when clicked |
 | `OnDisarm` | *ResRef* | Fires when disarmed |
-| `OnHeartbeat` | *ResRef* | Fires periodically |
-| `OnScriptEnter` | *ResRef* | Fires when object enters |
-| `OnScriptExit` | *ResRef* | Fires when object exits |
+| `ScriptHeartbeat` | *ResRef* | Fires periodically [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
+| `ScriptOnEnter` | *ResRef* | Fires when object enters [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
+| `ScriptOnExit` | *ResRef* | Fires when object exits [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
 | `OnTrapTriggered` | *ResRef* | Fires when trap activates |
-| `OnUserDefined` | *ResRef* | Fires on user event |
+| `ScriptUserDefine` | *ResRef* | Fires on user event [[`utt.py` `construct_utt`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L103), [reone `utt.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utt.cpp)] |
 
-**Scripting:**
-
-- **OnScriptEnter**: Most common hook (cutscenes, spawns)
-- **OnHeartbeat**: Area-of-effect damage/buffs
-- **OnClick**: Used for interactive transitions
+Script hook fields defined in [`utt.py` `UTT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utt.py#L17).
 
 ### See also
 
@@ -738,12 +513,12 @@ UTE files store encounter templates. An encounter is a trigger volume that spawn
 
 **PyKotor:**
 
-- [`ute.py` `UTE` L17+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L17) — in-memory encounter model (creature list, spawn options, scripts)
-- [`construct_ute` L219+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L219)
-- [`read_ute` L329+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L329)
-- [`write_ute` L338+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L338) — GFF ↔ `UTE` round-trip
-- [`gff_data.py` `GFFContent.UTE` L152](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L152) — four-character GFF type id (see also `GFFListSemanticConfig` for `CreatureList` in the same file)
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`ute.py` `UTE` L17+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L17) — in-memory encounter model (creature list, spawn options, scripts)
+- [`construct_ute` L87+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L87)
+- [`read_ute` L181+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L181)
+- [`write_ute` L190+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L190) — GFF ↔ `UTE` round-trip
+- [`gff_data.py` `GFFContent.UTE` L152](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L152) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -771,19 +546,14 @@ UTE files store encounter templates. An encounter is a trigger volume that spawn
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Active` | Byte | Encounter is currently active |
-| `Difficulty` | Int | Difficulty setting (unused) |
+| `Difficulty` | Int | Difficulty setting (unused, deprecated) |
 | `DifficultyIndex` | Int | Difficulty scaling index |
-| `Faction` | Word | Faction of spawned creatures |
+| `Faction` | [DWord](GFF-File-Format#gff-data-types) | Faction of spawned creatures [[`ute.py` `construct_ute`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L87)] |
 | `MaxCreatures` | Int | Maximum concurrent creatures |
 | `RecCreatures` | Int | Recommended number of creatures |
 | `SpawnOption` | Int | Spawn behavior (0=Continuous, 1=Single Shot) |
 
-**Spawn Behavior:**
-
-- **Active**: If 0, encounter won't trigger until activated by script
-- **MaxCreatures**: Hard limit on spawned entities to prevent overcrowding
-- **RecCreatures**: Target number to maintain
-- **SpawnOption**: Single Shot encounters fire once and disable
+Fields defined in [`ute.py` `UTE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L17).
 
 ## Respawn Logic
 
@@ -793,11 +563,7 @@ UTE files store encounter templates. An encounter is a trigger volume that spawn
 | `ResetTime` | Int | Time in seconds before reset |
 | `Respawns` | Int | Number of times it can respawn (-1 = infinite) |
 
-**Respawn System:**
-
-- Allows for renewable enemy sources
-- **ResetTime**: Cooldown period after players leave area
-- **Respawns**: Limits farming/grinding
+Respawn configuration fields defined in [`ute.py` `UTE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L17).
 
 ## Creature List
 
@@ -807,15 +573,15 @@ UTE files store encounter templates. An encounter is a trigger volume that spawn
 
 **CreatureList Struct fields:**
 
-- `*ResRef*` (*ResRef*): [UTC](GFF-File-Format#utc-creature) template to spawn
-- `Appearance` (Int): Appearance type (optional override)
-- `CR` (Float): Challenge Rating
-- `SingleSpawn` (Byte): Unique spawn flag
+- `ResRef` (*ResRef*): [UTC](GFF-Creature-and-Dialogue#utc) template to spawn [[`ute.py` `construct_ute`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L87), [reone `ute.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ute.cpp)]
+- `Appearance` (Int): Appearance type override (toolset-oriented; not used in K1 spawn resolution)
+- `CR` (Float): Challenge Rating for spawn selection
+- `SingleSpawn` (Byte): Unique spawn flag (creature spawns only once)
+- `GuaranteedCount` (Int, KotOR2 only): Guaranteed spawn count [[`ute.py` `construct_ute`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L87), [reone `ute.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ute.cpp)]
 
 **Spawn Selection:**
 
-- Engine selects from CreatureList based on CR and difficulty
-- Random selection weighted by difficulty settings
+- `CreatureList` entries are defined by `ResRef` (*ResRef*) pointing to [UTC](GFF-Creature-and-Dialogue#utc) templates, with `CR` (Float) and `SingleSpawn` (Byte) per entry [[`ute.py` `UTECreature`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L63)].
 
 ## Trigger Logic
 
@@ -830,9 +596,7 @@ UTE files store encounter templates. An encounter is a trigger volume that spawn
 
 **Implementation Notes:**
 
-- Encounters are volumes ([geometry](MDL-MDX-File-Format#geometry-header) defined in [GIT](GFF-File-Format#git-game-instance-template))
-- Spawning happens when volume is entered
-- Creatures spawn at specific spawn points ([UTW](GFF-File-Format#utw-waypoint)) or random locations
+PyKotor deserializes UTE fields via [`construct_ute`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L87) ([`ute.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ute.py#L17)).
 
 ### See also
 
@@ -858,12 +622,12 @@ UTS files store sound emitter templates. A sound emitter can play looping positi
 
 **PyKotor:**
 
-- [`uts.py` `UTS` L18+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L18) — in-memory sound-object model (playback, 3D params, sound list)
-- [`construct_uts` L187+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L187)
-- [`read_uts` L286+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L286)
-- [`write_uts` L295+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L295) — GFF ↔ `UTS` round-trip
-- [`gff_data.py` `GFFContent.UTS` L155](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L155) — four-character GFF type id
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`uts.py` `UTS` L18+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L18) — in-memory sound-object model (playback, 3D params, sound list)
+- [`construct_uts` L125+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125)
+- [`read_uts` L214+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L214)
+- [`write_uts` L223+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L223) — GFF ↔ `UTS` round-trip
+- [`gff_data.py` `GFFContent.UTS` L155](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L155) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -900,23 +664,21 @@ Forum posts explain **workflow**; **UTS field tables** stay anchored here + BioW
 | `Looping` | Byte | Individual samples loop |
 | `Positional` | Byte | Sound is 3D positional |
 | `Random` | Byte | Randomly select from Sounds list |
+| `Priority` | Byte | Sound priority level [[`uts.py` `construct_uts`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125), [reone `uts.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/uts.cpp)] |
 | `Volume` | Byte | Volume level (0-127) |
-| `VolumeVary` | Byte | Random volume variation |
-| `PitchVary` | Byte | Random pitch variation |
+| `VolumeVrtn` | Byte | Random volume variation [[`uts.py` `construct_uts`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125), [reone `uts.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/uts.cpp)] |
+| `PitchVariation` | Float | Random pitch variation [[`uts.py` `construct_uts`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125), [reone `uts.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/uts.cpp)] |
 
 ## Timing & Interval
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `Interval` | Int | Delay between plays (seconds) |
-| `IntervalVary` | Int | Random interval variation |
-| `Times` | Int | Times to play (unused) |
+| `Interval` | [DWord](GFF-File-Format#gff-data-types) | Delay between plays (seconds) |
+| `IntervalVrtn` | [DWord](GFF-File-Format#gff-data-types) | Random interval variation [[`uts.py` `construct_uts`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125), [reone `uts.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/uts.cpp)] |
+| `Times` | [DWord](GFF-File-Format#gff-data-types) | Times to play (not used by engine) |
+| `Hours` | [DWord](GFF-File-Format#gff-data-types) | Hour restriction (not used by engine) [[`uts.py` `construct_uts`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L125), [reone `uts.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/uts.cpp)] |
 
-**Playback Modes:**
-
-- **Continuous**: Loops one sample indefinitely (machinery, hum)
-- **Interval**: Plays samples with delays (birds, random creaks)
-- **Random**: Picks different sample each time
+Playback fields defined in [`uts.py` `UTS`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L18).
 
 ## Positioning
 
@@ -929,11 +691,7 @@ Forum posts explain **workflow**; **UTS field tables** stay anchored here + BioW
 | `RandomRangeX` | Float | X-axis random range |
 | `RandomRangeY` | Float | Y-axis random range |
 
-**3D Audio:**
-
-- **Positional=1**: Sound attenuates with distance and pans
-- **Positional=0**: Global stereo sound (music, voiceover)
-- **Min/Max Distance**: Controls falloff curve
+Positioning fields defined in [`uts.py` `UTS`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L18).
 
 ## Sound List
 
@@ -941,14 +699,7 @@ Forum posts explain **workflow**; **UTS field tables** stay anchored here + BioW
 | ----- | ---- | ----------- |
 | `Sounds` | List | List of audio files to play ([WAV](Audio-and-Localization-Formats#wav) or MP3) |
 
-**Sounds Struct fields:**
-
-- `Sound` (*ResRef*): Audio file resource
-
-**Randomization:**
-
-- If `Random=1`, engine picks one sound from list each interval
-- Allows for varied ambience (e.g., 5 different bird calls)
+`Sound` (*ResRef*) entries are defined in [`uts.py` `UTS.sounds`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/uts.py#L18).
 
 ### See also
 
@@ -973,12 +724,12 @@ UTW files store waypoint templates. Waypoints are invisible markers used as NPC 
 
 **PyKotor:**
 
-- [`utw.py` `UTW` L17+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L17) — in-memory waypoint model (map notes, tags, links)
-- [`construct_utw` L115+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L115)
-- [`read_utw` L183+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L183)
-- [`write_utw` L192+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L192) — GFF ↔ `UTW` round-trip
-- [`gff_data.py` `GFFContent.UTW` L158](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L158) — four-character GFF type id
-- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
+- [`utw.py` `UTW` L17+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L17) — in-memory waypoint model (map notes, tags, links)
+- [`construct_utw` L77+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L77)
+- [`read_utw` L134+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L134)
+- [`write_utw` L143+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L143) — GFF ↔ `UTW` round-trip
+- [`gff_data.py` `GFFContent.UTW` L158](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L158) — four-character GFF type id
+- [`io_gff.py` `GFFBinaryReader.load` L82+](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) — binary GFF decode (shared with other GFF types)
 
 **Cross-reference (other implementations):**
 
@@ -1005,7 +756,7 @@ Treat forum threads as **workflow** context; **UTW fields** follow this page + B
 | `Tag` | [CExoString](GFF-File-Format#gff-data-types) | "" | Unique tag for GetObjectByTag/GetWaypointByTag and door/trigger links. Keep unique per area. |
 | `LocalizedName` | [CExoLocString](GFF-File-Format#gff-data-types) | empty | Waypoint name on map and in travel menu. |
 | `Description` | [CExoLocString](GFF-File-Format#gff-data-types) | empty | Not read by engine; toolset/legacy only. |
-| `Comment` | [CExoString](GFF-File-Format#gff-data-types) | "" | Developer comment; not used by the game. |
+| `Comment` | [CExoString](GFF-File-Format#gff-data-types) | "" | Developer comment; not used by the game [[`utw.py` `construct_utw`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L77), [reone `utw.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/utw.cpp)]. |
 
 ---
 
@@ -1017,11 +768,9 @@ Treat forum threads as **workflow** context; **UTW fields** follow this page + B
 | `MapNoteEnabled` | Byte | Map note is initially visible |
 | `MapNote` | [CExoLocString](GFF-File-Format#gff-data-types) | Text displayed on map |
 
-### Map Notes
+Map note fields defined in [`utw.py` `UTW`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L17).
 
-- If enabled, shows text on the in-game map
-- Can be enabled/disabled via script (`SetMapPinEnabled`)
-- Used for quest objectives and locations
+Waypoint identity and link fields defined in [`utw.py` `UTW`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L17).
 
 ---
 
@@ -1033,16 +782,11 @@ Treat forum threads as **workflow** context; **UTW fields** follow this page + B
 | `Appearance` | Byte | Appearance type (1=Waypoint) |
 | `PaletteID` | Byte | Toolset palette category |
 
+Fields defined in [`utw.py` `UTW`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/utw.py#L17).
+
 ---
 
-## Usage
-
-- **Spawn Points**: `CreateObject` uses waypoint location
-- **Patrols**: AI walks between waypoints
-- **Teleport**: `JumpToLocation` targets waypoints
-- **Transitions**: Doors/Triggers link to waypoint tags
-
-### See also
+## See also
 
 - [GFF File Format](GFF-File-Format) - Parent format and [UTW waypoint](GFF-File-Format#utw-waypoint) definition
 - [GFF-GIT](GFF-Module-and-Area#git) - Game instance template (waypoint placement)
