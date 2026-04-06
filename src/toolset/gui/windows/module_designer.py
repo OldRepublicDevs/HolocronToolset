@@ -609,6 +609,10 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         # --- Active tool (Select / Move / Rotate) ---
         self._active_tool: int = EditorTool.SELECT
 
+        # Pre-initialize _lyt_renderer so _apply_mode_visibility can safely None-check it
+        # before it is fully constructed below.
+        self._lyt_renderer: LYTRenderer | None = None
+
         # Connect mode selector and sync combo to initial mode
         self.ui.modeSelector.currentIndexChanged.connect(self._on_mode_changed)
         self.ui.modeSelector.blockSignals(True)
@@ -654,7 +658,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self._controls2d: ModuleDesignerControls2d = ModuleDesignerControls2d(self, self.ui.flatRenderer)
 
         # LYT renderer for layout tab (2D LYT editing surface).
-        self._lyt_renderer: LYTRenderer | None = LYTRenderer(parent=self)
+        self._lyt_renderer = LYTRenderer(parent=self)
         self._lyt_renderer.sig_element_selected.connect(self._on_lyt_renderer_element_selected)
         self._lyt_renderer.sig_element_moved.connect(self._on_lyt_renderer_element_moved)
         renderer_splitter = self.ui.mainRenderer.parentWidget()
