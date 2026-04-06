@@ -1915,8 +1915,8 @@ class TwoDAEditor(Editor):
         self.ui.actionFillRight.triggered.connect(self.fill_right)
         self.ui.actionTransposeTable.triggered.connect(self.transpose_table)
 
-        self.ui.actionResizeColumnsToContents.triggered.connect(self.ui.twodaTable.resizeColumnsToContents)
-        self.ui.actionResizeRowsToContents.triggered.connect(self.ui.twodaTable.resizeRowsToContents)
+        self.ui.actionResizeColumnsToContents.triggered.connect(lambda *_: self.ui.twodaTable.resizeColumnsToContents())
+        self.ui.actionResizeRowsToContents.triggered.connect(lambda *_: self.ui.twodaTable.resizeRowsToContents())
         self.ui.actionAutoFitColumnsOnLoad.triggered.connect(self._on_auto_fit_columns_toggled)
         self.ui.actionWrapTextInCells.triggered.connect(self._on_wrap_text_toggled)
         self.ui.actionAlternatingRowColors.triggered.connect(self._on_alternating_row_colors_toggled)
