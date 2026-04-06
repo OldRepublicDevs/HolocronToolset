@@ -9,9 +9,9 @@ The `[HACKList]` section in TSLPatcher's `changes.ini` file enables you to modif
 In PyKotor's current implementation, HACKList is a first-class emitted section: `TSLPatcherINISerializer.serialize()` writes it explicitly via `_serialize_hack_list()` after the earlier data and structure passes, but `TSLPatchDataGenerator.generate_all_files()` does not synthesize NCS payloads the way it does TLK, 2DA, GFF, or SSF resources. In practice that means HACKList normally operates on compiled scripts that already exist in `tslpatchdata`, are copied in as install assets, or are produced by the compile-stage workflow before the binary patch pass runs [[`TSLPatcherINISerializer.serialize()`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/tslpatcher/writer.py#L222-L285), [`_serialize_hack_list`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/tslpatcher/writer.py#L1034-L1092), [`TSLPatchDataGenerator.generate_all_files()`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/tslpatcher/diff/generator.py#L93-L140), [Deadly Stream TSLPatcher page](https://deadlystream.com/files/file/1039-tsl-patcher-tlked-and-accessories/)].
 
 - Patching numerical values in existing compiled scripts
-- Injecting dynamically-generated string references ([StrRef](TLK-File-Format#string-references-strref)) and [2DA](2DA-File-Format) memory values ([2DAMEMORY](2DA-File-Format#2damemory-memory-tokens))
+- Injecting dynamically-generated string references ([StrRef](Audio-and-Localization-Formats#string-references-strref)) and [2DA](2DA-File-Format) memory values ([2DAMEMORY](TSLPatcher-2DAList-Syntax#2damemory-tokens))
 - Performing surgical modifications to hardcoded constants
-- Updating scripts to reference new [TLK](TLK-File-Format) entries or [2DA](2DA-File-Format) row numbers/indexes
+- Updating scripts to reference new [TLK](Audio-and-Localization-Formats#tlk) entries or [2DA](2DA-File-Format) row numbers/indexes
 
 **Important:** HACKList is executed **after** [`[CompileList]`](TSLPatcher-CompileList-Syntax) during patcher execution, allowing compiled scripts to be modified after compilation if needed.
 
@@ -67,7 +67,7 @@ The `[HACKList]` section declares [NCS files](NCS-File-Format) to modify. Each e
 
 ### Top-Level Keys in [HACKList]
 
-| key | type | Default | Description |
+| Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `!DefaultDestination` | string | `override` | Default destination for all [NCS files](NCS-File-Format) in this section |
 | `!DefaultSourceFolder` | string | `.` | Default source folder for [NCS files](NCS-File-Format). This is a relative path from `mod_path`, which is typically the `tslpatchdata` folder (the parent directory of the `changes.ini` file). The default value `.` refers to the `tslpatchdata` folder itself. Path resolution: `mod_path / !DefaultSourceFolder / filename` |
@@ -76,7 +76,7 @@ The `[HACKList]` section declares [NCS files](NCS-File-Format) to modify. Each e
 
 Each [NCS file](NCS-File-Format) requires its own section (e.g., `[myscript.ncs]`).
 
-| Key | type | Default | Description |
+| Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `!Destination` | string | Inherited from `!DefaultDestination` | Where to save the modified file (`override` or `path\to\file.mod`) |
 | `!SourceFolder` | string | Inherited from `!DefaultSourceFolder` | Source folder for the [NCS file](NCS-File-Format). Relative path from `mod_path` (typically the tslpatchdata folder). When `.`, refers to the tslpatchdata folder itself. |
@@ -187,7 +187,7 @@ File0=myscript.ncs
 - Patching appearance/spell IDs to reference new rows
 - Updating hardcoded IDs to mod-added entries
 
-**Important Limitation:** [`!FieldPath`](TSLPatcher-GFFList-Syntax#fieldpath-syntax) values are NOT supported in HACKList. Only numeric memory values can be used.
+**Important Limitation:** [`!FieldPath`](TSLPatcher-GFFList-Syntax#field-path-syntax) values are NOT supported in HACKList. Only numeric memory values can be used.
 
 ## Offset Calculation Syntax
 
@@ -275,7 +275,7 @@ File0=combat_script.ncs
 
 ### Example 2: Injecting Dynamic [TLK](Audio-and-Localization-Formats#tlk) Reference
 
-Inject a dynamically-added [StrRef](TLK-File-Format#string-references-strref) value:
+Inject a dynamically-added [StrRef](Audio-and-Localization-Formats#string-references-strref) value:
 
 ```ini
 [TLKList]
@@ -355,7 +355,7 @@ ReplaceFile=1
 0x60=u32:0xDEADBEEF
 ```
 
-### Example 6: Saving to Container ([`!DefaultDestination`](TSLPatcher-InstallList-Syntax#defaultdestination-syntax))
+### Example 6: Saving to Container ([`!DefaultDestination`](TSLPatcher-InstallList-Syntax#default-destination))
 
 Save modified scripts to a [module container](Container-Formats#erf):
 
@@ -468,7 +468,7 @@ File0=buggy_script.ncs
 3. Ensure you're not overwriting opcodes accidentally (e.g. `CONSTI` is an opcode, not a value, so `0x0E=u16:100` is incorrect, it should be `0x0E=u16:100`)
 4. Verify big-endian [byte](https://en.wikipedia.org/wiki/Byte) order for multi-[byte](https://en.wikipedia.org/wiki/Byte) values (e.g. `u16:0x1234` is `0x12 0x34`, not `0x34 0x12`)
 
-### Memory Token Not Defined ([`StrRefN`](TSLPatcher-TLKList-Syntax#strrefn-syntax)/[`2DAMEMORYN`](TSLPatcher-2DAList-Syntax#2damemoryn-syntax))
+### Memory Token Not Defined ([`StrRefN`](TSLPatcher-TLKList-Syntax#strref-entries)/[`2DAMEMORYN`](TSLPatcher-2DAList-Syntax#2damemory-tokens))
 
 **Problem:** `StrRefN`/`2DAMEMORYN` was not defined before use
 
@@ -491,27 +491,27 @@ File0=buggy_script.ncs
 3. Ensure you're not truncating large values with `u8`/`u16`
 4. Verify signed vs unsigned behavior for large values (e.g. `u32:0x80000000` is a negative number)
 
-### File Not Found ([`!SourceFile`](TSLPatcher-InstallList-Syntax#sourcefile-syntax))
+### File Not Found ([`!SourceFile`](TSLPatcher-InstallList-Syntax#file-level-configuration))
 
 **Problem:** `File not found` error during patching
 
 **Solutions:**
 
-1. Verify [`!SourceFile`](TSLPatcher-InstallList-Syntax#sourcefile-syntax) points to the correct filename (e.g. `source.ncs`)
-2. Check [`!DefaultSourceFolder`](TSLPatcher-InstallList-Syntax#defaultsourcefolder-syntax) and [`!SourceFolder`](TSLPatcher-InstallList-Syntax#sourcefolder-syntax) paths (e.g. `tslpatchdata\source.ncs`)
+1. Verify [`!SourceFile`](TSLPatcher-InstallList-Syntax#file-level-configuration) points to the correct filename (e.g. `source.ncs`)
+2. Check [`!DefaultSourceFolder`](TSLPatcher-InstallList-Syntax#source-folder-configuration) and [`!SourceFolder`](TSLPatcher-InstallList-Syntax#source-folder-configuration) paths (e.g. `tslpatchdata\source.ncs`)
 3. Ensure the source file exists in the tslpatchdata folder (e.g. `tslpatchdata\source.ncs`)
 4. Verify the file extension is `.ncs`
 
-### Archival Insertion Issues ([`!Destination`](TSLPatcher-InstallList-Syntax#destination-syntax))
+### Archival Insertion Issues ([`!Destination`](TSLPatcher-InstallList-Syntax#file-level-configuration))
 
 **Problem:** Modified script not appearing in [ERF](Container-Formats#erf)/MOD/[RIM](Container-Formats#rim) container
 
 **Solutions:**
 
-1. Verify [`!Destination`](TSLPatcher-InstallList-Syntax#destination-syntax) path uses backslashes
+1. Verify [`!Destination`](TSLPatcher-InstallList-Syntax#file-level-configuration) path uses backslashes
 2. Check the bioware container exists before insertion (e.g. `Modules\mymod.mod`)
 3. Ensure the destination folder structure is correct
-4. Verify the [`ReplaceFile`](TSLPatcher-InstallList-Syntax#replacefile-syntax) setting (`0` = skip if exists, `1` = overwrite) (`0` = skip if the file exists, `1` = overwrite the existing file)
+4. Verify the [`ReplaceFile`](TSLPatcher-InstallList-Syntax#file-replacement-behavior) setting (`0` = skip if exists, `1` = overwrite) (`0` = skip if the file exists, `1` = overwrite the existing file)
 
 ## Technical Details
 
@@ -520,9 +520,9 @@ File0=buggy_script.ncs
 **HoloPatcher** processes patch lists in this order:
 
 1. [`[InstallList]`](TSLPatcher-InstallList-Syntax) (install files)
-2. [`[TLKList]`](TSLPatcher-TLKList-Syntax) (add [TLK](TLK-File-Format) text or sound entries or create [StrRef](TLK-File-Format#string-references-strref) memory tokens)
-3. [`[2DAList]`](TSLPatcher-2DAList-Syntax) (modify [2DA](2DA-File-Format) files or create [2DAMEMORY](2DA-File-Format#2damemory-memory-tokens) memory tokens)
-4. [`[GFFList]`](TSLPatcher-GFFList-Syntax) (modify [GFF](GFF-File-Format) files or create [2DAMEMORY](2DA-File-Format#2damemory-memory-tokens) memory tokens from [`!FieldPath`](TSLPatcher-GFFList-Syntax#fieldpath-syntax))
+2. [`[TLKList]`](TSLPatcher-TLKList-Syntax) (add [TLK](Audio-and-Localization-Formats#tlk) text or sound entries or create [StrRef](Audio-and-Localization-Formats#string-references-strref) memory tokens)
+3. [`[2DAList]`](TSLPatcher-2DAList-Syntax) (modify [2DA](2DA-File-Format) files or create [2DAMEMORY](TSLPatcher-2DAList-Syntax#2damemory-tokens) memory tokens)
+4. [`[GFFList]`](TSLPatcher-GFFList-Syntax) (modify [GFF](GFF-File-Format) files or create [2DAMEMORY](TSLPatcher-2DAList-Syntax#2damemory-tokens) memory tokens from [`!FieldPath`](TSLPatcher-GFFList-Syntax#field-path-syntax))
 5. [`[CompileList]`](TSLPatcher-CompileList-Syntax) (compile [NSS](NSS-File-Format) to [NCS](NCS-File-Format))
 6. [`[HACKList]`](TSLPatcher-HACKList-Syntax) (modify [NCS](NCS-File-Format) bytecode) ← **You are here**
 7. [`[SSFList]`](TSLPatcher-SSFList-Syntax) (modify soundset files)
@@ -541,7 +541,7 @@ All multi-[byte](https://en.wikipedia.org/wiki/Byte) values are written in **[bi
 
 ### `ReplaceFile` Key Behavior
 
-Unlike other patch lists, `[HACKList]`'s [`ReplaceFile`](TSLPatcher-InstallList-Syntax#replacefile-syntax) key does **not** use an exclamation point:
+Unlike other patch lists, `[HACKList]`'s [`ReplaceFile`](TSLPatcher-InstallList-Syntax#file-replacement-behavior) key does **not** use an exclamation point:
 
 ```ini
 ; CORRECT (`[HACKList]` syntax)

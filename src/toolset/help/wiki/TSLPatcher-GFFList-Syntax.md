@@ -4,7 +4,7 @@ This guide explains how to modify [GFF files](GFF-File-Format) using TSLPatcher 
 
 ## Overview
 
-The `[GFFList]` section in TSLPatcher's `changes.ini` lets you edit or add data inside GFF (Generic file format) files used across KotOR. You will use this to change items ([UTI](GFF-File-Format#uti-item)), creatures ([UTC](GFF-File-Format#utc-creature)), dialogs ([DLG](GFF-File-Format#dlg-dialogue)), placeables ([UTP](GFF-File-Format#utp-placeable)), triggers ([UTT](GFF-File-Format#utt-trigger)), waypoints ([UTW](GFF-File-Format#utw-waypoint)), areas ([ARE](GFF-File-Format#are-area)), journal entries ([JRL](GFF-File-Format#jrl-journal-entry)), paths ([PTH](GFF-File-Format#pth-path)), module/level info ([IFO](GFF-File-Format#ifo-module-info)), and scripts data ([GIT](GFF-File-Format#git-game-instance-template)).
+The `[GFFList]` section in TSLPatcher's `changes.ini` lets you edit or add data inside GFF (Generic file format) files used across KotOR. You will use this to change items ([UTI](GFF-File-Format#uti-item)), creatures ([UTC](GFF-File-Format#utc-creature)), dialogs ([DLG](GFF-File-Format#dlg-dialogue)), placeables ([UTP](GFF-File-Format#utp-placeable)), triggers ([UTT](GFF-File-Format#utt-trigger)), waypoints ([UTW](GFF-File-Format#utw-waypoint)), areas ([ARE](GFF-File-Format#are-area)), journal entries ([JRL](GFF-File-Format#jrl-journal)), paths ([PTH](GFF-File-Format#pth-path)), module/level info ([IFO](GFF-File-Format#ifo-module-info)), and scripts data ([GIT](GFF-File-Format#git-game-instance-template)).
 
 ## Table of Contents
 

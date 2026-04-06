@@ -140,8 +140,7 @@ All controls share these base properties:
 
 - Used for keyboard/D-pad navigation
 - value of -1 or 0 indicates no navigation in that direction
-- Engine automatically wraps navigation at list boundaries
-- Essential for [controller](MDL-MDX-File-Format#controllers)/keyboard-only gameplay
+- Essential for controller/keyboard-only gameplay
 
 **HILIGHT Struct:**
 
@@ -427,9 +426,9 @@ All controls share these base properties:
 - **color** (Vector3): RGB color modulation (0.0-1.0 range)
 - **ALPHA** (float): Transparency (0.0=transparent, 1.0=opaque)
 - colors multiply with textures (white=full color, black=no color)
-- KotOR 1 default text color: RGB(0.0, 0.659, 0.980) - cyan
-- KotOR 2 default text color: RGB(0.102, 0.698, 0.549) - teal (exact values from engine) ([KotOR.js `GUIControl.ts` L188-194](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/gui/GUIControl.ts#L188-L194)).
-- Default highlight color: RGB(1.0, 1.0, 0.0) - yellow
+- KotOR 1 default text color: RGB(0.0, 0.658824, 0.980392) — cyan [[KotOR.js `GUIControl.ts` L188](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/gui/GUIControl.ts#L188)]
+- KotOR 2 default text color: RGB(0.102, 0.698, 0.549) — teal [[KotOR.js `GUIControl.ts` L192](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/gui/GUIControl.ts#L192)]
+- KotOR 2 default highlight color: RGB(0.8, 0.8, 0.698) [[KotOR.js `GUIControl.ts` L193](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/gui/GUIControl.ts#L193)]
 
 **Border Rendering:**
 
@@ -446,7 +445,7 @@ All controls share these base properties:
 - Each character has fixed width/height in font [texture](Texture-Formats#tpc)
 - TEXT field takes precedence over [StrRef](Audio-and-Localization-Formats#string-references-strref) if both set
 - [StrRef](Audio-and-Localization-Formats#string-references-strref) references [dialog.tlk](Audio-and-Localization-Formats#tlk) for localized strings
-- ALIGNMENT uses bitfield: horizontal (1=left, 2=center, 3=right) + vertical (0=top, 16=center, 32=bottom)
+- ALIGNMENT uses bitfield: horizontal (1=left, 2=center, 3=right) + vertical (0=top, 16=center, 32=bottom) [[`gui.py` GUIAlignment](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/gui.py#L39)]
 - Text color modulates font [texture](Texture-Formats#tpc)
 
 **State Management:**
@@ -455,7 +454,6 @@ All controls share these base properties:
 - **Hover**: HILIGHT struct overlays/replaces BORDER
 - **Selected**: SELECTED struct defines appearance (CheckBox, ListBox items)
 - **Hover+Selected**: HILIGHTSELECTED struct (highest priority)
-- State transitions handled automatically by engine
 
 **Control IDs:**
 
@@ -471,7 +469,6 @@ All controls share these base properties:
 - **MOVETO** struct defines D-pad/keyboard navigation
 - value is Control ID of target control
 - -1 or 0 indicates no navigation in that direction
-- Engine handles wrapping at list boundaries
 - Essential for [controller](MDL-MDX-File-Format#controllers)/keyboard-only gameplay
 
 **ScrollBar Integration:**
@@ -485,10 +482,9 @@ All controls share these base properties:
 
 **Pulsing [animation](MDL-MDX-File-Format#animation-header):**
 
-- **PULSING** flag in BORDER, TEXT, HILIGHT, SELECTED structs
+- **PULSING** flag in BORDER, TEXT, HILIGHT, SELECTED structs [[`gui.py` GUIBorder.pulsing L65](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/gui.py#L65)]
 - When enabled, control pulses (fades in/out)
 - Used for attention-grabbing effects
-- [animation](MDL-MDX-File-Format#animation-header) speed controlled by engine
 
 **[texture](Texture-Formats#tpc) formats:**
 
@@ -497,28 +493,11 @@ All controls share these base properties:
 - Border pieces designed to tile seamlessly
 - Font [textures](Texture-Formats#tpc) contain character glyphs in fixed grid
 
-**Performance Considerations:**
-
-- Complex GUIs with many controls impact rendering
-- Nested controls increase draw calls
-- Large [texture](Texture-Formats#tpc) borders increase memory usage
-- Pulsing [animations](MDL-MDX-File-Format#animation-header) require per-frame updates
-
-**Common Patterns:**
-
-- **Main Menu**: Root Panel with Button controls
-- **Dialogue**: Panel with Label (message) and ListBox (replies)
-- **Inventory**: ListBox with ProtoItem template
-- **Character Sheet**: Panel with multiple Label and Button controls
-- **Options Menu**: Panel with Slider and CheckBox controls
-
 **KotOR-Specific Notes:**
 
 - GUIs are loaded from `.gui` files ([GFF](GFF-File-Format) format)
-- Engine scales GUIs for different resolutions
-- Some controls have hardcoded behaviors (e.g., inventory slots)
+- Base resolution 640x480 is scaled for higher resolutions ([reone `gui.h` L38-39](https://github.com/seedhartha/reone/blob/master/include/reone/gui/gui.h#L38-L39))
 - Scripts can access controls by TAG or ID
-- [GUI](GFF-File-Format#gui-graphical-user-interface) state can be modified at runtime via scripts
 
 ### See also
 
