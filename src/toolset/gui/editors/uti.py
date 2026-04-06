@@ -9,9 +9,12 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QAction,  # pyright: ignore[reportPrivateImportUsage]
     QApplication,
+    QComboBox,
     QDialog,
+    QLineEdit,
     QListWidgetItem,
     QMenu,
+    QPlainTextEdit,
     QShortcut,  # pyright: ignore[reportPrivateImportUsage]
     QTreeWidgetItem,
 )
@@ -37,7 +40,7 @@ if TYPE_CHECKING:
 
     from qtpy.QtCore import QModelIndex, QPoint
     from qtpy.QtGui import QClipboard, QPixmap
-    from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+    from qtpy.QtWidgets import QWidget
     from typing_extensions import Literal  # pyright: ignore[reportMissingTypeStubs]
 
     from pykotor.common.module import GFF
@@ -64,10 +67,9 @@ class UTIEditor(Editor):
             installation: {HTInstallation}: The KOTOR installation.
         """
         supported: list[ResourceType] = [ResourceType.UTI]
-        super().__init__(parent, "Item Editor", "item", supported, supported, installation)
-
-        self._uti: UTI = UTI()
         self.globalSettings: GlobalSettings = GlobalSettings()
+        self._uti: UTI = UTI()
+        super().__init__(parent, "Item Editor", "item", supported, supported, installation)
 
         from toolset.uic.qtpy.editors.uti import Ui_MainWindow
 
