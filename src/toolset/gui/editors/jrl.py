@@ -70,17 +70,12 @@ class JRLEditor(Editor):
         self._model: QStandardItemModel = QStandardItemModel(self)
         from toolset.uic.qtpy.editors.jrl import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self.ui.journalTree.setModel(self._model)
         self.ui.journalTree.setSelectionMode(QTreeView.SelectionMode.SingleSelection)
         self.ui.splitter.setSizes([99999999, 1])
 
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
         self.resize(400, 250)
 
         from toolset.gui.editors.jrl_settings import JRLEditorSettings
@@ -91,7 +86,7 @@ class JRLEditor(Editor):
         self._add_help_action()
         self._setup_signals()
         self._setup_filter()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
         self.new()
@@ -146,6 +141,8 @@ class JRLEditor(Editor):
         QMessageBox(QMessageBox.Icon.Warning, "No Tag", "This quest has no tag set.", parent=self).exec()
 
     def _setup_installation(self, installation: HTInstallation):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.categoryNameEdit.set_installation(installation)
 

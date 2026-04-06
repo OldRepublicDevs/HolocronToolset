@@ -16,6 +16,7 @@ import qtpy
 from qtpy import QtCore
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QPainter, QPen, QPolygonF
+from qtpy.QtGui import QCursor
 from qtpy.QtWidgets import (
     QApplication,
     QMessageBox,
@@ -127,7 +128,7 @@ class ModuleRenderer(OpenGLSceneRenderer):
     sig_lyt_updated: ClassVar[QtCore.Signal] = QtCore.Signal(object)  # pyright: ignore[reportPrivateImportUsage]
 
     def __init__(self, parent: QWidget):
-        initial_mouse = Vector2(QApplication.cursor().pos().x(), QApplication.cursor().pos().y())
+        initial_mouse = Vector2(QCursor.pos().x(), QCursor.pos().y())
 
         from toolset.gui.windows.module_designer import (
             ModuleDesignerSettings,  # noqa: PLC0415  # pylint: disable=C0415
@@ -170,6 +171,33 @@ class ModuleRenderer(OpenGLSceneRenderer):
         self._vis_overlay_points: dict[int, Vector3] = {}
         self._vis_overlay_matrix: dict[int, set[int]] = {}
         self._show_vis_overlay: bool = True
+
+    def _scene_has_pending_async_work(self) -> bool:
+        if self.scene is None:
+            return False
+        return bool(
+            getattr(self.scene, "_pending_texture_futures", None)
+            or getattr(self.scene, "_pending_model_futures", None)
+        )
+
+    def _mouse_world_refresh_needed(self) -> bool:
+        if not self.underMouse():
+            return False
+        if self._mouse_world_last_screen is None:
+            return True
+        return (
+            abs(self._mouse_world_last_screen.x - self._mouse_prev.x) > 0.5
+            or abs(self._mouse_world_last_screen.y - self._mouse_prev.y) > 0.5
+        )
+
+    def _needs_continuous_render(self) -> bool:
+        return (
+            self.do_select
+            or bool(self._mouse_down)
+            or (self.free_cam and bool(self._keys_down))
+            or self._scene_has_pending_async_work()
+            or self._mouse_world_refresh_needed()
+        )
 
     def _on_loop_timer_timeout(self) -> None:
         self.loop()
@@ -1113,13 +1141,15 @@ class ModuleRenderer(OpenGLSceneRenderer):
         if delta_time > 0.1:
             delta_time = 0.1
         callback = getattr(self, "_loop_callback", None)
+        callback_requested = False
         if callable(callback):
-            callback(delta_time)
-        # Use update() instead of repaint() - this schedules a repaint rather than
-        # forcing an immediate synchronous paint. Qt will batch multiple update()
-        # calls into a single paint, which is more efficient.
-        # repaint() bypasses the event queue and can cause stuttering.
-        self.update()
+            callback_requested = bool(callback(delta_time))
+        if callback_requested or self._needs_continuous_render():
+            # Use update() instead of repaint() - this schedules a repaint rather than
+            # forcing an immediate synchronous paint. Qt will batch multiple update()
+            # calls into a single paint, which is more efficient.
+            # repaint() bypasses the event queue and can cause stuttering.
+            self.update()
 
         if self.underMouse() and self.free_cam and len(self._keys_down) > 0:
             self.sig_keyboard_pressed.emit(self._mouse_down, self._keys_down)

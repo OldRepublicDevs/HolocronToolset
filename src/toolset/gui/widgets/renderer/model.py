@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import math
+import time
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import qtpy
 
@@ -16,6 +17,7 @@ from loggerplus import RobustLogger
 from pykotor.gl import vec3
 from pykotor.gl.models.read_mdl import gl_load_mdl
 from pykotor.gl.scene import RenderObject, Scene
+from pykotor.gl.scene.camera_controller import CameraController, CameraControllerSettings, InputState
 from pykotor.resource.formats.twoda import read_2da
 from pykotor.resource.generics.git import GIT
 from pykotor.resource.type import ResourceType
@@ -29,14 +31,16 @@ if TYPE_CHECKING:
     from qtpy.QtGui import (
         QKeyEvent,
         QMouseEvent,
+        QOpenGLContext,
         QResizeEvent,
         QWheelEvent,
     )
     from qtpy.QtWidgets import QWidget
 
-    from pykotor.extract.installation import Installation
+    from toolset.data.installation import HTInstallation
     from pykotor.resource.generics.utc import UTC
     from pykotor.resource.generics.uti import UTI
+    from toolset.gui.widgets.renderer.view_compass import ViewCompassWidget
 
 
 class ModelRenderer(OpenGLSceneRenderer):
@@ -44,29 +48,99 @@ class ModelRenderer(OpenGLSceneRenderer):
     resourcesLoaded = Signal()
 
     def __init__(self, parent: QWidget):
-        super().__init__(parent, initial_mouse_prev=Vector2(0, 0), loop_interval_ms=33)
+        from toolset.gui.widgets.settings.widgets.module_designer import get_renderer_loop_interval_ms  # noqa: PLC0415
+
+        super().__init__(parent, initial_mouse_prev=Vector2(0, 0), loop_interval_ms=get_renderer_loop_interval_ms())
         self._last_texture_count: int = 0
         self._last_pending_texture_count: int = 0
         self._last_requested_texture_count: int = 0
 
-        self._installation: Installation | None = None  # Use private attribute with property
+        self._installation: HTInstallation | None = None  # Use private attribute with property
         self._model_to_load: tuple[bytes, bytes] | None = None
         self._creature_to_load: UTC | None = None
         self._pending_camera_reset: bool = False
+        self._view_compass: ViewCompassWidget | None = None
+        self._camera_controller: CameraController | None = None
+        self._camera_input_state: InputState = InputState()
+        self._last_controller_update: float = time.monotonic()
 
         self._controls = ModelRendererControls()
 
     def _on_loop_timer_timeout(self) -> None:
         if not self.isVisible() or self.scene is None:
             return
+        if self._camera_controller is not None:
+            now = time.monotonic()
+            delta_time = now - self._last_controller_update
+            self._last_controller_update = now
+            if self._camera_controller.has_pending_motion():
+                self._camera_controller.update(self._camera_input_state, delta_time)
+        pending_async_work = bool(
+            self.scene._pending_texture_futures
+            or self.scene._pending_model_futures
+            or self._model_to_load is not None
+            or self._creature_to_load is not None
+            or self._pending_camera_reset
+            or (self._camera_controller is not None and self._camera_controller.has_pending_motion())
+        )
+        if pending_async_work or bool(self._mouse_down) or bool(self._keys_down):
+            self.update()
+
+    def _setup_view_compass(self) -> None:
+        from toolset.gui.widgets.renderer.view_compass import ViewCompassWidget  # noqa: PLC0415
+
+        scene = self.scene
+        if self._view_compass is not None or scene is None:
+            return
+        self._view_compass = ViewCompassWidget(self)
+        self._view_compass.set_camera_source(lambda: (scene.camera.yaw, scene.camera.pitch))
+        self._view_compass.sig_snap_view.connect(self._apply_view_snap)
+
+    def _apply_view_snap(self, yaw: float, pitch: float) -> None:
+        if self.scene is None:
+            return
+        if self._camera_controller is not None:
+            self._camera_controller.set_rotation(yaw, pitch)
+        else:
+            self.scene.camera.yaw = yaw
+            self.scene.camera.pitch = pitch
         self.update()
 
+    def frame_all(self) -> None:
+        focus_state = self._model_focus_state()
+        if focus_state is None:
+            self.reset_camera()
+            return
+        center_x, center_y, center_z, distance = focus_state
+        if self._camera_controller is not None:
+            self._camera_controller.focus_on_point(center_x, center_y, center_z, distance)
+            self._camera_controller.set_rotation(math.pi / 16 * 7, math.pi / 16 * 9)
+        else:
+            self.reset_camera()
+        self.update()
+
+    def frame_selected(self) -> None:
+        self.frame_all()
+
+    def _model_focus_state(self) -> tuple[float, float, float, float] | None:
+        scene = self.scene
+        if scene is None or "model" not in scene.objects:
+            return None
+        model = scene.objects["model"]
+        if model.model not in scene.models or model.model in scene._pending_model_futures:
+            return None
+        cube = model.cube(scene)
+        center_x = (cube.min_point.x + cube.max_point.x) / 2.0
+        center_y = (cube.min_point.y + cube.max_point.y) / 2.0
+        center_z = (cube.min_point.z + cube.max_point.z) / 2.0
+        return center_x, center_y, center_z, max(2.0, model.radius(scene) + 2.0)
+
     @property
-    def installation(self) -> Installation | None:
+    def installation(self) -> HTInstallation | None:
         return self._installation
 
     @installation.setter
-    def installation(self, value: Installation | None):
+    def installation(self, value: HTInstallation | None):
         self._installation = value
         # If scene already exists, update its installation and load 2DA tables.
         # set_installation() loads appearance.2da etc. that the renderer needs.
@@ -94,13 +168,25 @@ class ModelRenderer(OpenGLSceneRenderer):
         if self.scene._module is None:
             self.scene.enable_frustum_culling = False
 
+        self._camera_controller = CameraController(
+            self.scene.camera,
+            CameraControllerSettings(
+                orbit_sensitivity=self._controls.rotateCameraSensitivity3d / 100,
+                pan_sensitivity=self._controls.moveCameraSensitivity3d / 100,
+                zoom_sensitivity=self._controls.zoomCameraSensitivity3d / 100,
+            ),
+        )
+        self._camera_controller.sync_from_camera()
+        self._last_controller_update = time.monotonic()
+
+        self._setup_view_compass()
         self.loop_timer.start()
 
     def paintGL(self):
         if self.scene is None:
             return
 
-        ctx = self.context()
+        ctx: QOpenGLContext | None = self.context()
         if ctx is None or not ctx.isValid():
             return
 
@@ -122,8 +208,7 @@ class ModelRenderer(OpenGLSceneRenderer):
             # This ensures hooks (headhook, rhand, lhand, gogglehook) are found correctly
             self.scene.objects["model"] = self.scene.get_creature_render_object(None, self._creature_to_load, sync=True)
             # Scene caches object lists; invalidate so swapped render objects take effect.
-            if hasattr(self.scene, "_invalidate_object_cache"):
-                self.scene._invalidate_object_cache()  # noqa: SLF001
+            self.scene._invalidate_object_cache()  # noqa: SLF001
             self._creature_to_load = None
             # Reset camera immediately since we loaded synchronously
             self.reset_camera()
@@ -134,13 +219,13 @@ class ModelRenderer(OpenGLSceneRenderer):
 
         # Check if textures/models FINISHED LOADING this frame (not just requested)
         # Only emit signal when textures are ACTUALLY LOADED - not when they're first requested
-        texture_lookup_info = getattr(self.scene, "texture_lookup_info", {})
-        requested_texture_names_obj: object = getattr(self.scene, "requested_texture_names", set())
+        texture_lookup_info: dict[str, dict[str, Any]] = self.scene.texture_lookup_info
+        requested_texture_names_obj: set[str] = self.scene.requested_texture_names
         requested_texture_names: set[str] = cast("set[str]", requested_texture_names_obj)
         current_texture_count = len(texture_lookup_info)
-        pending_textures = getattr(self.scene, "_pending_texture_futures", {})
-        previous_pending_count = getattr(self, "_last_pending_texture_count", len(pending_textures))
+        pending_textures = self.scene._pending_texture_futures
         current_pending_count = len(pending_textures)
+        previous_pending_count = self._last_pending_texture_count or current_pending_count
         current_requested_count = len(requested_texture_names)
 
         # ONLY emit signal when textures FINISH loading:
@@ -165,8 +250,7 @@ class ModelRenderer(OpenGLSceneRenderer):
                 self._last_requested_texture_count = current_requested_count
 
         # After rendering, check if we need to reset camera and if model is ready
-        pending_reset = getattr(self, "_pending_camera_reset", False)
-        if pending_reset and "model" in self.scene.objects:
+        if self._pending_camera_reset and "model" in self.scene.objects:
             model_obj: RenderObject = self.scene.objects["model"]
             # Check if the model (and all its child models) have finished loading
             model_ready = self._is_model_ready(model_obj)
@@ -187,6 +271,8 @@ class ModelRenderer(OpenGLSceneRenderer):
                 self.scene._invalidate_object_cache()  # noqa: SLF001
         if hasattr(self, "_pending_camera_reset"):
             self._pending_camera_reset = False
+        if self._camera_controller is not None:
+            self._camera_controller.sync_from_camera()
 
     def set_model(
         self,
@@ -203,10 +289,9 @@ class ModelRenderer(OpenGLSceneRenderer):
         if self._installation is None:
             return
         baseitems = None
-        ht_get = getattr(self._installation, "ht_get_cache_2da", None)
-        baseitems_name = getattr(self._installation, "TwoDA_BASEITEMS", "baseitems")
+        ht_get = self._installation.ht_get_cache_2da
         if ht_get is not None:
-            baseitems = ht_get(baseitems_name)
+            baseitems = ht_get(self._installation.TwoDA_BASEITEMS)
         else:
             res = self._installation.resource("baseitems", ResourceType.TwoDA)
             if res is not None and res.data is not None:
@@ -227,11 +312,13 @@ class ModelRenderer(OpenGLSceneRenderer):
 
     def _is_model_ready(self, obj: RenderObject) -> bool:
         """Check if a RenderObject's model and all child models have finished loading."""
+        scene = self.scene
+        assert scene is not None, assert_with_variable_trace(scene is not None)
         # Check if this model is still loading
-        if obj.model in self.scene._pending_model_futures:
+        if obj.model in scene._pending_model_futures:
             return False
         # Check if the model exists and is not the empty placeholder
-        if obj.model not in self.scene.models:
+        if obj.model not in scene.models:
             return False
         # Check all child models
         for child in obj.children:
@@ -252,6 +339,8 @@ class ModelRenderer(OpenGLSceneRenderer):
                 scene.camera.pitch = math.pi / 16 * 9
                 scene.camera.yaw = math.pi / 16 * 7
                 scene.camera.distance = model.radius(scene) + 2
+                if self._camera_controller is not None:
+                    self._camera_controller.sync_from_camera()
 
     def apply_render_overrides(
         self,
@@ -279,15 +368,22 @@ class ModelRenderer(OpenGLSceneRenderer):
             self._sync_camera_drawable_size()
 
     def wheelEvent(self, e: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
+        scene = self.scene
+        if scene is None:
+            return
         if self._controls.moveZCameraControl.satisfied(self._mouse_down, self._keys_down):
             # Ctrl+wheel (default) vertical camera move was far too sensitive; reduce by 5x.
             strength: float = self._controls.moveCameraSensitivity3d / 100000
-            self.scene.camera.z -= -e.angleDelta().y() * strength
+            scene.camera.z -= -e.angleDelta().y() * strength
+            if self._camera_controller is not None:
+                self._camera_controller.sync_from_camera()
             return
 
         if self._controls.zoomCameraControl.satisfied(self._mouse_down, self._keys_down):
             strength = self._controls.zoomCameraSensitivity3d / 30000
-            self.scene.camera.distance += -e.angleDelta().y() * strength
+            scene.camera.distance += -e.angleDelta().y() * strength
+            if self._camera_controller is not None:
+                self._camera_controller.sync_from_camera()
 
     def mouseMoveEvent(self, e: QMouseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         screen = (
@@ -306,7 +402,11 @@ class ModelRenderer(OpenGLSceneRenderer):
             self.do_cursor_lock(screen)
             strength = self._controls.rotateCameraSensitivity3d / 10000
             self.rotate_camera(-screen_delta.x * strength, screen_delta.y * strength)
+            if self._camera_controller is not None:
+                self._camera_controller.sync_from_camera()
         else:
+            # Pan (Shift+MMB by default) takes priority over orbit (MMB alone) when
+            # both ControlItems share the MMB button and pan has the extra Shift key.
             if self._controls.moveXYCameraControl.satisfied(self._mouse_down, self._keys_down):
                 self.do_cursor_lock(screen)
                 forward: vec3 = -screen_delta.y * self.scene.camera.forward()
@@ -314,11 +414,14 @@ class ModelRenderer(OpenGLSceneRenderer):
                 strength = self._controls.moveCameraSensitivity3d / 10000
                 self.scene.camera.x -= (forward.x + sideward.x) * strength
                 self.scene.camera.y -= (forward.y + sideward.y) * strength
-
-            if self._controls.rotateCameraControl.satisfied(self._mouse_down, self._keys_down):
+                if self._camera_controller is not None:
+                    self._camera_controller.sync_from_camera()
+            elif self._controls.rotateCameraControl.satisfied(self._mouse_down, self._keys_down):
                 self.do_cursor_lock(screen)
                 strength = self._controls.rotateCameraSensitivity3d / 10000
                 self.rotate_camera(-screen_delta.x * strength, screen_delta.y * strength)
+                if self._camera_controller is not None:
+                    self._camera_controller.sync_from_camera()
 
         self._mouse_prev = screen  # Always assign mouse_prev after emitting, in order to do cursor lock properly.
 
@@ -340,12 +443,50 @@ class ModelRenderer(OpenGLSceneRenderer):
         obj.set_rotation(new_rotation.x, new_rotation.y, new_rotation.z)
 
     def keyPressEvent(self, e: QKeyEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
+        if self.scene is None:
+            return
+
         key: int = e.key()
         self._keys_down.add(key)
 
+        if self._controls.frameAllControl.satisfied(self._mouse_down, self._keys_down):
+            self.frame_all()
+            return
+        if self._controls.frameSelectedControl.satisfied(self._mouse_down, self._keys_down):
+            self.frame_selected()
+            return
+        if self._controls.viewFrontControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(0.0, math.pi / 2)
+            return
+        if self._controls.viewBackControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(math.pi, math.pi / 2)
+            return
+        if self._controls.viewRightControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(-math.pi / 2, math.pi / 2)
+            return
+        if self._controls.viewLeftControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(math.pi / 2, math.pi / 2)
+            return
+        if self._controls.viewTopControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(0.0, 0.01)
+            return
+        if self._controls.viewBottomControl.satisfied(self._mouse_down, self._keys_down):
+            self._apply_view_snap(0.0, math.pi - 0.01)
+            return
+        if self._controls.viewToggleOrthoControl.satisfied(self._mouse_down, self._keys_down):
+            self.scene.camera.orthographic = not self.scene.camera.orthographic
+            if self._camera_controller is not None:
+                self._camera_controller.sync_from_camera()
+            self.update()
+            return
+        if self._controls.viewCameraControl.satisfied(self._mouse_down, self._keys_down):
+            self.frame_all()
+            return
+
         rotate_strength = self._controls.rotateCameraSensitivity3d / 1000
-        if "model" in self.scene.objects:
-            model = self.scene.objects["model"]
+
+        model = self.scene.objects.get("model")
+        if model:
             if self._controls.rotateCameraLeftControl.satisfied(self._mouse_down, self._keys_down):
                 self.rotate_object(model, 0, math.pi / 4 * rotate_strength, 0)
             if self._controls.rotateCameraRightControl.satisfied(self._mouse_down, self._keys_down):
@@ -354,6 +495,11 @@ class ModelRenderer(OpenGLSceneRenderer):
                 self.rotate_object(model, math.pi / 4 * rotate_strength, 0, 0)
             if self._controls.rotateCameraDownControl.satisfied(self._mouse_down, self._keys_down):
                 self.rotate_object(model, -math.pi / 4 * rotate_strength, 0, 0)
+
+        if self._controls.zoomCameraInControl.satisfied(self._mouse_down, self._keys_down):
+            self.scene.camera.distance = max(0.5, self.scene.camera.distance * 0.9)
+        if self._controls.zoomCameraOutControl.satisfied(self._mouse_down, self._keys_down):
+            self.scene.camera.distance = self.scene.camera.distance * 1.1
 
         if self._controls.moveCameraUpControl.satisfied(self._mouse_down, self._keys_down):
             self.scene.camera.z += self._controls.moveCameraSensitivity3d / 500
@@ -367,6 +513,8 @@ class ModelRenderer(OpenGLSceneRenderer):
             self.pan_camera((self._controls.moveCameraSensitivity3d / 500), 0, 0)
         if self._controls.moveCameraBackwardControl.satisfied(self._mouse_down, self._keys_down):
             self.pan_camera(-(self._controls.moveCameraSensitivity3d / 500), 0, 0)
+        if self._camera_controller is not None:
+            self._camera_controller.sync_from_camera()
         # IMPORTANT: Do not perform wheel-style zoom on key presses.
         # If the zoom bind is configured as "any keys", `ControlItem.satisfied()` becomes
         # true for *every* keypress, which caused a spurious "zoom out one tick" behavior.
@@ -526,3 +674,43 @@ class ModelRendererControls:
 
     @rotateCameraControl.setter
     def rotateCameraControl(self, value): ...
+
+    @property
+    def viewFrontControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewFront3dBind)
+
+    @property
+    def viewBackControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewBack3dBind)
+
+    @property
+    def viewRightControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewRight3dBind)
+
+    @property
+    def viewLeftControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewLeft3dBind)
+
+    @property
+    def viewTopControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewTop3dBind)
+
+    @property
+    def viewBottomControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewBottom3dBind)
+
+    @property
+    def viewToggleOrthoControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewToggleOrtho3dBind)
+
+    @property
+    def viewCameraControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().viewCamera3dBind)
+
+    @property
+    def frameSelectedControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().frameSelected3dBind)
+
+    @property
+    def frameAllControl(self) -> ControlItem:
+        return ControlItem(ModuleDesignerSettings().frameAll3dBind)

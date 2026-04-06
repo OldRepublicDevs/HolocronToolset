@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Sequence
 
 from qtpy.QtCore import QSettings, Qt
 from qtpy.QtGui import QImage, QPixmap, QTransform
-from qtpy.QtWidgets import QApplication, QListWidgetItem, QMenu, QMessageBox
+from qtpy.QtWidgets import QApplication, QComboBox, QListWidgetItem, QMenu, QMessageBox
 
 from loggerplus import RobustLogger
 from pykotor.common.language import Gender, Language
@@ -39,23 +39,24 @@ if TYPE_CHECKING:
 
     from qtpy.QtCore import QPoint
     from qtpy.QtGui import QClipboard
-    from qtpy.QtWidgets import QListWidget, QWidget
+    from qtpy.QtWidgets import QComboBox, QLineEdit, QListWidget, QPlainTextEdit, QWidget
     from typing_extensions import Literal  # pyright: ignore[reportMissingModuleSource]
 
     from pykotor.common.language import LocalizedString
     from pykotor.extract.capsule import LazyCapsule
-    from pykotor.extract.file import FileResource, LocationResult, ResourceResult
+    from pykotor.extract.file import FileResource, LocationResult, ResourceIdentifier, ResourceResult
     from pykotor.resource.formats.ltr.ltr_data import LTR
     from pykotor.resource.formats.tpc.tpc_data import TPC, TPCMipmap
     from pykotor.resource.formats.twoda.twoda_data import TwoDA
     from pykotor.tools.path import CaseAwarePath
+    from utility.gui.qt.widgets.widgets.combobox import FilterComboBox
 
 
 class UTCEditor(Editor):
     def __init__(
         self,
         parent: QWidget | None,
-        installation: HTInstallation = None,
+        installation: HTInstallation | None = None,
     ):
         """Initializes the Creature Editor window.
 
@@ -87,21 +88,16 @@ class UTCEditor(Editor):
 
         from toolset.uic.qtpy.editors.utc import Ui_MainWindow  # pyright: ignore[reportImportType]
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self.resize(798, 553)
 
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
-
         self._setup_menus()
         self._add_help_action()
-        self._setup_installation(installation)
-        self._setup_signals()
         self._installation: HTInstallation
+        if installation is not None:
+            self._setup_installation(installation)
+        self._setup_signals()
 
         self.ui.actionSaveUnusedFields.setChecked(self.settings.saveUnusedFields)
         self.ui.actionAlwaysSaveK2Fields.setChecked(self.settings.alwaysSaveK2Fields)
@@ -141,7 +137,7 @@ class UTCEditor(Editor):
         portrait = self._get_portrait_resref()
         file_menu = context_menu.addMenu("File...")
         assert file_menu is not None, f"`file_menu = context_menu.addMenu('File...')` {file_menu.__class__.__name__}: {file_menu}"
-        locations: dict[str, list[LocationResult]] = self._installation.locations(
+        locations: dict[ResourceIdentifier, list[LocationResult]] = self._installation.locations(
             ([portrait], [ResourceType.TGA, ResourceType.TPC]),
             order=[SearchLocation.OVERRIDE, SearchLocation.TEXTURES_GUI, SearchLocation.TEXTURES_TPA, SearchLocation.TEXTURES_TPB, SearchLocation.TEXTURES_TPC, SearchLocation.CHITIN],
         )
@@ -224,7 +220,7 @@ class UTCEditor(Editor):
     def _script_widget_values(self, utc: UTC) -> list[tuple[object, str]]:
         return [(widget, str(getattr(utc, utc_attr))) for widget, utc_attr in self._script_widget_attr_pairs()]
 
-    def _set_combo_box_max_lengths(self, combo_boxes: Sequence[object], length: int):
+    def _set_combo_box_max_lengths(self, combo_boxes: Sequence[QComboBox], length: int):
         for combo_box in combo_boxes:
             line_edit = combo_box.lineEdit()
             if line_edit is not None:
@@ -284,6 +280,8 @@ class UTCEditor(Editor):
             - Clears and populates feat and power lists from loaded 2da files
             - Sets visibility of some checkboxes based on installation type.
         """
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
 
         self.ui.previewRenderer.installation = installation
@@ -410,7 +408,7 @@ class UTCEditor(Editor):
         restype: ResourceType,
         data: bytes,
     ):
-        """Load UTC from bytes. Defaults when missing: see construct_utc. K1 LoadCreature @ 0x00500350 (LoadCreatures @ 0x00504a70), TSL LoadCreature @ 0x0068ccb0 (LoadCreatures @ 0x0071b140); ReadStatsFromGff @  (/K1/k1_win_gog_swkotor.exe: 0x00560e60, TSL: 0x006ec350)."""
+        """Load UTC from bytes. Defaults when missing: see construct_utc."""
         super().load(filepath, resref, restype, data)
         self._load_utc(read_utc(data))
         self.update_item_count()
@@ -425,7 +423,7 @@ class UTCEditor(Editor):
         ----
             utc (UTC): UTC object to load data from
 
-        Loads UTC data (defaults from construct_utc; K1 LoadCreature 0x00500350, ReadStatsFromGff 0x00560e60; TSL LoadCreature 0x0068ccb0):
+        Loads UTC data (defaults from construct_utc:
             - Sets UTC object reference and preview renderer creature
             - Loads basic data (name, tag, resref, appearance, soundset, conversation, portrait)
             - Loads advanced data (flags, stats, classes, feats, powers, scripts, comments)
@@ -525,7 +523,7 @@ class UTCEditor(Editor):
         )
         self.relevant_script_resnames: list[str] = sorted(iter({res.resname().lower() for res in self._installation.get_relevant_resources(ResourceType.NCS, self._filepath)}))
 
-        dlg_resources: list[FileResource] = self._installation.get_relevant_resources(ResourceType.DLG, self._filepath)
+        dlg_resources: set[FileResource] = self._installation.get_relevant_resources(ResourceType.DLG, self._filepath)
         dlg_resnames_set: set[str] = {res.resname().lower() for res in dlg_resources}
         dlg_resnames_sorted: list[str] = sorted(dlg_resnames_set)
         self.ui.conversationEdit.populate_combo_box(dlg_resnames_sorted)
@@ -536,7 +534,7 @@ class UTCEditor(Editor):
             (self.ui.resrefEdit, [], "template_resref"),
         ]
         for widget, resource_types, reference_type in reference_fields:
-            self._setup_reference_field(widget, resource_types, reference_type)
+            self._setup_reference_field(widget, resource_types, reference_type)  # type: ignore[arg-type]
 
         # Set maxLength for FilterComboBox script fields (ResRefs are max 16 characters)
         script_combo_boxes = [*self._script_combo_boxes(), self.ui.conversationEdit]
@@ -547,6 +545,8 @@ class UTCEditor(Editor):
 
         # Scripts
         for script_widget, script_value in self._script_widget_values(utc):
+            if not isinstance(script_widget, FilterComboBox):
+                continue
             script_widget.set_combo_box_text(script_value)
 
         # Comments
@@ -563,9 +563,9 @@ class UTCEditor(Editor):
 
     def _setup_reference_field(
         self,
-        widget,
+        widget: QComboBox | QLineEdit | QPlainTextEdit,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal["conversation", "tag", "template_resref", "script", "quest"],
     ) -> None:
         """Configure context menu and tooltip for a reference-search enabled widget."""
         self._installation.setup_file_context_menu(
@@ -603,7 +603,7 @@ class UTCEditor(Editor):
             item.setCheckState(Qt.CheckState.Checked)
 
     def build(self) -> tuple[bytes | bytearray, bytes]:
-        """Build UTC bytes from editor state. Write values match engine. K1 LoadCreature @ 0x00500350, TSL @ 0x0068ccb0; ReadStatsFromGff @  (/K1/k1_win_gog_swkotor.exe: 0x00560e60, TSL: 0x006ec350)."""
+        """Build UTC bytes from editor state. Write values match engine."""
         utc: UTC = deepcopy(self._utc)
 
         utc.first_name = self.ui.firstnameEdit.locstring()
@@ -624,7 +624,7 @@ class UTCEditor(Editor):
         utc.hologram = self.ui.hologramCheckbox.isChecked()
         # raceSelect is a ComboBox2DA which overrides currentIndex() to return the row index (5 or 6)
         # So we can use currentIndex() directly to get the race_id
-        race_id = self.ui.raceSelect.currentIndex()
+        race_id: int = self.ui.raceSelect.currentIndex()
         utc.race_id = max(race_id, 0)
         utc.subrace_id = self.ui.subraceSelect.currentIndex()
         utc.walkrate_id = self.ui.speedSelect.currentIndex()
@@ -699,7 +699,7 @@ class UTCEditor(Editor):
             if item.checkState() == Qt.CheckState.Checked:
                 powers.append(item.data(Qt.ItemDataRole.UserRole))
 
-        use_tsl: Literal[Game.K2, Game.K1] = Game.K2 if self.settings.alwaysSaveK2Fields or self._installation.tsl else Game.K1
+        use_tsl = Game.K2 if self.settings.alwaysSaveK2Fields or self._installation.tsl else Game.K1  # type: ignore[valid-type]
         data = bytearray()
         write_utc(
             utc,
@@ -718,14 +718,14 @@ class UTCEditor(Editor):
     def randomize_first_name(self):
         ltr_resname: Literal["humanf", "humanm"] = "humanf" if self.ui.genderSelect.currentIndex() == 1 else "humanm"
         locstring: LocalizedString = self.ui.firstnameEdit.locstring()
-        ltr: LTR = read_ltr(self._installation.resource(ltr_resname, ResourceType.LTR).data)
+        ltr: LTR = read_ltr(self._installation.resource(ltr_resname, ResourceType.LTR).data)  # pyright: ignore[reportOptionalMemberAccess]
         locstring.stringref = -1
         locstring.set_data(Language.ENGLISH, Gender.MALE, ltr.generate())
         self.ui.firstnameEdit.set_locstring(locstring)
 
     def randomize_last_name(self):
         locstring: LocalizedString = self.ui.lastnameEdit.locstring()
-        ltr: LTR = read_ltr(self._installation.resource("humanl", ResourceType.LTR).data)
+        ltr: LTR = read_ltr(self._installation.resource("humanl", ResourceType.LTR).data)  # pyright: ignore[reportOptionalMemberAccess]
         locstring.stringref = -1
         locstring.set_data(Language.ENGLISH, Gender.MALE, ltr.generate())
         self.ui.lastnameEdit.set_locstring(locstring)
@@ -1169,7 +1169,7 @@ class UTCEditor(Editor):
         """
         import os
 
-        scene = self.ui.previewRenderer._scene
+        scene = self.ui.previewRenderer.scene
         if scene is None:
             return
 

@@ -48,21 +48,15 @@ class UTWEditor(Editor):
 
         from toolset.uic.qtpy.editors.utw import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
-
-        self._utw = UTW()
+        self._utw: UTW = UTW()
 
         self.new()
 
@@ -75,6 +69,8 @@ class UTWEditor(Editor):
             signal.connect(handler)
 
     def _setup_installation(self, installation: HTInstallation):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
 
@@ -116,7 +112,7 @@ class UTWEditor(Editor):
 
         Defaults from construct_utw; K1 LoadWaypoint 0x005c7f30; TSL same (addresses TODO). Sets name, tag, resref, map note, comment.
         """
-        self._utw: UTW = utw
+        self._utw = utw
 
         # Basic (Tag "", LocalizedName empty, TemplateResRef blank per K1)
         self._load_basic_fields(utw)

@@ -17,7 +17,8 @@ from toolset.gui.editor import Editor
 if TYPE_CHECKING:
     import os
 
-    from qtpy.QtWidgets import QWidget
+    from qtpy.QtWidgets import QWidget, QComboBox, QLineEdit, QPlainTextEdit
+    from typing_extensions import Literal
 
     from pykotor.common.module import GFF
     from pykotor.resource.formats.twoda import TwoDA
@@ -49,19 +50,13 @@ class UTTEditor(Editor):
 
         from toolset.uic.qtpy.editors.utt import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self._utt: UTT = UTT()
 
@@ -100,9 +95,9 @@ class UTTEditor(Editor):
 
     def _setup_reference_field(
         self,
-        widget,
+        widget: QComboBox | QLineEdit | QPlainTextEdit,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal["conversation", "tag", "template_resref", "script", "quest"],
         tooltip_text: str,
         *,
         set_max_length: bool = False,
@@ -118,6 +113,9 @@ class UTTEditor(Editor):
         widget.setToolTip(tr(tooltip_text))
 
         if set_max_length and hasattr(widget, "lineEdit"):
+            if not isinstance(widget, QComboBox):
+                self._logger.warning(f"Attempted to set max length on unsupported widget type {type(widget)}. Skipping...")
+                return
             line_edit = widget.lineEdit()
             if line_edit is not None:
                 line_edit.setMaxLength(16)
@@ -126,6 +124,8 @@ class UTTEditor(Editor):
         self,
         installation: HTInstallation,
     ):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
 

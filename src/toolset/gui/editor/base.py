@@ -124,6 +124,12 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self.setWindowTitle(title)
         self._setup_icon(icon_name)
 
+        # Setup event filter to prevent scroll wheel interaction with controls
+        from toolset.gui.common.filters import NoScrollEventFilter
+
+        self._no_scroll_filter = NoScrollEventFilter(self)
+        self._no_scroll_filter.setup_filter(parent_widget=self)
+
         self.setup_editor_filters(read_supported, write_supported)
 
         # Installation toolbar — reusable widget (same as standalone windows).

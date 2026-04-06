@@ -22,7 +22,7 @@ from utility.common.geometry import Vector3
 if TYPE_CHECKING:
     from qtpy.QtCore import QKeyCombination, Qt
 
-    from pykotor.gl.glm_compat import vec3
+    from pykotor.gl import vec3
     from pykotor.resource.generics.git import GITInstance
     from toolset.gui.widgets.renderer.module import ModuleRenderer
     from utility.common.geometry import Vector2

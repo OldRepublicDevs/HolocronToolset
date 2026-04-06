@@ -123,8 +123,8 @@ class GraphWidget(QGraphicsView):
     ):
         super().__init__()
         self.model: DLGStandardItemModel = model
-        self._scene = QGraphicsScene()
-        self.setScene(self._scene)
+        self.scene = QGraphicsScene()
+        self.setScene(self.scene)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setBackgroundBrush(QBrush(QColor(0, 0, 0)))
         self.node_items: dict[DLGNode, GraphNode] = {}
@@ -172,7 +172,7 @@ class GraphWidget(QGraphicsView):
             return
 
         node_item = GraphNode(node, x, y)
-        self._scene.addItem(node_item)
+        self.scene.addItem(node_item)
         self.node_items[node] = node_item
 
         child_radius: int = 100
@@ -188,7 +188,7 @@ class GraphWidget(QGraphicsView):
 
             self._layout_node(link.node, child_x, child_y, visited)
             edge = GraphEdge(node_item, self.node_items[link.node])
-            self._scene.addItem(edge)
+            self.scene.addItem(edge)
 
     def _is_overlapping(
         self,

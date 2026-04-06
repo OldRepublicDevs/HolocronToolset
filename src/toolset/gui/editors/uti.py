@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
@@ -37,8 +37,8 @@ if TYPE_CHECKING:
 
     from qtpy.QtCore import QModelIndex, QPoint
     from qtpy.QtGui import QClipboard, QPixmap
-    from qtpy.QtWidgets import QWidget
-    from typing_extensions import Literal  # pyright: ignore[reportMissingModuleSource]
+    from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+    from typing_extensions import Literal  # pyright: ignore[reportMissingTypeStubs]
 
     from pykotor.common.module import GFF
     from pykotor.extract.file import (
@@ -47,7 +47,6 @@ if TYPE_CHECKING:
         ResourceIdentifier,
         ResourceResult,
     )
-    from pykotor.extract.twoda import TwoDARow
     from pykotor.resource.formats.twoda.twoda_data import TwoDA
 
 
@@ -67,28 +66,23 @@ class UTIEditor(Editor):
         supported: list[ResourceType] = [ResourceType.UTI]
         super().__init__(parent, "Item Editor", "item", supported, supported, installation)
 
-        self._uti = UTI()
+        self._uti: UTI = UTI()
         self.globalSettings: GlobalSettings = GlobalSettings()
 
         from toolset.uic.qtpy.editors.uti import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
         self._installation: HTInstallation
 
-        self._setup_installation(installation)
-        self.ui.descEdit.set_installation(installation)
+        if installation is not None:
+            self._setup_installation(installation)
+            self.ui.descEdit.set_installation(installation)
 
         self.setMinimumSize(700, 350)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         QShortcut("Del", self).activated.connect(self.on_del_shortcut)
 
@@ -102,7 +96,11 @@ class UTIEditor(Editor):
         # Setup reference search for Tag field (append to .ui tooltip)
         if installation is not None:
             for widget, resource_types, reference_type, tooltip_suffix in self._reference_field_specs():
-                self._setup_reference_field(widget, resource_types, reference_type, tooltip_suffix)
+                if not isinstance(widget, (QComboBox, QLineEdit, QPlainTextEdit)):
+                    RobustLogger().warning(f"Unsupported widget type {type(widget)} for reference field setup. Skipping...")
+                    continue
+
+                self._setup_reference_field(widget, resource_types, reference_type, tooltip_suffix)  # type: ignore[arg-type]
 
         self.update3dPreview()
         self.new()
@@ -115,9 +113,9 @@ class UTIEditor(Editor):
 
     def _setup_reference_field(
         self,
-        widget,
+        widget: QComboBox | QLineEdit | QPlainTextEdit,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal["script", "conversation", "tag", "template_resref", "resref", "quest"],
         tooltip_suffix: str,
     ) -> None:
         """Configure context-menu reference search and append helper tooltip text."""
@@ -149,7 +147,7 @@ class UTIEditor(Editor):
         ]
 
     @staticmethod
-    def _connect_signals(signals: Sequence[object], *handlers: object) -> None:
+    def _connect_signals(signals: Sequence[Any], *handlers: object) -> None:
         """Connect each signal in `signals` to each handler in `handlers`."""
         for signal in signals:
             for handler in handlers:
@@ -231,6 +229,8 @@ class UTIEditor(Editor):
         self,
         installation: HTInstallation,
     ):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation  # pyright: ignore[reportIncompatibleVariableOverride]
         self.ui.nameEdit.set_installation(installation)
         self.ui.descEdit.set_installation(installation)

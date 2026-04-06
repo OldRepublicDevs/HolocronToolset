@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from pykotor.extract.file import ResourceIdentifier, ResourceResult
     from pykotor.resource.formats.bwm import BWM
     from pykotor.resource.formats.lyt import LYT
-    from pykotor.resource.generics.git import GITInstance
+    from pykotor.resource.generics.git import GITInstance, GITObject
     from toolset.data.installation import HTInstallation
     from toolset.gui.editors.git.mode import _Mode
     from utility.common.geometry import SurfaceMaterial, Vector3
@@ -107,7 +107,7 @@ class GITEditor(Editor, BlenderEditorMixin):
         self._layout: LYT | None = None  # Store the LYT layout for room boundary rendering
         self._mode: _Mode = _InstanceMode(self, self._installation, self._git)
         self._controls: GITControlScheme = GITControlScheme(self)
-        self._geom_instance: GITInstance | None = None  # Used to track which trigger/encounter you are editing
+        self._geom_instance: GITObject | None = None  # Used to track which trigger/encounter you are editing
 
         self.settings = GITSettings()
 
@@ -514,6 +514,43 @@ class GITEditor(Editor, BlenderEditorMixin):
     def rotate_camera(self, angle: float):
         self._mode.rotate_camera(angle)
 
+    def frame_all(self) -> None:
+        """Fit all GIT instances into the camera viewport (Blender-style Home key)."""
+        all_positions = [(inst.position.x, inst.position.y) for inst in self._git.instances()]
+        if not all_positions:
+            self.ui.renderArea.center_camera()
+            return
+        xs = [p[0] for p in all_positions]
+        ys = [p[1] for p in all_positions]
+        cx = (min(xs) + max(xs)) / 2.0
+        cy = (min(ys) + max(ys)) / 2.0
+        world_w = max(xs) - min(xs) + 2.0
+        world_h = max(ys) - min(ys) + 2.0
+        sw = self.ui.renderArea.width() or 520
+        sh = self.ui.renderArea.height() or 507
+        zoom = min(sw / world_w, sh / world_h) * 0.85
+        self.ui.renderArea.camera.set_position(cx, cy)
+        self.ui.renderArea.camera.set_zoom(zoom)
+        self.ui.renderArea.update()
+
+    def frame_selected(self) -> None:
+        selected = self.ui.renderArea.instance_selection.all()
+        if not selected:
+            self.frame_all()
+            return
+        xs = [inst.position.x for inst in selected]
+        ys = [inst.position.y for inst in selected]
+        cx = (min(xs) + max(xs)) / 2.0
+        cy = (min(ys) + max(ys)) / 2.0
+        world_w = max(max(xs) - min(xs), 1.0) + 2.0
+        world_h = max(max(ys) - min(ys), 1.0) + 2.0
+        sw = self.ui.renderArea.width() or 520
+        sh = self.ui.renderArea.height() or 507
+        zoom = min(sw / world_w, sh / world_h) * 0.85
+        self.ui.renderArea.camera.set_position(cx, cy)
+        self.ui.renderArea.camera.set_zoom(zoom)
+        self.ui.renderArea.update()
+
     # endregion
 
     # region Signal Callbacks
@@ -552,13 +589,16 @@ class GITEditor(Editor, BlenderEditorMixin):
     def on_marquee_select(self, world_rect: tuple[float, float, float, float], additive: bool):
         """Select instances inside the marquee world rect. Called from WalkmeshRenderer.sig_marquee_select."""
         min_x, min_y, max_x, max_y = world_rect
-        in_rect: list[GITInstance] = []
+        in_rect: list[GITObject] = []
         for instance in self._git.instances():
             if not self.ui.renderArea.is_instance_visible(instance):
                 continue
             x, y = instance.position.x, instance.position.y
             if min_x <= x <= max_x and min_y <= y <= max_y:
                 in_rect.append(instance)
+        if self._mode is None:
+            self._logger.warning("No mode set - cannot perform marquee selection")
+            return
         if additive:
             current = self._mode.renderer2d.instance_selection.all()
             combined = list({*current, *in_rect})

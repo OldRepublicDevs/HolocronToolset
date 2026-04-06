@@ -87,7 +87,6 @@ from toolset.gui.editors.dlg.tree_view import DLGTreeView
 from toolset.gui.editors.dlg.widget_windows import ReferenceChooserDialog
 from toolset.gui.widgets.installation_toolbar import FolderPathSpec
 from toolset.gui.widgets.settings.installations import GlobalSettings
-from utility.gui.qt.adapters.itemmodels.filters import NoScrollEventFilter
 from utility.gui.qt.widgets.itemviews.html_delegate import HTMLDelegate
 
 if qtpy.QT6:
@@ -123,6 +122,7 @@ if TYPE_CHECKING:
     from pykotor.resource.generics.dlg import DLGAnimation, DLGNode, DLGStunt
     from pykotor.tools.reference_finder import ReferenceSearchResult
     from toolset.uic.qtpy.editors.dlg import Ui_MainWindow
+    from utility.gui.qt.adapters.itemmodels.filters import FilterComboBox
 
 
 class DLGEditor(Editor):
@@ -152,16 +152,12 @@ class DLGEditor(Editor):
         super().__init__(parent, "Dialog Editor", "dialog", supported, supported, installation)
         self._installation: HTInstallation
 
-        from toolset.uic.qtpy.editors.dlg import Ui_MainWindow
-
         self._copy: DLGLink | None = None
         self._focused: bool = False
         self._node_loaded_into_ui: bool = True
         self.core_dlg: DLG = DLG()
         self.undo_stack: QUndoStack = QUndoStack()  # TODO(th3w1zard1): move _process_link and _remove_link_from_item logic to QUndoCommand classes once stable.  # noqa: TD003
 
-        self.ui: Ui_MainWindow = Ui_MainWindow()
-        self.ui.setupUi(self)
         self.original_tooltips: dict[QWidget, str] = {}
         self.search_results: list[DLGStandardItem] = []
         self.current_search_text: str = ""
@@ -194,8 +190,6 @@ class DLGEditor(Editor):
         self.current_reference_index: int = -1
 
         self.keys_down: set[int] = set()
-        self.no_scroll_event_filter: NoScrollEventFilter = NoScrollEventFilter(self)
-        self.no_scroll_event_filter.setup_filter()
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.tips: list[str] = [
@@ -228,9 +222,9 @@ class DLGEditor(Editor):
 
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         if installation is None:
-            self.all_voices = []
-            self.all_sounds = []
-            self.all_music = []
+            self.all_voices: list[str] = []
+            self.all_sounds: list[str] = []
+            self.all_music: list[str] = []
             if hasattr(self, "ui") and hasattr(self.ui, "voiceComboBox"):
                 self.ui.voiceComboBox.populate_combo_box([])
                 self.ui.soundComboBox.populate_combo_box([])
@@ -240,9 +234,9 @@ class DLGEditor(Editor):
         self._populate_audio_lists_from_installation(installation)
 
     def _on_folder_paths_changed(self, paths: dict[str, Path | None]) -> None:
-        waves = self._scan_audio_folder(paths.get("streamwaves"))
-        sounds = sorted({*waves, *self._scan_audio_folder(paths.get("streamsounds"))}, key=str.lower)
-        music = self._scan_audio_folder(paths.get("streammusic"))
+        waves: list[str] = self._scan_audio_folder(paths.get("streamwaves"))
+        sounds: list[str] = sorted({*waves, *self._scan_audio_folder(paths.get("streamsounds"))}, key=str.lower)
+        music: list[str] = self._scan_audio_folder(paths.get("streammusic"))
 
         self.all_voices = waves
         self.all_sounds = sounds
@@ -407,24 +401,30 @@ class DLGEditor(Editor):
 
     def _batch_connect_param_groups(self) -> None:
         """Batch connect parameter widgets for script and condition groups."""
-        self._connect_param_widgets([
-            self.ui.script1Param1Spin,
-            self.ui.script1Param2Spin,
-            self.ui.script1Param3Spin,
-            self.ui.script1Param4Spin,
-            self.ui.script1Param5Spin,
-        ], [
-            self.ui.script1Param6Edit,
-        ])
-        self._connect_param_widgets([
-            self.ui.script2Param1Spin,
-            self.ui.script2Param2Spin,
-            self.ui.script2Param3Spin,
-            self.ui.script2Param4Spin,
-            self.ui.script2Param5Spin,
-        ], [
-            self.ui.script2Param6Edit,
-        ])
+        self._connect_param_widgets(
+            [
+                self.ui.script1Param1Spin,
+                self.ui.script1Param2Spin,
+                self.ui.script1Param3Spin,
+                self.ui.script1Param4Spin,
+                self.ui.script1Param5Spin,
+            ],
+            [
+                self.ui.script1Param6Edit,
+            ],
+        )
+        self._connect_param_widgets(
+            [
+                self.ui.script2Param1Spin,
+                self.ui.script2Param2Spin,
+                self.ui.script2Param3Spin,
+                self.ui.script2Param4Spin,
+                self.ui.script2Param5Spin,
+            ],
+            [
+                self.ui.script2Param6Edit,
+            ],
+        )
         self._connect_param_widgets(
             [
                 self.ui.condition1Param1Spin,
@@ -1425,9 +1425,17 @@ Should return 1 or 0, representing a boolean.
         installation: HTInstallation,
     ):
         """Sets up the installation for the UI."""
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation  # pyright: ignore[reportIncompatibleVariableOverride]
         # Set maxLength for resref FilterComboBox fields (ResRefs are max 16 characters)
-        resref_combo_boxes = [
+
+        from toolset.uic.qtpy.editors.dlg import Ui_MainWindow
+
+        self.ui: Ui_MainWindow = Ui_MainWindow()
+        self.ui.setupUi(self)
+
+        resref_combo_boxes: list[FilterComboBox] = [
             self.ui.script1ResrefEdit,
             self.ui.script2ResrefEdit,
             self.ui.condition1ResrefEdit,
@@ -1454,9 +1462,9 @@ Should return 1 or 0, representing a boolean.
             ]
         installation.ht_batch_cache_2da(required)
 
-        self.all_voices: list[str] = sorted({res.resname() for res in installation._streamwaves}, key=str.lower)  # noqa: SLF001
-        self.all_sounds: list[str] = sorted({res.resname() for res in [*installation._streamwaves, *installation._streamsounds]}, key=str.lower)  # noqa: SLF001
-        self.all_music: list[str] = sorted({res.resname() for res in installation._streammusic}, key=str.lower)  # noqa: SLF001
+        self.all_voices = sorted({res.resname() for res in installation._streamwaves}, key=str.lower)  # noqa: SLF001
+        self.all_sounds = sorted({res.resname() for res in [*installation._streamwaves, *installation._streamsounds]}, key=str.lower)  # noqa: SLF001
+        self.all_music = sorted({res.resname() for res in installation._streammusic}, key=str.lower)  # noqa: SLF001
         self._setup_tsl_emotions_and_expressions(installation)
         self.ui.soundComboBox.populate_combo_box(self.all_sounds)  # noqa: SLF001
         self.ui.ambientTrackCombo.populate_combo_box(self.all_music)
@@ -2978,6 +2986,7 @@ Should return 1 or 0, representing a boolean.
                 anim_item = QListWidgetItem(text)
                 anim_item.setData(Qt.ItemDataRole.UserRole, anim)
                 self.ui.animsList.addItem(anim_item)  # pyright: ignore[reportArgumentType, reportCallIssue]
+
 
 if __name__ == "__main__":
     import sys

@@ -29,8 +29,8 @@ from toolset.gui.widgets.settings.installations import GlobalSettings
 from toolset.utils.window import open_resource_editor
 
 if TYPE_CHECKING:
-
     from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+    from typing_extensions import Literal
 
     from pykotor.extract.file import ResourceResult
     from pykotor.extract.installation import SearchLocation
@@ -64,24 +64,19 @@ class UTPEditor(Editor):
         super().__init__(parent, "Placeable Editor", "placeable", supported, supported, installation)
 
         self.globalSettings: GlobalSettings = GlobalSettings()
-        self._placeables2DA: TwoDA | None = installation.ht_get_cache_2da("placeables")
-        self._utp = UTP()
+        if installation is not None:
+            self._placeables2DA: TwoDA | None = installation.ht_get_cache_2da("placeables")
+        self._utp: UTP = UTP()
 
         from toolset.uic.qtpy.editors.utp import Ui_MainWindow
 
         self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
 
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter: NoScrollEventFilter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
-
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
         # Initialize model info widget state (collapsed by default)
@@ -156,7 +151,7 @@ class UTPEditor(Editor):
         self,
         widget: QLineEdit | QComboBox | QPlainTextEdit,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal["script", "conversation", "tag", "template_resref", "resref", "quest"],
         tooltip_text: str,
         *,
         set_max_length: bool = False,
@@ -171,7 +166,7 @@ class UTPEditor(Editor):
         )
         widget.setToolTip(tr(tooltip_text))
 
-        if set_max_length and hasattr(widget, "lineEdit"):
+        if set_max_length and isinstance(widget, QComboBox):
             line_edit = widget.lineEdit()
             if line_edit is not None:
                 line_edit.setMaxLength(16)
@@ -193,6 +188,8 @@ class UTPEditor(Editor):
             - Populates appearance and faction dropdowns from loaded 2da data
             - Hides/shows TSL specific UI elements based on installation type
         """
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
         self.ui.previewRenderer.installation = installation
@@ -255,7 +252,7 @@ class UTPEditor(Editor):
         restype: ResourceType,
         data: bytes,
     ):
-        """Load resource and populate UI from UTP. Defaults from construct_utp (K1 LoadPlaceable 0x00585670; TSL TODO)."""
+        """Load resource and populate UI from UTP. Defaults from construct_utp."""
         super().load(filepath, resref, restype, data)
 
         utp = read_utp(data)
@@ -270,9 +267,9 @@ class UTPEditor(Editor):
         ----
             utp (UTP): UTP object to load data from.
 
-        Defaults from construct_utp; K1 LoadPlaceable 0x00585670; TSL same (addresses TODO). Sets Basic, Advanced, scripts, inventory, comment.
+        Defaults from construct_utp. Sets Basic, Advanced, scripts, inventory, comment.
         """
-        self._utp: UTP = utp
+        self._utp = utp
 
         # Basic
         self.ui.nameEdit.set_locstring(utp.name)
@@ -642,7 +639,7 @@ class UTPEditor(Editor):
         Reads the EXACT lookup info from scene.texture_lookup_info - this is the
         SAME info that the renderer used when loading textures. No additional lookups.
         """
-        scene = self.ui.previewRenderer._scene
+        scene = self.ui.previewRenderer.scene
         if scene is None:
             return
 
@@ -739,6 +736,7 @@ class UTPEditor(Editor):
         except (ValueError, AttributeError):
             pass
         return None
+
 
 if __name__ == "__main__":
     import sys

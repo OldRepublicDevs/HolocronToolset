@@ -51,21 +51,15 @@ class UTEEditor(Editor):
 
         from toolset.uic.qtpy.editors.ute import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
         self._ute: UTE = UTE()
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self.new()
 
@@ -142,6 +136,8 @@ class UTEEditor(Editor):
             - Fetches the faction and difficulty data from the installation
             - Clears and populates the dropdowns with the faction and difficulty labels
         """
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
 

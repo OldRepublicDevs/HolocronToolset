@@ -59,19 +59,13 @@ class UTSEditor(Editor):
 
         from toolset.uic.qtpy.editors.uts import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self.new()
 
@@ -108,6 +102,8 @@ class UTSEditor(Editor):
             signal.connect(self.change_play)
 
     def _setup_installation(self, installation: HTInstallation):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
 
@@ -118,7 +114,7 @@ class UTSEditor(Editor):
         restype: ResourceType,
         data: bytes,
     ):
-        """Load resource and populate UI from UTS. Defaults from construct_uts (K1 LoadSounds 0x00505560, TSL 0x0071c730 (Aspyr))."""
+        """Load resource and populate UI from UTS. Defaults from construct_uts."""
         super().load(filepath, resref, restype, data)
 
         uts: UTS = read_uts(data)

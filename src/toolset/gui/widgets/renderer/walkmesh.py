@@ -7,20 +7,15 @@ import math
 from copy import deepcopy
 from typing import TYPE_CHECKING, ClassVar, Generic, NamedTuple, TypeVar
 
-import qtpy
-
 from qtpy.QtCore import (
-    QPoint,
     QPointF,
     QRect,
     QRectF,
-    QTimer,
     Qt,
     Signal,  # pyright: ignore[reportPrivateImportUsage]
 )
 from qtpy.QtGui import (
     QColor,
-    QCursor,
     QImage,
     QPainter,
     QPainterPath,
@@ -46,16 +41,14 @@ from pykotor.resource.generics.git import (
     GITTrigger,
     GITWaypoint,
 )
-from toolset.gui.common.marquee import (
-    MARQUEE_MOVE_THRESHOLD_PIXELS,
-    draw_marquee_rect,
-)
-from toolset.utils.misc import clamp, keyboard_modifiers_to_qt_keys
+from toolset.gui.common.base_2d_renderer import Base2DMapRenderer
+from toolset.gui.common.map_camera import MapCamera
+from toolset.utils.misc import clamp
 from utility.common.geometry import SurfaceMaterial, Vector2, Vector3
 from utility.error_handling import assert_with_variable_trace
 
 if TYPE_CHECKING:
-    from qtpy.QtGui import QFocusEvent, QKeyEvent, QMouseEvent, QPaintEvent, QWheelEvent
+    from qtpy.QtGui import QMouseEvent, QPaintEvent
 
     from pykotor.resource.formats.lyt import LYT
     from pykotor.resource.formats.lyt.lyt_data import LYTRoom
@@ -85,41 +78,7 @@ class EncounterSpawnPoint(NamedTuple):
     spawn: GITEncounterSpawnPoint
 
 
-class WalkmeshCamera:
-    def __init__(self):
-        self._position: Vector2 = Vector2.from_null()
-        self._rotation: float = 0.0
-        self._zoom: float = 1.0
-
-    def position(self) -> Vector2:
-        return self._position.copy()
-
-    def rotation(self) -> float:
-        return self._rotation
-
-    def zoom(self) -> float:
-        return self._zoom
-
-    def set_position(self, x: float, y: float):
-        self._position.x = x
-        self._position.y = y
-
-    def nudge_position(self, x: float, y: float):
-        self._position.x += x
-        self._position.y += y
-
-    def set_rotation(self, rotation: float):
-        self._rotation = rotation
-
-    def nudge_rotation(self, rotation: float):
-        self._rotation += rotation
-
-    def set_zoom(self, zoom: float):
-        self._zoom = clamp(zoom, 0.1, 100)
-
-    def nudge_zoom(self, zoomFactor: float):
-        new_zoom = self._zoom * zoomFactor
-        self._zoom = clamp(new_zoom, 0.1, 100)
+WalkmeshCamera = MapCamera
 
 
 class WalkmeshSelection(Generic[T]):
@@ -153,7 +112,7 @@ class WalkmeshSelection(Generic[T]):
         self._selection.extend(elements)
 
 
-class WalkmeshRenderer(QWidget):
+class WalkmeshRenderer(Base2DMapRenderer):
     sig_mouse_moved: ClassVar[Signal] = Signal(object, object, object, object)  # screen coords, screen delta, mouse, keys  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when mouse is moved over the widget."""
 
@@ -181,7 +140,18 @@ class WalkmeshRenderer(QWidget):
         ----
             parent (QWidget): The parent widget
         """
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            min_zoom=0.1,
+            max_zoom=100.0,
+            transform_y_scale=-1.0,
+            flip_screen_y_for_world=True,
+            world_rotation_sign=1.0,
+            world_delta_y_sign=-1.0,
+            render_interval_ms=33,
+            always_repaint=True,
+            background_color=QColor(0, 0, 0, 255),
+        )
 
         self._walkmeshes: list[BWM] = []
         self._layout: LYT | None = None  # Store LYT layout for room boundary rendering
@@ -195,12 +165,10 @@ class WalkmeshRenderer(QWidget):
         self._bbmax: Vector3 = Vector3.from_null()
         self._world_size: Vector3 = Vector3.from_null()
 
-        self.camera: WalkmeshCamera = WalkmeshCamera()
         self.instance_selection: WalkmeshSelection[GITObject] = WalkmeshSelection()
         self.geometry_selection: WalkmeshSelection[GeomPoint] = WalkmeshSelection()
         self.spawn_selection: WalkmeshSelection[EncounterSpawnPoint] = WalkmeshSelection()
 
-        self._mouse_prev: Vector2 = Vector2(self.cursor().pos().x(), self.cursor().pos().y())
         self._walkmesh_face_cache: dict[BWMFace, QPainterPath] | None = None
 
         self.highlight_on_hover: bool = False
@@ -227,9 +195,6 @@ class WalkmeshRenderer(QWidget):
         self.default_material_color: QColor = QColor(255, 0, 255)
         self._highlighted_face: BWMFace | None = None
         self._highlighted_edge: int | None = None
-
-        self._keys_down: set[int | Qt.Key] = set()
-        self._mouse_down: set[int | Qt.MouseButton] = set()
 
         self._pixmap_creature: QPixmap = QPixmap(":/images/icons/k1/creature.png")
         self._pixmap_door: QPixmap = QPixmap(":/images/icons/k1/door.png")
@@ -261,37 +226,9 @@ class WalkmeshRenderer(QWidget):
         self._path_node_size: float = 0.3
         self._path_edge_width: float = 0.2
 
-        # Marquee selection (same behavior as IndoorMapRenderer)
-        self._marquee_active: bool = False
-        self._marquee_start: Vector2 = Vector2.from_null()
-        self._marquee_end: Vector2 = Vector2.from_null()
-
         # Connection preview (Connect tool: dashed line from source node to mouse)
         self._connection_preview_source_index: int | None = None
         self._connection_preview_mouse: Vector2 | None = None
-
-        self._loop()
-
-    def keys_down(self) -> set[int | Qt.Key]:
-        return self._keys_down
-
-    def mouse_down(self) -> set[int | Qt.MouseButton]:
-        return self._mouse_down
-
-    def _loop(self):
-        """The render loop."""
-        self.repaint()
-        QTimer.singleShot(33, self._loop)
-
-    def reset_buttons_down(self):
-        self._mouse_down.clear()
-
-    def reset_keys_down(self):
-        self._keys_down.clear()
-
-    def reset_all_down(self):
-        self._mouse_down.clear()
-        self._keys_down.clear()
 
     def set_walkmeshes(self, walkmeshes: list[BWM]):
         """Sets the list of walkmeshes to be rendered.
@@ -433,85 +370,6 @@ class WalkmeshRenderer(QWidget):
         crop: QRect = QRect(0, 0, 435, 256)
         self._minimap_image = image.copy(crop)
 
-    def snap_camera_to_point(
-        self,
-        point: Vector2 | Vector3,
-        zoom: int = 8,
-    ):
-        self.camera.set_position(point.x, point.y)
-        self.camera.set_zoom(zoom)
-
-    def do_cursor_lock(
-        self,
-        mutable_screen: Vector2,
-    ):
-        """Reset the cursor to the center of the screen to prevent it from going off screen.
-
-        Used with the FreeCam and drag camera movements and drag rotations.
-        """
-        global_old_pos: QPoint = self.mapToGlobal(QPoint(int(self._mouse_prev.x), int(self._mouse_prev.y)))
-        QCursor.setPos(global_old_pos)
-        local_old_pos: QPoint = self.mapFromGlobal(QPoint(global_old_pos.x(), global_old_pos.y()))
-        mutable_screen.x = local_old_pos.x()
-        mutable_screen.y = local_old_pos.y()
-
-    def to_render_coords(
-        self,
-        x: float,
-        y: float,
-    ) -> Vector2:
-        """Returns a screen-space coordinates coverted from the specified world-space coordinates.
-
-        The origin of the screen-space coordinates is the top-left of the WalkmeshRenderer widget.
-        """
-        cos: float = math.cos(self.camera.rotation())
-        sin: float = math.sin(self.camera.rotation())
-        x -= self.camera.position().x
-        y -= self.camera.position().y
-        x2: float = (x * cos - y * sin) * self.camera.zoom() + self.width() / 2
-        y2: float = (x * sin + y * cos) * self.camera.zoom() + self.height() / 2
-        return Vector2(x2, y2)
-
-    def to_world_coords(
-        self,
-        x: float,
-        y: float,
-    ) -> Vector3:
-        """Returns the world-space coordinates converted from the specified screen-space coordinates.
-
-        The Z component is calculated using the X/Y components and the walkmesh
-        face the mouse is over. If there is no face underneath the mouse, the Z component is set to zero.
-        """
-        y = self.height() - y
-        cos: float = math.cos(self.camera.rotation())
-        sin: float = math.sin(self.camera.rotation())
-        x = (x - self.width() / 2) / self.camera.zoom()
-        y = (y - self.height() / 2) / self.camera.zoom()
-        x2: float = x * cos - y * sin + self.camera.position().x
-        y2: float = x * sin + y * cos + self.camera.position().y
-
-        z: float = self.get_z_coord(x2, y2)
-
-        return Vector3(x2, y2, z)
-
-    def to_world_delta(
-        self,
-        x: float,
-        y: float,
-    ) -> Vector2:
-        """Returns the coordinates representing a change in world-space.
-
-        This is convereted from coordinates representing a
-        change in screen-space, such as the delta paramater given in a mouseMove event.
-        """
-        cos: float = math.cos(-self.camera.rotation())
-        sin: float = math.sin(-self.camera.rotation())
-        x /= self.camera.zoom()
-        y /= self.camera.zoom()
-        x2: float = x * cos - y * sin
-        y2: float = x * sin + y * cos
-        return Vector2(x2, -y2)
-
     def get_z_coord(
         self,
         x: float,
@@ -590,43 +448,11 @@ class WalkmeshRenderer(QWidget):
             return None
         return app.palette()
 
-    def _draw_grid(
-        self,
-        painter: QPainter,
-    ):
-        if not self.show_grid or self.grid_size <= 0:
-            return
-
-        top_left = self.to_world_coords(0, 0)
-        bottom_right = self.to_world_coords(self.width(), self.height())
-
-        min_x = min(top_left.x, bottom_right.x)
-        max_x = max(top_left.x, bottom_right.x)
-        min_y = min(top_left.y, bottom_right.y)
-        max_y = max(top_left.y, bottom_right.y)
-
-        min_x = math.floor(min_x / self.grid_size) * self.grid_size
-        max_x = math.ceil(max_x / self.grid_size) * self.grid_size
-        min_y = math.floor(min_y / self.grid_size) * self.grid_size
-        max_y = math.ceil(max_y / self.grid_size) * self.grid_size
-
+    def _grid_color(self) -> QColor:
         palette = self._current_palette()
         if palette is not None:
-            grid_color = palette.color(QPalette.ColorRole.Mid)
-        else:
-            grid_color = QColor(90, 90, 90)
-
-        painter.setPen(QPen(grid_color, 1 / self.camera.zoom()))
-
-        x = min_x
-        while x <= max_x:
-            painter.drawLine(QPointF(x, min_y), QPointF(x, max_y))
-            x += self.grid_size
-
-        y = min_y
-        while y <= max_y:
-            painter.drawLine(QPointF(min_x, y), QPointF(max_x, y))
-            y += self.grid_size
+            return palette.color(QPalette.ColorRole.Mid)
+        return QColor(90, 90, 90)
 
     def center_camera(
         self,
@@ -646,11 +472,11 @@ class WalkmeshRenderer(QWidget):
         # If the GIT is being loaded directly after the window opens the widget won't have appropriately resized itself,
         # so we check for this and set the sizes to what it should be by default.
         if self.width() == 100:  # noqa: PLR2004
-            screen_w = 520
-            screen_h = 507
+            screen_w: int = 520
+            screen_h: int = 507
         else:
-            screen_w: int = self.width()
-            screen_h: int = self.height()
+            screen_w = self.width()
+            screen_h = self.height()
 
         scale_w: float = screen_w / world_w if world_w != 0 else 0.0
         scale_h: float = screen_h / world_h if world_h != 0 else 0.0
@@ -766,17 +592,9 @@ class WalkmeshRenderer(QWidget):
                 for face in walkmesh.unwalkable_faces():
                     self._walkmesh_face_cache[face] = self._build_face(face)
 
-        # Create the transform object using the camera values
-        transform = QTransform()
-        transform.translate(self.width() / 2, self.height() / 2)
-        transform.rotate(math.degrees(self.camera.rotation()))
-        transform.scale(self.camera.zoom(), -self.camera.zoom())
-        transform.translate(-self.camera.position().x, -self.camera.position().y)
-
-        # Fill the screen with black
+        transform: QTransform = self._create_world_transform()
         painter = QPainter(self)
-        painter.setBrush(QColor(0))
-        painter.drawRect(0, 0, self.width(), self.height())
+        self._fill_background(painter)
 
         # Draw the faces of the walkmesh (cached).
         painter.setTransform(transform)
@@ -1131,7 +949,7 @@ class WalkmeshRenderer(QWidget):
             icon_rotation = math.pi + self.camera.rotation()
             icon_scale = 1 / 16
 
-            non_camera_groups: list[tuple[list[GITInstance], QPixmap]] = (  # pyright: ignore[reportAssignmentType]
+            non_camera_groups: tuple[tuple[list[GITInstance], QPixmap], ...] = (
                 ([] if self.hide_creatures else self._git.creatures, self._pixmap_creature),
                 ([] if self.hide_doors else self._git.doors, self._pixmap_door),
                 ([] if self.hide_placeables else self._git.placeables, self._pixmap_placeable),
@@ -1228,26 +1046,26 @@ class WalkmeshRenderer(QWidget):
 
         # Highlight the first instance that is underneath the mouse
         if self._instances_under_mouse:
-            instance: GITObject = self._instances_under_mouse[0]
+            hovered_instance: GITObject = self._instances_under_mouse[0]
 
             painter.setBrush(hover_bg)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(QPointF(instance.position.x, instance.position.y), 1, 1)
+            painter.drawEllipse(QPointF(hovered_instance.position.x, hovered_instance.position.y), 1, 1)
 
             # If its a trigger or an encounter, this will draw the geometry stored inside it
             painter.setBrush(hover_highlight)
             painter.setPen(QPen(hover_highlight_pen, 2 / self.camera.zoom()))
-            painter.drawPath(self._build_instance_bounds(instance))
+            painter.drawPath(self._build_instance_bounds(hovered_instance))
 
         # Highlight first geom point that is underneath the mouse
         if self._geom_points_under_mouse:
             gpoint: GeomPoint = self._geom_points_under_mouse[0]
-            point = gpoint.instance.position + gpoint.point
+            hovered_point: Vector3 = gpoint.instance.position + gpoint.point
 
             if not self.hide_geom_points:
                 painter.setBrush(point_color)
                 painter.setPen(Qt.PenStyle.NoPen)
-                painter.drawEllipse(QPointF(point.x, point.y), 4 / self.camera.zoom(), 4 / self.camera.zoom())
+                painter.drawEllipse(QPointF(hovered_point.x, hovered_point.y), 4 / self.camera.zoom(), 4 / self.camera.zoom())
 
         # Highlight first spawn point that is underneath the mouse
         if self._spawn_points_under_mouse and not self.hide_spawn_points:
@@ -1287,10 +1105,10 @@ class WalkmeshRenderer(QWidget):
 
         # Highlight selected geometry points
         for geom_point in self.geometry_selection.all():
-            point: Vector3 = geom_point.point + geom_point.instance.position
+            selected_point: Vector3 = geom_point.point + geom_point.instance.position
             painter.setBrush(point_selected)
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(QPointF(point.x, point.y), 4 / self.camera.zoom(), 4 / self.camera.zoom())
+            painter.drawEllipse(QPointF(selected_point.x, selected_point.y), 4 / self.camera.zoom(), 4 / self.camera.zoom())
 
         # Draw selected spawn points
         if not self.hide_spawn_points:
@@ -1309,12 +1127,7 @@ class WalkmeshRenderer(QWidget):
                 painter.setPen(QPen(QColor(255, 255, 255, 255), 0.15))
                 painter.drawLine(QPointF(sp.x, sp.y), QPointF(sp.x + dx, sp.y + dy))
 
-        # Marquee selection (screen space, after transform reset)
-        if self._marquee_active:
-            painter.save()
-            painter.resetTransform()
-            draw_marquee_rect(painter, self._marquee_start, self._marquee_end)
-            painter.restore()
+        self._draw_marquee(painter)
 
     def set_connection_preview_source(self, node_index: int | None) -> None:
         """Set the source node index for the connection preview line (Connect tool). None to clear."""
@@ -1326,29 +1139,6 @@ class WalkmeshRenderer(QWidget):
     def set_connection_preview_mouse(self, world: Vector2) -> None:
         """Update the mouse position for the connection preview line (Connect tool)."""
         self._connection_preview_mouse = world
-        self.update()
-
-    def start_marquee(self, screen_pos: Vector2) -> None:
-        """Start marquee selection. Call on left-click on empty space."""
-        self._marquee_active = True
-        self._marquee_start = screen_pos
-        self._marquee_end = screen_pos
-
-    def _end_marquee_and_emit(self, additive: bool) -> None:
-        """End marquee, compute world rect, and emit sig_marquee_select if marquee moved."""
-        if not self._marquee_active:
-            return
-        self._marquee_active = False
-        if self._marquee_start.distance(self._marquee_end) <= MARQUEE_MOVE_THRESHOLD_PIXELS:
-            self.update()
-            return
-        start_world = self.to_world_coords(self._marquee_start.x, self._marquee_start.y)
-        end_world = self.to_world_coords(self._marquee_end.x, self._marquee_end.y)
-        min_x = min(start_world.x, end_world.x)
-        max_x = max(start_world.x, end_world.x)
-        min_y = min(start_world.y, end_world.y)
-        max_y = max(start_world.y, end_world.y)
-        self.sig_marquee_select.emit((min_x, min_y, max_x, max_y), additive)
         self.update()
 
     def _update_hits_under_point(self, coords: Vector2) -> None:
@@ -1382,86 +1172,16 @@ class WalkmeshRenderer(QWidget):
                 if point.distance(world) <= self._path_node_size:
                     self._path_nodes_under_mouse.append(point)
 
-    def wheelEvent(self, e: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        keys_to_emit: set[int | Qt.Key] = self._keys_down | keyboard_modifiers_to_qt_keys(e.modifiers())
-        self.sig_mouse_scrolled.emit(Vector2(e.angleDelta().x(), e.angleDelta().y()), self._mouse_down, keys_to_emit)
-
     def mouseMoveEvent(self, e: QMouseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        pos: QPoint = e.pos() if qtpy.QT5 else e.position().toPoint()
+        coords: Vector2 = self._event_coords(e)
         super().mouseMoveEvent(e)
-        coords: Vector2 = Vector2(pos.x(), pos.y())
-        coords_delta: Vector2 = Vector2(coords.x - self._mouse_prev.x, coords.y - self._mouse_prev.y)
-        self.sig_mouse_moved.emit(coords, coords_delta, self._mouse_down, self._keys_down)
-        self._mouse_prev = coords  # Always assign mouse_prev after emitting: allows signal handlers (e.g. ModuleDesigner, GITEditor) to handle cursor lock.
-
         if self._marquee_active:
-            if Qt.MouseButton.LeftButton not in self._mouse_down:
-                self._end_marquee_and_emit(additive=False)
-                return
-            self._marquee_end = coords
-            self.update()
             return
-
         self._update_hits_under_point(coords)
-
-    def focusOutEvent(self, e: QFocusEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        if self._marquee_active:
-            self._marquee_active = False
-            self.update()
-        self._mouse_down.clear()
-        self._keys_down.clear()
-        super().focusOutEvent(e)
 
     def mousePressEvent(self, e: QMouseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        super().mousePressEvent(e)
-        if e is None:
-            return
-        coords = (
-            Vector2(e.x(), e.y())  # pyright: ignore[reportAttributeAccessIssue]
-            if qtpy.QT5
-            else Vector2(e.position().toPoint().x(), e.position().toPoint().y())
-        )
+        coords: Vector2 = self._event_coords(e)
         self._update_hits_under_point(coords)
-        button: int | Qt.MouseButton = e.button()
-        self._mouse_down.add(button)
-        self.sig_mouse_pressed.emit(coords, self._mouse_down, self._keys_down)
-
-    def mouseReleaseEvent(self, e: QMouseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        super().mouseReleaseEvent(e)
-        if e is None:
-            return
-        button: int | Qt.MouseButton = e.button()
-        self._mouse_down.discard(button)
-        coords = (
-            Vector2(e.x(), e.y())  # pyright: ignore[reportAttributeAccessIssue]
-            if qtpy.QT5
-            else Vector2(e.position().toPoint().x(), e.position().toPoint().y())
-        )
-        if self._marquee_active and button == Qt.MouseButton.LeftButton:
-            additive = Qt.Key.Key_Shift in self._keys_down
-            self._end_marquee_and_emit(additive=additive)
-        self.sig_mouse_released.emit(coords, self._mouse_down, self._keys_down, button)
-
-    def keyPressEvent(self, e: QKeyEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        super().keyPressEvent(e)
-        if e is None:
-            return
-        key = e.key()
-        if key == Qt.Key.Key_Escape and self._marquee_active:
-            self._marquee_active = False
-            self.update()
-            return
-        self._keys_down.add(key)
-        if self.underMouse():
-            self.sig_key_pressed.emit(self._mouse_down, self._keys_down)
-
-    def keyReleaseEvent(self, e: QKeyEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        super().keyReleaseEvent(e)
-        if e is None:
-            return
-        key = e.key()
-        self._keys_down.discard(key)
-        if self.underMouse():
-            self.sig_key_released.emit(self._mouse_down, self._keys_down)
+        super().mousePressEvent(e)
 
     # endregion

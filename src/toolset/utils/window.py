@@ -171,36 +171,34 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
     open_as_generic_gff: bool = False,
 ) -> tuple[os.PathLike | str | None, Editor | QMainWindow | None]:
     # To avoid circular imports, these need to be placed within the function
-    from toolset.gui.editors.are import AREEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.bwm import BWMEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.dlg import DLGEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.erf import ERFEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.fac import FACEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.gff import GFFEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.git import GITEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.ifo import IFOEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.jrl import JRLEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.lip import LIPEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.ltr import LTREditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.nss import NSSEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.pth import PTHEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.ssf import SSFEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.tlk import TLKEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.tpc import TPCEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.twoda import (
-        TwoDAEditor,  # type: ignore[import-not-found] # noqa: PLC0415
-    )
-    from toolset.gui.editors.txt import TXTEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utc import UTCEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utd import UTDEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.ute import UTEEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.uti import UTIEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utm import UTMEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utp import UTPEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.uts import UTSEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utt import UTTEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.utw import UTWEditor  # type: ignore[import-not-found] # noqa: PLC0415
-    from toolset.gui.editors.wav import WAVEditor  # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.are import AREEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.bwm import BWMEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.dlg import DLGEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.erf import ERFEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.fac import FACEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.gff import GFFEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.git import GITEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.ifo import IFOEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.jrl import JRLEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.lip import LIPEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.ltr import LTREditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.nss import NSSEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.pth import PTHEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.ssf import SSFEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.tlk import TLKEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.tpc import TPCEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.twoda import TwoDAEditor  # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.txt import TXTEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utc import UTCEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utd import UTDEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.ute import UTEEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.uti import UTIEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utm import UTMEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utp import UTPEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.uts import UTSEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utt import UTTEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.utw import UTWEditor      # type: ignore[import-not-found] # noqa: PLC0415
+    from toolset.gui.editors.wav import WAVEditor      # type: ignore[import-not-found] # noqa: PLC0415
 
     if gff_specialized is None:
         gff_specialized = GlobalSettings().gffSpecializedEditors
@@ -228,7 +226,7 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
 
     from toolset.utils.window_editor import get_editor_by_resource_identity
 
-    existing_editor = get_editor_by_resource_identity(filepath, resname, restype)
+    existing_editor = get_editor_by_resource_identity(Path(filepath), resname, restype)
     if existing_editor is not None:
         try:
             existing_editor.show()
@@ -253,13 +251,13 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
     # Each entry is a tuple: (editor_class, requires_installation)
     editor_mappings: dict[ResourceType, tuple[type[Editor], bool]] = {
         # Simple mappings (no special conditions)
-        ResourceType.TwoDA: (TwoDAEditor, False),
+        ResourceType.GUI: (GFFEditor, False),
+        ResourceType.LIP: (LIPEditor, False),
+        ResourceType.LTR: (LTREditor, False),
+        ResourceType.NSS: (NSSEditor, False),
         ResourceType.SSF: (SSFEditor, False),
         ResourceType.TLK: (TLKEditor, False),
-        ResourceType.LTR: (LTREditor, False),
-        ResourceType.LIP: (LIPEditor, False),
-        ResourceType.NSS: (NSSEditor, False),
-        ResourceType.GUI: (GFFEditor, False),
+        ResourceType.TwoDA: (TwoDAEditor, False),
     }
 
     # Category-based mappings
@@ -288,30 +286,29 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
         # Handle target_type mappings with GFF specialization logic
         target_type = restype.target_type()
         gff_editor_mappings = {
-            ResourceType.DLG: DLGEditor,
-            ResourceType.UTC: UTCEditor,
-            ResourceType.BTC: UTCEditor,
+            ResourceType.ARE: AREEditor,
             ResourceType.BIC: UTCEditor,
-            ResourceType.UTP: UTPEditor,
+            ResourceType.BTC: UTCEditor,
+            ResourceType.BTE: UTEEditor,
+            ResourceType.BTI: UTIEditor,
+            ResourceType.BTM: UTMEditor,
             ResourceType.BTP: UTPEditor,
-            ResourceType.UTD: UTDEditor,
-            ResourceType.BTD: UTDEditor,
+            ResourceType.BTT: UTTEditor,
+            ResourceType.DLG: DLGEditor,
+            ResourceType.FAC: FACEditor,
+            ResourceType.GIT: GITEditor,
             ResourceType.IFO: IFOEditor,
+            ResourceType.JRL: JRLEditor,
+            ResourceType.PTH: PTHEditor,
+            ResourceType.UTC: UTCEditor,
+            ResourceType.UTD: UTDEditor,
+            ResourceType.UTE: UTEEditor,
+            ResourceType.UTI: UTIEditor,
+            ResourceType.UTM: UTMEditor,
+            ResourceType.UTP: UTPEditor,
             ResourceType.UTS: UTSEditor,
             ResourceType.UTT: UTTEditor,
-            ResourceType.BTT: UTTEditor,
-            ResourceType.UTM: UTMEditor,
-            ResourceType.BTM: UTMEditor,
             ResourceType.UTW: UTWEditor,
-            ResourceType.UTE: UTEEditor,
-            ResourceType.BTE: UTEEditor,
-            ResourceType.UTI: UTIEditor,
-            ResourceType.BTI: UTIEditor,
-            ResourceType.JRL: JRLEditor,
-            ResourceType.ARE: AREEditor,
-            ResourceType.PTH: PTHEditor,
-            ResourceType.GIT: GITEditor,
-            ResourceType.FAC: FACEditor,
         }
 
         if target_type in gff_editor_mappings:
@@ -358,20 +355,6 @@ def _open_resource_editor_impl(  # noqa: C901, PLR0913, PLR0912, PLR0915
         from toolset.gui.helpers.message_box import show_error_message
         show_error_message(tr("Failed to open file"), trf("The selected file format '{format}' is not yet supported.", format=str(restype)), parent_window_widget)
         return None, None
-
-    if restype in (ResourceType.MDL, ResourceType.MDX):
-        try:
-            from toolset.utils.mdl_io_aabb_patch_standalone import apply_force_io_mdl_walkmesh_disk_fix
-
-            apply_force_io_mdl_walkmesh_disk_fix()
-        except Exception:
-            pass
-        try:
-            from toolset.utils.mdl_io_aabb_monkeypatch import ensure_mdl_binary_reader_walkmesh_fixed
-
-            ensure_mdl_binary_reader_walkmesh_fixed()
-        except Exception:
-            pass
 
     try:
         editor.load(filepath, resname, restype, data)

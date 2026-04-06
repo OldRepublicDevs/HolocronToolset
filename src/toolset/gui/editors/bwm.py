@@ -12,6 +12,7 @@ from pykotor.resource.formats.bwm import (  # pyright: ignore[reportMissingImpor
     write_bwm,
 )
 from pykotor.resource.type import ResourceType  # pyright: ignore[reportMissingImports]
+from toolset.gui.common.blender_2d_nav import Blender2DNavigationHelper, aabb_from_points
 from toolset.gui.common.interaction.camera import (
     calculate_zoom_strength,
     handle_standard_2d_camera_movement,
@@ -61,14 +62,8 @@ class BWMEditor(Editor):
 
         from toolset.uic.qtpy.editors.bwm import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter: NoScrollEventFilter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self._setup_menus()
         self._add_help_action()
@@ -78,6 +73,11 @@ class BWMEditor(Editor):
         self.ui.renderArea.material_colors = self.material_colors
         self.ui.renderArea.show_room_boundaries = True
         self.ui.renderArea.show_grid = False
+        self._blender_nav = Blender2DNavigationHelper(
+            self.ui.renderArea,
+            get_content_bounds=self._content_bounds,
+            settings=ModuleDesignerSettings(),
+        )
         self.rebuild_materials()
 
         self.new()
@@ -85,15 +85,31 @@ class BWMEditor(Editor):
     def _setup_signals(self) -> None:
         self.ui.renderArea.sig_mouse_moved.connect(self.on_mouse_moved)
         self.ui.renderArea.sig_mouse_scrolled.connect(self.on_mouse_scrolled)
+        self.ui.renderArea.sig_key_pressed.connect(self.on_key_pressed)
         self.ui.actionShowRoomBoundaries.toggled.connect(lambda value: setattr(self.ui.renderArea, "show_room_boundaries", value))
         self.ui.actionShowRoomBoundaries.toggled.connect(lambda _: self.ui.renderArea.update())
         self.ui.actionShowGrid.toggled.connect(lambda value: setattr(self.ui.renderArea, "show_grid", value))
         self.ui.actionShowGrid.toggled.connect(lambda _: self.ui.renderArea.update())
 
         # Use "=" (base key) for zoom in as well as "+" (which requires Shift).
-        QShortcut("=", self).activated.connect(lambda: self.ui.renderArea.camera.set_zoom(2))
-        QShortcut("+", self).activated.connect(lambda: self.ui.renderArea.camera.set_zoom(2))
-        QShortcut("-", self).activated.connect(lambda: self.ui.renderArea.camera.set_zoom(-2))
+        QShortcut("=", self).activated.connect(lambda: self.ui.renderArea.zoom_at_screen(1.25))
+        QShortcut("+", self).activated.connect(lambda: self.ui.renderArea.zoom_at_screen(1.25))
+        QShortcut("-", self).activated.connect(lambda: self.ui.renderArea.zoom_at_screen(0.8))
+        QShortcut("Home", self).activated.connect(self.frame_all)
+        QShortcut(".", self).activated.connect(self.frame_all)
+
+    def _content_bounds(self):
+        if self._bwm is None:
+            return None
+        return aabb_from_points(
+            (vertex.x, vertex.y)
+            for face in self._bwm.faces
+            for vertex in (face.v1, face.v2, face.v3)
+        )
+
+    def frame_all(self) -> None:
+        if not self._blender_nav.frame_all():
+            self.ui.renderArea.center_camera()
 
     def rebuild_materials(self):
         """Rebuild the material list.
@@ -192,17 +208,26 @@ class BWMEditor(Editor):
         screen = self.ui.renderArea.to_render_coords(world.x, world.y)
         xy = f" || x: {screen.x:.2f}, " + f"y: {screen.y:.2f}, "
 
-        self.statusBar().showMessage(coords_text + face_text + xy)  # pyright: ignore[reportCallIssue]
+        status_bar = self.statusBar()  # pyright: ignore[reportGeneralTypeIssues, attr-defined]
+        if status_bar is None:
+            return
+        status_bar.showMessage(coords_text + face_text + xy)  # pyright: ignore[reportCallIssue]
 
     def on_mouse_scrolled(self, delta: Vector2, buttons: set[int], keys: set[int]):
+        if self._blender_nav.handle_mouse_scroll(delta, keys, zoom_sensitivity=ModuleDesignerSettings().zoomCameraSensitivity2d):
+            self.ui.renderArea.update()
+            return
         if not delta.y:
             return  # sometimes it'll be zero when holding middlemouse-down.
         if Qt.Key.Key_Control not in keys:  # pyright: ignore[reportGeneralTypeIssues, attr-defined]
             return
         sens_setting = ModuleDesignerSettings().zoomCameraSensitivity2d
         zoom_factor = calculate_zoom_strength(delta.y, sens_setting)
-        self.ui.renderArea.camera.nudge_zoom(zoom_factor)
+        self.ui.renderArea.zoom_at_screen(zoom_factor)
         self.ui.renderArea.update()  # Trigger a re-render
+
+    def on_key_pressed(self, buttons: set[int], keys: set[int]):
+        self._blender_nav.handle_key_pressed(keys, pan_step=ModuleDesignerSettings().moveCameraSensitivity2d / 10)
 
     def change_face_material(self, face: BWMFace):
         """Change material of a face.
@@ -217,7 +242,7 @@ class BWMEditor(Editor):
             - Check if the current face material is different than the selected material
             - Assign the selected material to the provided face.
         """
-        current = self.ui.materialList.currentItem()
+        current: QListWidgetItem | None = self.ui.materialList.currentItem()
         if current is None:
             return
         new_material = current.data(Qt.ItemDataRole.UserRole)  # type: ignore[union-attr]  # pyright: ignore[reportOptionalMemberAccess]

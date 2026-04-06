@@ -10,8 +10,20 @@ from typing import TYPE_CHECKING, Callable, ClassVar
 
 import qtpy
 
-from qtpy.QtCore import QPointF, QRectF, QTimer, Qt, Signal
-from qtpy.QtGui import QColor, QPainter, QPainterPath, QPalette, QPen, QPolygonF, QTransform
+from qtpy.QtCore import (
+    QPointF,
+    QRectF,
+    Qt,
+    Signal,  # pyright: ignore[reportPrivateImportUsage]
+)
+from qtpy.QtGui import (
+    QColor,
+    QPainter,
+    QPainterPath,
+    QPalette,
+    QPen,
+    QPolygonF,
+)
 from qtpy.QtWidgets import (
     QApplication,
     QWidget,
@@ -19,23 +31,16 @@ from qtpy.QtWidgets import (
 
 if qtpy.QT5:
     from qtpy.QtGui import QCloseEvent, QPaintEvent
-    from qtpy.QtWidgets import QUndoStack  # type: ignore[reportPrivateImportUsage]
+    from qtpy.QtWidgets import QUndoStack  # pyright: ignore[reportPrivateImportUsage]
 elif qtpy.QT6:
-
-    try:
-        from qtpy.QtGui import QCloseEvent
-    except ImportError:
-        # Fallback for Qt6 where QCloseEvent may be in QtCore
-        pass  # type: ignore[assignment, attr-defined, no-redef]
+    from qtpy.QtGui import QCloseEvent
 else:
     raise ValueError(f"Invalid QT_API: '{qtpy.API_NAME}'")
 
 from pykotor.common.indoorkit import KitComponentHook
 from pykotor.common.indoormap import IndoorMap, IndoorMapRoom
-from toolset.gui.common.marquee import (
-    MARQUEE_MOVE_THRESHOLD_PIXELS,
-    draw_marquee_rect,
-)
+from toolset.gui.common.base_2d_renderer import Base2DMapRenderer
+from toolset.gui.common.marquee import MARQUEE_MOVE_THRESHOLD_PIXELS
 from toolset.gui.common.snapping import snap_value
 from toolset.gui.windows.indoor_builder.builder import SnapResult
 from toolset.gui.windows.indoor_builder.constants import (
@@ -89,12 +94,15 @@ from toolset.gui.windows.indoor_builder.constants import (
     WARP_POINT_RADIUS,
     DragMode,
 )
-from toolset.utils.misc import keyboard_modifiers_to_qt_keys
 from utility.common.geometry import SurfaceMaterial, Vector2, Vector3
 
 if TYPE_CHECKING:
-    from qtpy.QtCore import QCloseEvent, QPoint
+    from qtpy.QtCore import (
+        QCoreApplication,
+        QPoint,
+    )
     from qtpy.QtGui import (
+        QCloseEvent,
         QFocusEvent,
         QImage,
         QKeyEvent,
@@ -139,7 +147,7 @@ class _BWMSurfaceCache:
 # =============================================================================
 
 
-class IndoorMapRenderer(QWidget):
+class IndoorMapRenderer(Base2DMapRenderer):
     sig_mouse_moved: ClassVar[Signal] = Signal(object, object, object, object)  # pyright: ignore[reportPrivateImportUsage]
     sig_mouse_scrolled: ClassVar[Signal] = Signal(object, object, object)  # pyright: ignore[reportPrivateImportUsage]
     sig_mouse_released: ClassVar[Signal] = Signal(object, object, object)  # pyright: ignore[reportPrivateImportUsage]
@@ -151,17 +159,27 @@ class IndoorMapRenderer(QWidget):
     sig_marquee_select: ClassVar[Signal] = Signal(object, object)  # rooms selected, additive  # pyright: ignore[reportPrivateImportUsage]
 
     def __init__(self, parent: QWidget):
-        super().__init__(parent)
+        super().__init__(
+            parent,
+            min_zoom=MIN_CAMERA_ZOOM,
+            max_zoom=MAX_CAMERA_ZOOM,
+            transform_y_scale=1.0,
+            flip_screen_y_for_world=False,
+            world_rotation_sign=-1.0,
+            world_delta_y_sign=1.0,
+            render_interval_ms=RENDER_INTERVAL_MS,
+            always_repaint=False,
+            background_color=QColor(BACKGROUND_COLOR[0], BACKGROUND_COLOR[1], BACKGROUND_COLOR[2], BACKGROUND_COLOR[3]),
+        )
 
         self._map: IndoorMap = IndoorMap()
         self._undo_stack: QUndoStack | None = None
         self._under_mouse_room: IndoorMapRoom | None = None
         self._selected_rooms: list[IndoorMapRoom] = []
 
-        # Camera
-        self._cam_position: Vector2 = Vector2(DEFAULT_CAMERA_POSITION_X, DEFAULT_CAMERA_POSITION_Y)
-        self._cam_rotation: float = DEFAULT_CAMERA_ROTATION
-        self._cam_scale: float = DEFAULT_CAMERA_ZOOM
+        self.camera.set_position(DEFAULT_CAMERA_POSITION_X, DEFAULT_CAMERA_POSITION_Y)
+        self.camera.set_rotation(DEFAULT_CAMERA_ROTATION)
+        self.camera.set_zoom(DEFAULT_CAMERA_ZOOM)
 
         # Cursor/placement state
         self.cursor_component: KitComponent | None = None
@@ -169,11 +187,6 @@ class IndoorMapRenderer(QWidget):
         self.cursor_rotation: float = 0.0
         self.cursor_flip_x: bool = False
         self.cursor_flip_y: bool = False
-
-        # Input state
-        self._keys_down: set[int | Qt.Key] = set()
-        self._mouse_down: set[int | Qt.MouseButton] = set()
-        self._mouse_prev: Vector2 = Vector2.from_null()
 
         # Drag state
         self._dragging: bool = False
@@ -191,11 +204,6 @@ class IndoorMapRenderer(QWidget):
         self._selected_hook: tuple[IndoorMapRoom, int] | None = None
         self._dragging_hook: bool = False
         self._drag_hook_start: Vector3 = Vector3.from_null()
-
-        # Marquee selection state
-        self._marquee_active: bool = False
-        self._marquee_start: Vector2 = Vector2.from_null()
-        self._marquee_end: Vector2 = Vector2.from_null()
 
         # Warp point drag state
         self._dragging_warp: bool = False
@@ -216,10 +224,7 @@ class IndoorMapRenderer(QWidget):
         # Snap visualization
         self._snap_indicator: SnapResult | None = None
 
-        # Performance: dirty flag for rendering
-        self._dirty: bool = True
-        # NOTE: We no longer cache *transformed* room walkmeshes (they require deepcopy + transforms).
-        # Instead we cache BWM face paths/indices in local space and apply transforms cheaply.
+        # Cache BWM face paths/indices in local space and apply transforms cheaply.
         self._bwm_surface_cache: dict[int, _BWMSurfaceCache] = {}
 
         # Warp point hover detection
@@ -227,7 +232,7 @@ class IndoorMapRenderer(QWidget):
         self.warp_point_radius: float = WARP_POINT_RADIUS
 
         # Status callback (set by parent window)
-        self._status_callback = None
+        self._status_callback: Callable[[QPoint | Vector2 | None, set[int | Qt.MouseButton], set[int | Qt.Key]], None] | None = None
 
         # Walkmesh visualization
         self._material_colors: dict[SurfaceMaterial, QColor] = {}
@@ -237,64 +242,20 @@ class IndoorMapRenderer(QWidget):
         # Walkable materials - must match SurfaceMaterial.walkable() exactly (see geometry.py)
         # Using SurfaceMaterial enum values for clarity and maintainability
         self._walkable_values: set[SurfaceMaterial] = {
-            SurfaceMaterial.DIRT,
-            SurfaceMaterial.GRASS,
-            SurfaceMaterial.STONE,
-            SurfaceMaterial.WOOD,
-            SurfaceMaterial.WATER,
             SurfaceMaterial.CARPET,
-            SurfaceMaterial.METAL,
-            SurfaceMaterial.PUDDLES,
-            SurfaceMaterial.SWAMP,
-            SurfaceMaterial.MUD,
-            SurfaceMaterial.LEAVES,
+            SurfaceMaterial.DIRT,
             SurfaceMaterial.DOOR,
+            SurfaceMaterial.GRASS,
+            SurfaceMaterial.LEAVES,
+            SurfaceMaterial.METAL,
+            SurfaceMaterial.MUD,
+            SurfaceMaterial.PUDDLES,
+            SurfaceMaterial.STONE,
+            SurfaceMaterial.SWAMP,
             SurfaceMaterial.TRIGGER,
+            SurfaceMaterial.WATER,
+            SurfaceMaterial.WOOD,
         }
-
-        # Render loop control - use QTimer instead of recursive singleShot
-        self._render_timer: QTimer = QTimer(self)
-        self._render_timer.timeout.connect(self._on_render_timer)
-        self._render_timer.setInterval(RENDER_INTERVAL_MS)
-        self._render_timer.start()
-
-        # Connect to destroyed signal as safety mechanism
-        # This ensures the loop stops immediately when widget is destroyed
-        self.destroyed.connect(self._on_destroyed)
-
-    def _on_destroyed(self):
-        """Called when widget is destroyed - ensures loop stops."""
-        if hasattr(self, "_render_timer"):
-            self._render_timer.stop()
-
-    def _on_render_timer(self):
-        """Timer callback for render loop - only repaint when dirty.
-
-        Uses QTimer instead of recursive singleShot for better performance
-        and proper resource management.
-        """
-        # Safety check: validate widget is still valid
-        try:
-            if not self.isVisible() and self.parent() is None:
-                self._render_timer.stop()
-                return
-        except RuntimeError:
-            # Widget is in process of destruction
-            self._render_timer.stop()
-            return
-
-        # Perform repaint only if dirty or actively dragging/placing
-        try:
-            if self._dirty or self._dragging or self.cursor_component is not None:
-                self.repaint()
-                self._dirty = False
-        except (RuntimeError, AttributeError):
-            # Widget may be in process of destruction
-            self._render_timer.stop()
-
-    def mark_dirty(self):
-        """Mark the renderer as needing a repaint."""
-        self._dirty = True
 
     def set_map(self, indoor_map: IndoorMap):
         self._map = indoor_map
@@ -308,7 +269,10 @@ class IndoorMapRenderer(QWidget):
         self.cursor_component = component
         self.mark_dirty()
 
-    def set_status_callback(self, callback: Callable[[QPoint | Vector2 | None, set[int | Qt.MouseButton], set[int | Qt.Key]], None] | None) -> None:
+    def set_status_callback(
+        self,
+        callback: Callable[[QPoint | Vector2 | None, set[int | Qt.MouseButton], set[int | Qt.Key]], None] | None,
+    ) -> None:
         self._status_callback = callback  # type: ignore[assignment]  # pyright: ignore[reportAssignmentType]
 
     def select_room(self, room: IndoorMapRoom, *, clear_existing: bool = True):
@@ -363,7 +327,7 @@ class IndoorMapRenderer(QWidget):
         """Rotate currently dragged rooms using mouse wheel delta."""
         if not self.is_dragging_rooms() or not self._drag_rooms:
             return
-        step = math.copysign(self.rotation_snap, delta_y)
+        step: float = math.copysign(self.rotation_snap, delta_y)
         for room in self._drag_rooms:
             room.rotation = (room.rotation + step) % 360
         # NOTE: Don't rebuild_room_connections() during drag - it's O(n²) and kills perf.
@@ -463,16 +427,16 @@ class IndoorMapRenderer(QWidget):
         - Uses cheap world->local math and tests against the base walkmesh in local space.
         """
         for room in reversed(self._map.rooms):
-            base_bwm = room.base_walkmesh()
+            base_bwm: BWM = room.base_walkmesh()
             cache = self._get_bwm_surface_cache(base_bwm)
-            local = self._world_to_room_local(room, world)
+            local: Vector3 = self._world_to_room_local(room, world)
             # Cheap AABB reject before O(n_faces) point-in-triangle scan.
             if local.x < cache.bbmin.x or local.x > cache.bbmax.x or local.y < cache.bbmin.y or local.y > cache.bbmax.y:
                 continue
-            face = base_bwm.faceAt(local.x, local.y)
+            face: BWMFace | None = base_bwm.faceAt(local.x, local.y)
             if face is None:
                 continue
-            face_index = cache.face_id_to_index.get(id(face))
+            face_index: int | None = cache.face_id_to_index.get(id(face))
             if face_index is None:
                 # Fallback (should be rare): identity-based scan.
                 for idx, candidate in enumerate(base_bwm.faces):
@@ -486,33 +450,6 @@ class IndoorMapRenderer(QWidget):
     # =========================================================================
     # Coordinate conversions
     # =========================================================================
-
-    def to_render_coords(self, x: float, y: float) -> Vector2:
-        cos = math.cos(self._cam_rotation)
-        sin = math.sin(self._cam_rotation)
-        x -= self._cam_position.x
-        y -= self._cam_position.y
-        x2 = (x * cos - y * sin) * self._cam_scale + self.width() / 2
-        y2 = (x * sin + y * cos) * self._cam_scale + self.height() / 2
-        return Vector2(x2, y2)
-
-    def to_world_coords(self, x: float, y: float) -> Vector3:
-        cos = math.cos(-self._cam_rotation)
-        sin = math.sin(-self._cam_rotation)
-        x = (x - self.width() / 2) / self._cam_scale
-        y = (y - self.height() / 2) / self._cam_scale
-        x2 = x * cos - y * sin + self._cam_position.x
-        y2 = x * sin + y * cos + self._cam_position.y
-        return Vector3(x2, y2, 0)
-
-    def to_world_delta(self, x: float, y: float) -> Vector2:
-        cos = math.cos(-self._cam_rotation)
-        sin = math.sin(-self._cam_rotation)
-        x /= self._cam_scale
-        y /= self._cam_scale
-        x2 = x * cos - y * sin
-        y2 = x * sin + y * cos
-        return Vector2(x2, y2)
 
     # =========================================================================
     # Snapping
@@ -557,12 +494,12 @@ class IndoorMapRenderer(QWidget):
             return SnapResult(position=position, snapped=False)
 
         # Create fake room for hook position calculations
-        test_room = IndoorMapRoom(component, position, rotation, flip_x=flip_x, flip_y=flip_y)
+        test_room: IndoorMapRoom = IndoorMapRoom(component, position, rotation, flip_x=flip_x, flip_y=flip_y)
 
         best_distance = float("inf")
         best_snap: SnapResult = SnapResult(position=position, snapped=False)
         # Snap threshold scales with zoom - reduced to keep snaps helpful but separable
-        snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self._cam_scale)
+        snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self.camera.zoom())
 
         for existing_room in self._map.rooms:
             if room is not None and existing_room is room:
@@ -572,10 +509,10 @@ class IndoorMapRenderer(QWidget):
 
             # Check ALL hook pairs for potential snap positions
             for test_hook in test_room.component.hooks:
-                test_hook_local = test_room.hook_position(test_hook, world_offset=False)
+                test_hook_local: Vector3 = test_room.hook_position(test_hook, world_offset=False)
 
                 for existing_hook in existing_room.component.hooks:
-                    existing_hook_world = existing_room.hook_position(existing_hook)
+                    existing_hook_world: Vector3 = existing_room.hook_position(existing_hook)
 
                     # Calculate where test_room would need to be positioned
                     # so that test_hook aligns with existing_hook
@@ -664,7 +601,7 @@ class IndoorMapRenderer(QWidget):
                 # Check if room is actually at the snap position (within small threshold)
                 distance_to_snap = Vector2.from_vector3(room.position).distance(Vector2.from_vector3(snap_result.position))
                 # Use same threshold as _find_hook_snap for consistency
-                snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self._cam_scale)
+                snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self.camera.zoom())
                 if distance_to_snap <= snap_threshold:
                     # Room is snapped - record the snap anchor
                     self._snap_anchor_position = Vector3(*snap_result.position)
@@ -776,10 +713,10 @@ class IndoorMapRenderer(QWidget):
     # =========================================================================
 
     def camera_zoom(self) -> float:
-        return self._cam_scale
+        return self.camera.zoom()
 
     def set_camera_zoom(self, zoom: float):
-        self._cam_scale = max(MIN_CAMERA_ZOOM, min(zoom, MAX_CAMERA_ZOOM))
+        self.camera.set_zoom(zoom)
         self.mark_dirty()
 
     def zoom_in_camera(self, zoom_factor: float):
@@ -788,30 +725,28 @@ class IndoorMapRenderer(QWidget):
         Args:
             zoom_factor: Multiplier for zoom (e.g., 1.15 to zoom in 15%, 0.869 to zoom out 15%)
         """
-        self.set_camera_zoom(self._cam_scale * zoom_factor)
+        self.set_camera_zoom(self.camera.zoom() * zoom_factor)
 
     def camera_position(self) -> Vector2:
-        return Vector2(*self._cam_position)
+        return self.camera.position()
 
     def set_camera_position(self, x: float, y: float):
-        self._cam_position.x = x
-        self._cam_position.y = y
+        self.camera.set_position(x, y)
         self.mark_dirty()
 
     def pan_camera(self, x: float, y: float):
-        self._cam_position.x += x
-        self._cam_position.y += y
+        self.camera.nudge_position(x, y)
         self.mark_dirty()
 
     def camera_rotation(self) -> float:
-        return self._cam_rotation
+        return self.camera.rotation()
 
     def set_camera_rotation(self, angle: float):
-        self._cam_rotation = angle
+        self.camera.set_rotation(angle)
         self.mark_dirty()
 
     def rotate_camera(self, radians: float):
-        self._cam_rotation += radians
+        self.camera.nudge_rotation(radians)
         self.mark_dirty()
 
     # =========================================================================
@@ -948,7 +883,11 @@ class IndoorMapRenderer(QWidget):
         if not self.show_room_labels:
             return
 
-        palette = QApplication.instance().palette() if QApplication.instance() is not None else None
+        qapp: QCoreApplication | None = QApplication.instance()
+        if not isinstance(qapp, QApplication):
+            return
+
+        palette: QPalette | None = qapp.palette()
         if palette is not None:
             text_color = palette.color(QPalette.ColorRole.WindowText)
             bg_color = palette.color(QPalette.ColorRole.Window)
@@ -1242,39 +1181,11 @@ class IndoorMapRenderer(QWidget):
         self._map.rebuild_room_connections()
         self.mark_dirty()
 
-    def _draw_grid(self, painter: QPainter):
-        """Draw grid overlay."""
-        if not self.show_grid:
-            return
+    def _grid_color(self) -> QColor:
+        return QColor(GRID_COLOR[0], GRID_COLOR[1], GRID_COLOR[2])
 
-        painter.setPen(QPen(QColor(GRID_COLOR[0], GRID_COLOR[1], GRID_COLOR[2]), GRID_PEN_WIDTH))
-
-        # Calculate visible area
-        top_left = self.to_world_coords(0, 0)
-        bottom_right = self.to_world_coords(self.width(), self.height())
-
-        min_x = min(top_left.x, bottom_right.x)
-        max_x = max(top_left.x, bottom_right.x)
-        min_y = min(top_left.y, bottom_right.y)
-        max_y = max(top_left.y, bottom_right.y)
-
-        # Snap to grid
-        min_x = math.floor(min_x / self.grid_size) * self.grid_size
-        max_x = math.ceil(max_x / self.grid_size) * self.grid_size
-        min_y = math.floor(min_y / self.grid_size) * self.grid_size
-        max_y = math.ceil(max_y / self.grid_size) * self.grid_size
-
-        # Draw vertical lines
-        x = min_x
-        while x <= max_x:
-            painter.drawLine(QPointF(x, min_y), QPointF(x, max_y))
-            x += self.grid_size
-
-        # Draw horizontal lines
-        y = min_y
-        while y <= max_y:
-            painter.drawLine(QPointF(min_x, y), QPointF(max_x, y))
-            y += self.grid_size
+    def _grid_pen_width(self) -> float:
+        return GRID_PEN_WIDTH
 
     def _draw_snap_indicator(self, painter: QPainter):
         """Draw snap indicator when snapping is active."""
@@ -1310,10 +1221,7 @@ class IndoorMapRenderer(QWidget):
 
     def _draw_marquee(self, painter: QPainter):
         """Draw the marquee selection rectangle (shared style via toolset.gui.common.marquee)."""
-        if not self._marquee_active:
-            return
-        painter.resetTransform()
-        draw_marquee_rect(painter, self._marquee_start, self._marquee_end)
+        super()._draw_marquee(painter)
 
     def _draw_vis_overlay(self, painter: QPainter):
         if not self._show_vis_overlay or len(self._map.rooms) < 2 or not self._vis_matrix:
@@ -1324,12 +1232,12 @@ class IndoorMapRenderer(QWidget):
         filter_to_selection = bool(selected_ids)
         seen_pairs: set[tuple[int, int]] = set()
 
-        line_width = max(1.0, (CONNECTION_LINE_WIDTH_SCALE * 0.7) / max(self._cam_scale, 1e-6))
+        line_width = max(1.0, (CONNECTION_LINE_WIDTH_SCALE * 0.7) / max(self.camera.zoom(), 1e-6))
         bidirectional_pen = QPen(QColor(80, 180, 255, 175), line_width)
         one_way_pen = QPen(QColor(255, 170, 70, 195), line_width)
         one_way_pen.setStyle(Qt.PenStyle.DashLine)
         one_way_fill = QColor(255, 170, 70, 215)
-        arrow_len = max(3.5, 9.0 / max(self._cam_scale, 1e-6))
+        arrow_len = max(3.5, 9.0 / max(self.camera.zoom(), 1e-6))
         arrow_width = arrow_len * 0.6
 
         for src_room_id, visible_targets in self._vis_matrix.items():
@@ -1411,19 +1319,10 @@ class IndoorMapRenderer(QWidget):
         path.closeSubpath()
         return path
 
-    def _apply_transformation(self) -> QTransform:
-        result = QTransform()
-        result.translate(self.width() / 2, self.height() / 2)
-        result.rotate(math.degrees(self._cam_rotation))
-        result.scale(self._cam_scale, self._cam_scale)
-        result.translate(-self._cam_position.x, -self._cam_position.y)
-        return result
-
     def paintEvent(self, e: QPaintEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         transform = self._apply_transformation()
         painter = QPainter(self)
-        painter.setBrush(QColor(BACKGROUND_COLOR[0], BACKGROUND_COLOR[1], BACKGROUND_COLOR[2], BACKGROUND_COLOR[3]))
-        painter.drawRect(0, 0, self.width(), self.height())
+        self._fill_background(painter)
         painter.setTransform(transform)
 
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
@@ -1471,7 +1370,7 @@ class IndoorMapRenderer(QWidget):
                 painter.setPen(
                     QPen(
                         QColor(CONNECTION_LINE_COLOR[0], CONNECTION_LINE_COLOR[1], CONNECTION_LINE_COLOR[2], CONNECTION_LINE_COLOR[3]),
-                        CONNECTION_LINE_WIDTH_SCALE / self._cam_scale,
+                        CONNECTION_LINE_WIDTH_SCALE / self.camera.zoom(),
                     ),
                 )
                 painter.drawLine(
@@ -1488,13 +1387,19 @@ class IndoorMapRenderer(QWidget):
         # Draw hover highlight
         if self._under_mouse_room and self._under_mouse_room not in self._selected_rooms:
             self._draw_room_highlight(
-                painter, self._under_mouse_room, ROOM_HOVER_ALPHA, QColor(ROOM_HOVER_COLOR[0], ROOM_HOVER_COLOR[1], ROOM_HOVER_COLOR[2], ROOM_HOVER_COLOR[3]),
+                painter,
+                self._under_mouse_room,
+                ROOM_HOVER_ALPHA,
+                QColor(ROOM_HOVER_COLOR[0], ROOM_HOVER_COLOR[1], ROOM_HOVER_COLOR[2], ROOM_HOVER_COLOR[3]),
             )
 
         # Draw selection highlights
         for room in self._selected_rooms:
             self._draw_room_highlight(
-                painter, room, ROOM_SELECTED_ALPHA, QColor(ROOM_SELECTED_COLOR[0], ROOM_SELECTED_COLOR[1], ROOM_SELECTED_COLOR[2], ROOM_SELECTED_COLOR[3]),
+                painter,
+                room,
+                ROOM_SELECTED_ALPHA,
+                QColor(ROOM_SELECTED_COLOR[0], ROOM_SELECTED_COLOR[1], ROOM_SELECTED_COLOR[2], ROOM_SELECTED_COLOR[3]),
             )
 
         # Draw spawn point (warp point)
@@ -1508,13 +1413,7 @@ class IndoorMapRenderer(QWidget):
     # =========================================================================
 
     def wheelEvent(self, e: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        keys_to_emit = self._keys_down | keyboard_modifiers_to_qt_keys(e.modifiers())
-        self.sig_mouse_scrolled.emit(
-            Vector2(e.angleDelta().x(), e.angleDelta().y()),
-            e.buttons(),
-            keys_to_emit,
-        )
-        self.mark_dirty()
+        super().wheelEvent(e)
 
     def mouseMoveEvent(self, e: QMouseEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
         coords: Vector2 = (
@@ -1604,7 +1503,7 @@ class IndoorMapRenderer(QWidget):
                     # Dynamic disconnect threshold tied to zoom (smaller to make separation easy)
                     dynamic_disconnect = max(
                         HOOK_SNAP_DISCONNECT_BASE_THRESHOLD,
-                        HOOK_SNAP_DISCONNECT_SCALE_FACTOR * max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self._cam_scale),
+                        HOOK_SNAP_DISCONNECT_SCALE_FACTOR * max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self.camera.zoom()),
                     )
                     # If moved beyond disconnect threshold, clear snap and allow free movement
                     if distance_from_anchor > dynamic_disconnect:
@@ -1616,7 +1515,7 @@ class IndoorMapRenderer(QWidget):
                         if snap_result.snapped:
                             # Check distance from current position to snap point
                             distance_to_snap = Vector2.from_vector3(active_room.position).distance(Vector2.from_vector3(snap_result.position))
-                            snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self._cam_scale)
+                            snap_threshold = max(HOOK_SNAP_BASE_THRESHOLD, HOOK_SNAP_SCALE_FACTOR / self.camera.zoom())
 
                             # Only apply snap if within threshold
                             if distance_to_snap <= snap_threshold:
@@ -1644,7 +1543,7 @@ class IndoorMapRenderer(QWidget):
                     if snap_result.snapped:
                         # Check distance from current position to snap point
                         distance_to_snap = Vector2.from_vector3(active_room.position).distance(Vector2.from_vector3(snap_result.position))
-                        snap_threshold = max(1.0, 2.0 / self._cam_scale)
+                        snap_threshold = max(1.0, 2.0 / self.camera.zoom())
 
                         # Only apply snap if within threshold
                         if distance_to_snap <= snap_threshold:

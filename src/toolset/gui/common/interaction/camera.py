@@ -58,15 +58,32 @@ def handle_standard_2d_camera_movement(
     did_handle = False
 
     if is_indoor_builder:
-        # Indoor Builder specific bindings (Middle mouse or LMB+Ctrl = Pan)
-        if Qt.MouseButton.MiddleButton in buttons or (Qt.MouseButton.LeftButton in buttons and Qt.Key.Key_Control in keys):
+        # Indoor Builder: Middle mouse OR LMB+Ctrl = Pan (Blender MMB primary ✅)
+        if Qt.MouseButton.MiddleButton in buttons and Qt.Key.Key_Shift not in keys and Qt.Key.Key_Control not in keys:
+            renderer.pan_camera(-world_delta.x * move_sens, -world_delta.y * move_sens)
+            did_handle = True
+        elif Qt.MouseButton.MiddleButton in buttons and Qt.Key.Key_Shift in keys:
+            renderer.pan_camera(-world_delta.x * move_sens, -world_delta.y * move_sens)
+            did_handle = True
+        elif Qt.MouseButton.LeftButton in buttons and Qt.Key.Key_Control in keys:
             renderer.pan_camera(-world_delta.x * move_sens, -world_delta.y * move_sens)
             did_handle = True
         # Right mouse + Ctrl = Rotate
         elif Qt.MouseButton.RightButton in buttons and Qt.Key.Key_Control in keys:
             renderer.rotate_camera((delta.x / 50.0) * rotate_sens)
             did_handle = True
-    # Standard WOK/ARE/GIT bindings (LMB+Ctrl = Pan, MMB+Ctrl = Rotate)
+    # Standard WOK/ARE/GIT bindings: MMB (Blender) or LMB+Ctrl (legacy) = Pan,
+    # Ctrl+MMB = Rotate (Blender secondary)
+    elif Qt.MouseButton.MiddleButton in buttons and Qt.Key.Key_Shift not in keys and Qt.Key.Key_Control not in keys:
+        if hasattr(renderer, "do_cursor_lock"):
+            renderer.do_cursor_lock(screen)
+        renderer.camera.nudge_position(-world_delta.x * move_sens, -world_delta.y * move_sens)
+        did_handle = True
+    elif Qt.MouseButton.MiddleButton in buttons and Qt.Key.Key_Shift in keys:
+        if hasattr(renderer, "do_cursor_lock"):
+            renderer.do_cursor_lock(screen)
+        renderer.camera.nudge_position(-world_delta.x * move_sens, -world_delta.y * move_sens)
+        did_handle = True
     elif Qt.MouseButton.LeftButton in buttons and Qt.Key.Key_Control in keys:
         if hasattr(renderer, "do_cursor_lock"):
             renderer.do_cursor_lock(screen)

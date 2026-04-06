@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QColor, QImage, QPixmap, QShortcut
-from qtpy.QtWidgets import QColorDialog
+from qtpy.QtWidgets import QColorDialog, QComboBox
 
 from loggerplus import RobustLogger
 from pykotor.common.misc import Color, ResRef
@@ -18,6 +18,7 @@ from pykotor.resource.formats.lyt import read_lyt
 from pykotor.resource.generics.are import ARE, ARENorthAxis, AREWindPower, dismantle_are, read_are
 from pykotor.resource.type import ResourceType
 from toolset.data.installation import HTInstallation
+from toolset.gui.common.blender_2d_nav import Blender2DNavigationHelper, aabb_from_points
 from toolset.gui.common.interaction.camera import (
     calculate_zoom_strength,
     handle_standard_2d_camera_movement,
@@ -34,7 +35,8 @@ if TYPE_CHECKING:
 
     from pathlib import Path
 
-    from qtpy.QtWidgets import QLabel, QWidget
+    from qtpy.QtWidgets import QLabel, QLineEdit, QPlainTextEdit, QWidget
+    from typing_extensions import Literal
 
     from pykotor.extract.file import ResourceResult
     from pykotor.resource.formats.bwm import BWM
@@ -63,19 +65,13 @@ class AREEditor(Editor):
 
         from toolset.uic.qtpy.editors.are import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self._setup_menus()
         self._add_help_action()  # Auto-detects "GFF-ARE.md" for ARE
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
         self.ui.dirtColor1Edit.allow_alpha = True
@@ -135,12 +131,20 @@ class AREEditor(Editor):
         # Minimap renderer input: match other WalkmeshRenderer users (PTH/BWM).
         self.ui.minimapRenderer.sig_mouse_moved.connect(self.on_minimap_mouse_moved)
         self.ui.minimapRenderer.sig_mouse_scrolled.connect(self.on_minimap_mouse_scrolled)
+        self.ui.minimapRenderer.sig_key_pressed.connect(self.on_minimap_key_pressed)
+
+        self._minimap_nav = Blender2DNavigationHelper(
+            self.ui.minimapRenderer,
+            get_content_bounds=self._minimap_bounds,
+            settings=ModuleDesignerSettings(),
+        )
 
         # Common zoom shortcuts: use "=" (base key) for zoom in, "-" for zoom out.
         # "+" requires Shift, but "=" works without modifiers (standard keyboard behavior).
-        QShortcut("=", self).activated.connect(lambda: self.ui.minimapRenderer.camera.nudge_zoom(1.25))
-        QShortcut("-", self).activated.connect(lambda: self.ui.minimapRenderer.camera.nudge_zoom(0.8))
+        QShortcut("=", self).activated.connect(lambda: self.ui.minimapRenderer.zoom_at_screen(1.25))
+        QShortcut("-", self).activated.connect(lambda: self.ui.minimapRenderer.zoom_at_screen(0.8))
         QShortcut("Ctrl+0", self).activated.connect(self.fit_minimap_view)
+        QShortcut("Home", self).activated.connect(self.fit_minimap_view)
 
         self.relevant_script_resnames: list[str] = []
         if self._installation is not None:
@@ -168,14 +172,15 @@ class AREEditor(Editor):
 
     def _setup_reference_field(
         self,
-        field: QWidget,
+        field: QPlainTextEdit | QLineEdit | QComboBox,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal['script', 'tag', 'template_resref', 'conversation', 'resref', 'quest'],
         tooltip_text: str,
     ) -> None:
         """Configure context menu reference search behavior for a script widget."""
-        assert self._installation is not None
-        line_edit = field.lineEdit() if hasattr(field, "lineEdit") else None
+        assert self._installation is not None, f"Installation must be set to configure reference search for {reference_type} fields"
+        assert field is not None, f"Field widget cannot be None in _setup_reference_field for {reference_type}"
+        line_edit = field.lineEdit() if isinstance(field, QComboBox) else None
         if line_edit is not None:
             line_edit.setMaxLength(16)
 
@@ -188,6 +193,8 @@ class AREEditor(Editor):
         field.setToolTip(tr(tooltip_text))
 
     def _setup_installation(self, installation: HTInstallation):
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
 
         self.ui.nameEdit.set_installation(installation)
@@ -519,7 +526,19 @@ class AREEditor(Editor):
     def fit_minimap_view(self):
         # Default view: fit bounds with margin so walkmesh/minimap occupies ~half the view area.
         # This is intentionally less tight than a full fit for usability.
-        self.ui.minimapRenderer.center_camera(fill=0.70710678)  # sqrt(0.5)
+        if not self._minimap_nav.frame_all():
+            self.ui.minimapRenderer.center_camera(fill=0.70710678)  # sqrt(0.5)
+
+    def _minimap_bounds(self):
+        walkmeshes = getattr(self.ui.minimapRenderer, "_walkmeshes", [])
+        if not walkmeshes:
+            return None
+        return aabb_from_points(
+            (vertex.x, vertex.y)
+            for walkmesh in walkmeshes
+            for face in walkmesh.faces
+            for vertex in (face.v1, face.v2, face.v3)
+        )
 
     def on_minimap_mouse_moved(self, screen: Vector2, delta: Vector2, buttons: set[int], keys: set[int]):
         # Pan/rotate controls mirror `BWMEditor` (Ctrl+drag) and respect module designer sensitivities.
@@ -532,13 +551,18 @@ class AREEditor(Editor):
         )
 
     def on_minimap_mouse_scrolled(self, delta: Vector2, buttons: set[int], keys: set[int]):
+        if self._minimap_nav.handle_mouse_scroll(delta, keys, zoom_sensitivity=ModuleDesignerSettings().zoomCameraSensitivity2d):
+            return
         if not delta.y:
             return
         if Qt.Key.Key_Control not in keys:  # type: ignore[attr-defined]
             return
         sens_setting = ModuleDesignerSettings().zoomCameraSensitivity2d
         zoom_factor = calculate_zoom_strength(delta.y, sens_setting)
-        self.ui.minimapRenderer.camera.nudge_zoom(zoom_factor)
+        self.ui.minimapRenderer.zoom_at_screen(zoom_factor)
+
+    def on_minimap_key_pressed(self, buttons: set[int], keys: set[int]) -> None:
+        self._minimap_nav.handle_key_pressed(keys, pan_step=ModuleDesignerSettings().moveCameraSensitivity2d / 10)
 
     def change_color(self, color_spin: LongSpinBox):
         qcolor: QColor = QColorDialog.getColor(QColor(color_spin.value()))

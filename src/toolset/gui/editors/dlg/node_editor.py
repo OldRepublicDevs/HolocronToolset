@@ -24,7 +24,7 @@ from pykotor.resource.generics.dlg import DLGEntry, DLGLink, DLGNode
 from toolset.gui.editors.dlg.editor import DLGEditor
 
 if TYPE_CHECKING:
-    from qtpy.QtGui import QAction, QWheelEvent
+    from qtpy.QtGui import QAction, QKeyEvent, QMouseEvent, QWheelEvent
     from qtpy.QtWidgets import (
         QGraphicsSceneContextMenuEvent,
         QGraphicsSceneHoverEvent,
@@ -688,8 +688,8 @@ class DialogueNodeEditor(QGraphicsView):
         self._editor: DLGEditor | None = None
 
         # Create and set scene
-        self._scene: QGraphicsScene = QGraphicsScene(self)
-        self.setScene(self._scene)
+        self.scene: QGraphicsScene = QGraphicsScene(self)
+        self.setScene(self.scene)
 
         # Visual setup
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -711,12 +711,11 @@ class DialogueNodeEditor(QGraphicsView):
         self.nodes: dict[DLGNode, Node] = {}
         self.connections: set[Connection] = set()
 
+        # MMB pan state
+        self._pan_last_pos: QPointF | None = None
+
         # Setup grid
         self.setup_grid()
-
-    @property
-    def scene(self) -> QGraphicsScene:
-        return self._scene
 
     @property
     def editor(self) -> DLGEditor | None:
@@ -811,7 +810,7 @@ class DialogueNodeEditor(QGraphicsView):
             condition, params = self.parse_condition(link)
             node = ConditionNode(condition, params)
             node.setPos(pos)
-            self._scene.addItem(node)
+            self.scene.addItem(node)
 
             # Create true/false paths
             true_pos = QPointF(pos.x() + 250, pos.y() - 50)
@@ -820,11 +819,11 @@ class DialogueNodeEditor(QGraphicsView):
             # Create dialogue nodes for each path
             true_node: DialogueNode = DialogueNode("Clara", "You sure about that?", dlg_node)
             true_node.setPos(true_pos)
-            self._scene.addItem(true_node)
+            self.scene.addItem(true_node)
 
             false_node: DialogueNode = DialogueNode("Greg", "Thank you for buying!", dlg_node)
             false_node.setPos(false_pos)
-            self._scene.addItem(false_node)
+            self.scene.addItem(false_node)
 
             # Connect condition to true/false nodes
             self.add_connection(node, true_node, port_index=0)  # True port
@@ -837,13 +836,13 @@ class DialogueNodeEditor(QGraphicsView):
             script, params = self.parse_script(dlg_node)
             node = SignalNode(script, params)
             node.setPos(pos)
-            self._scene.addItem(node)
+            self.scene.addItem(node)
 
             # Create set node for variable
             set_pos: QPointF = QPointF(pos.x() + 200, pos.y())
             set_node: SetNode = SetNode("COINS", "5")
             set_node.setPos(set_pos)
-            self._scene.addItem(set_node)
+            self.scene.addItem(set_node)
 
             # Connect signal to set node
             self.add_connection(node, set_node)
@@ -858,7 +857,7 @@ class DialogueNodeEditor(QGraphicsView):
         node.setPos(pos)
 
         # Add to scene and tracking
-        self._scene.addItem(node)
+        self.scene.addItem(node)
         self.nodes[dlg_node] = node
 
         return node
@@ -876,7 +875,7 @@ class DialogueNodeEditor(QGraphicsView):
         )
 
         # Add to scene and tracking
-        self._scene.addItem(conn)
+        self.scene.addItem(conn)
         self.connections.add(conn)
 
         # Update port connections
@@ -889,7 +888,7 @@ class DialogueNodeEditor(QGraphicsView):
     ):
         """Build the node graph from DLG links."""
         # Clear existing
-        self._scene.clear()
+        self.scene.clear()
         self.nodes.clear()
         self.connections.clear()
 
@@ -935,7 +934,7 @@ class DialogueNodeEditor(QGraphicsView):
             # Add start node
             start_node: StartNode = StartNode(str(i + 1))
             start_node.setPos(QPointF(start_x - 200, start_y))
-            self._scene.addItem(start_node)
+            self.scene.addItem(start_node)
 
             # Add first dialogue node
             first_node: Node = self.add_node_from_dlg(
@@ -953,12 +952,60 @@ class DialogueNodeEditor(QGraphicsView):
         self,
         event: QWheelEvent,
     ):
-        # Handle zooming
+        # Handle zooming (AnchorUnderMouse already set → zooms to cursor)
         zoom_factor: float = 1.15
         if event.angleDelta().y() > 0:
             self.scale(zoom_factor, zoom_factor)
         else:
             self.scale(1 / zoom_factor, 1 / zoom_factor)
+
+    def mousePressEvent(
+        self,
+        event: QMouseEvent,
+    ):
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._pan_last_pos = event.position() if hasattr(event, "position") else QPointF(event.pos())  # pyright: ignore[reportAttributeAccessIssue]
+            event.accept()
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(
+        self,
+        event: QMouseEvent,
+    ):
+        if self._pan_last_pos is not None and event.buttons() & Qt.MouseButton.MiddleButton:
+            cur_pos: QPointF = event.position() if hasattr(event, "position") else QPointF(event.pos())  # pyright: ignore[reportAttributeAccessIssue]
+            delta: QPointF = cur_pos - self._pan_last_pos
+            self._pan_last_pos = cur_pos
+            h_bar = self.horizontalScrollBar()
+            v_bar = self.verticalScrollBar()
+            if h_bar is not None:
+                h_bar.setValue(int(h_bar.value() - delta.x()))
+            if v_bar is not None:
+                v_bar.setValue(int(v_bar.value() - delta.y()))
+            event.accept()
+            return
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(
+        self,
+        event: QMouseEvent,
+    ):
+        if event.button() == Qt.MouseButton.MiddleButton:
+            self._pan_last_pos = None
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(
+        self,
+        event: QKeyEvent,
+    ):
+        if event.key() == Qt.Key.Key_Home:
+            self.zoom_to_fit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def setup_shortcuts(self):
         QShortcut(QKeySequence.StandardKey.Delete, self).activated.connect(self.delete_selected)

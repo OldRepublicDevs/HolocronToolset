@@ -24,7 +24,6 @@ from pykotor.extract.savedata import (
     SaveFolderEntry,
 )
 from pykotor.resource.type import ResourceType
-from toolset.gui.common.filters import NoScrollEventFilter
 from toolset.gui.dialogs.load_from_location_result import FileSelectionWindow
 from toolset.gui.editor import Editor
 from toolset.gui.editors.gff import GFFEditor
@@ -113,10 +112,6 @@ class SaveGameEditor(Editor):
         # Screenshot display - store original pixmap for resize handling
         self._screenshot_original_pixmap: QPixmap | None = None
         self._screenshot_original_size: tuple[int, int] | None = None  # (width, height)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         # Setup screenshot label for proper display
         # Install event filter for resize handling

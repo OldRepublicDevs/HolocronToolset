@@ -454,12 +454,33 @@ class LYTRenderer(QWidget):
             self._panning = False
 
     def wheelEvent(self, event: QWheelEvent):  # pyright: ignore[reportIncompatibleMethodOverride]
-        """Handle mouse wheel events for zooming."""
+        """Handle mouse wheel events for zooming with zoom-to-cursor behaviour."""
         delta = event.angleDelta().y()
         zoom_factor = 1.1 if delta > 0 else 0.9
-        self._zoom *= zoom_factor
-        self._zoom = max(0.1, min(5.0, self._zoom))
+
+        # Zoom toward the cursor position (Blender-style)
+        mouse_pos = Vector2(event.pos().x(), event.pos().y())
+        world_before = self._screen_to_world(mouse_pos)
+
+        old_zoom = self._zoom
+        self._zoom = max(0.1, min(5.0, self._zoom * zoom_factor))
+
+        # After zoom change, recalculate where the same world point landed and
+        # shift the camera so it stays under the cursor.
+        if old_zoom != self._zoom:
+            world_after = self._screen_to_world(mouse_pos)
+            self._camera_pos.x -= world_after.x - world_before.x
+            self._camera_pos.y -= world_after.y - world_before.y
+
         self.update()
+
+    def keyPressEvent(self, event) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """Handle key press events: Home = frame all."""
+        key = event.key()
+        if key == Qt.Key.Key_Home:
+            self.frame_all()
+            return
+        super().keyPressEvent(event)
 
     def reset_view(self):
         """Reset the camera to default view."""

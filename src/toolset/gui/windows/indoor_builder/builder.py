@@ -62,6 +62,7 @@ from toolset.blender import BlenderEditorMode, check_blender_and_ask, get_blende
 from toolset.blender.integration import BlenderEditorMixin
 from toolset.data.indoorkit.qt_preview import ensure_component_image
 from toolset.data.installation import HTInstallation
+from toolset.gui.common.blender_2d_nav import Blender2DNavigationHelper, aabb_from_points
 from toolset.gui.common.editor_pipelines import (
     populate_module_root_combobox,
     set_preview_source_image,
@@ -276,6 +277,11 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.mapRenderer.set_map(self._map)
         self.ui.mapRenderer.set_undo_stack(self._undo_stack)
         self.ui.mapRenderer.set_status_callback(self._refresh_status_bar)
+        self._blender_nav = Blender2DNavigationHelper(
+            self.ui.mapRenderer,
+            get_content_bounds=self._content_bounds,
+            get_selection_bounds=self._selection_bounds,
+        )
 
         # Initialize Options UI to match renderer state
         self._initialize_options_ui()
@@ -1879,6 +1885,15 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
     def center_on_selection(self):
         center_indoor_camera_on_selected_rooms(self.ui.mapRenderer)
 
+    def _content_bounds(self):
+        return aabb_from_points((float(room.position.x), float(room.position.y)) for room in self._map.rooms)
+
+    def _selection_bounds(self):
+        return aabb_from_points(
+            (float(room.position.x), float(room.position.y))
+            for room in self.ui.mapRenderer.selected_rooms()
+        )
+
     # =========================================================================
     # Component selection
     # =========================================================================
@@ -2295,6 +2310,19 @@ class IndoorMapBuilder(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         has_ctrl = bool(modifiers & Qt.KeyboardModifier.ControlModifier)
         has_no_mods = not bool(modifiers)
         renderer = self.ui.mapRenderer
+        keys: set[Qt.Key] = {key}
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            keys.add(Qt.Key.Key_Control)
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            keys.add(Qt.Key.Key_Shift)
+        if modifiers & Qt.KeyboardModifier.AltModifier:
+            keys.add(Qt.Key.Key_Alt)
+
+        if self._blender_nav.handle_key_pressed(
+            keys,
+            pan_step=max(1.0, 48.0 / max(1.0, renderer.camera.zoom())),
+        ):
+            return
 
         handled = handle_indoor_key_press_shortcuts(
             key,

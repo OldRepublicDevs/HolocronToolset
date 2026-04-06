@@ -80,10 +80,6 @@ class IFOEditor(Editor):
         self._add_help_action()
         self._setup_signals()
 
-        # Setup event filter to prevent scroll wheel interaction with controls
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
-
         # Setup reference search for script fields
         if installation is not None:
             self._setup_installation(installation)
@@ -201,6 +197,8 @@ class IFOEditor(Editor):
 
     def _setup_installation(self, installation: HTInstallation):
         """Setup installation-specific features."""
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         # Setup localized string editors
         self.ui.modNameEdit.set_installation(installation)
         self.ui.descriptionEdit.set_installation(installation)

@@ -12,6 +12,40 @@ from pykotor.common.misc import Color
 from toolset.data.settings import Settings, SettingsProperty
 from toolset.gui.widgets.settings.widgets.base import SettingsWidget
 
+# ---------------------------------------------------------------------------
+# Preset binding tables for control scheme selection.
+# ---------------------------------------------------------------------------
+# These dicts map SettingsProperty attribute names → (keys, buttons) tuples.
+# BLENDER_BINDINGS matches the current defaults in ModuleDesignerSettings;
+# CLASSIC_BINDINGS restores the legacy pre-Blender-style values.
+# ---------------------------------------------------------------------------
+
+BLENDER_BINDINGS: dict[str, tuple] = {
+    "rotateCamera3dBind": (set(), {Qt.MouseButton.MiddleButton}),
+    "moveCameraXY3dBind": ({Qt.Key.Key_Shift}, {Qt.MouseButton.MiddleButton}),
+    "moveCameraPlane3dBind": ({Qt.Key.Key_Shift}, {Qt.MouseButton.MiddleButton}),
+    "zoomCameraMM3dBind": ({Qt.Key.Key_Control}, {Qt.MouseButton.MiddleButton}),
+    "rotateSelected3dBind": ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
+    "duplicateObject3dBind": ({Qt.Key.Key_Shift}, {Qt.MouseButton.LeftButton}),
+    "rotateObject3dBind": ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
+    "moveCameraToSelected3dBind": ({Qt.Key.Key_Period}, None),
+    "moveCamera2dBind": (set(), {Qt.MouseButton.MiddleButton}),
+    "moveCameraToSelected2dBind": ({Qt.Key.Key_Period}, set()),
+}
+
+CLASSIC_BINDINGS: dict[str, tuple] = {
+    "rotateCamera3dBind": (set(), {Qt.MouseButton.LeftButton}),
+    "moveCameraXY3dBind": ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
+    "moveCameraPlane3dBind": (set(), {Qt.MouseButton.MiddleButton}),
+    "zoomCameraMM3dBind": (set(), {Qt.MouseButton.RightButton}),
+    "rotateSelected3dBind": (set(), {Qt.MouseButton.MiddleButton}),
+    "duplicateObject3dBind": ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
+    "rotateObject3dBind": ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
+    "moveCameraToSelected3dBind": ({Qt.Key.Key_Z}, None),
+    "moveCamera2dBind": ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
+    "moveCameraToSelected2dBind": ({Qt.Key.Key_Z}, set()),
+}
+
 def get_renderer_loop_interval_ms() -> int:
     """Return the render loop interval in ms from settings (0 = auto = primary screen Hz)."""
     settings = ModuleDesignerSettings()
@@ -98,6 +132,62 @@ class ModuleDesignerWidget(SettingsWidget):
             self.ui.formLayout.setWidget(row, self.ui.formLayout.ItemRole.LabelRole, z_label)
             self.ui.formLayout.setWidget(row, self.ui.formLayout.ItemRole.FieldRole, self.ui.walkmeshVertexDragZAxis3dBindEdit)
 
+        # --- Control Scheme selector (Blender / Classic) ---
+        # Dynamically added so no .ui change is needed.
+        if not hasattr(self.ui, "controlSchemeCombo"):
+            from qtpy.QtWidgets import QComboBox, QHBoxLayout
+            scheme_row = QHBoxLayout()
+            scheme_label = QLabel("Control Scheme", self.ui.tab3DControls)
+            scheme_label.setObjectName("controlSchemeLabel")
+            self.ui.controlSchemeCombo = QComboBox(self.ui.tab3DControls)
+            self.ui.controlSchemeCombo.setObjectName("controlSchemeCombo")
+            self.ui.controlSchemeCombo.addItem("Blender (default)", "blender")
+            self.ui.controlSchemeCombo.addItem("Classic (legacy)", "classic")
+            scheme_row.addWidget(scheme_label)
+            scheme_row.addWidget(self.ui.controlSchemeCombo)
+            # Insert at the very top of the 3D controls tab layout (index 0)
+            self.ui.verticalLayout_2.insertLayout(0, scheme_row)
+
+        self.ui.controlSchemeCombo.currentIndexChanged.connect(self._on_scheme_changed)
+
+        # --- Blender numpad view / frame navigation binds (3D) ---
+        if not hasattr(self.ui, "viewFront3dBindEdit"):
+            _nav_binds_3d: list[tuple[str, str]] = [
+                ("viewFront3dBindEdit",       "View Front (Numpad 1)"),
+                ("viewBack3dBindEdit",        "View Back (Ctrl+Num 1)"),
+                ("viewRight3dBindEdit",       "View Right (Numpad 3)"),
+                ("viewLeft3dBindEdit",        "View Left (Ctrl+Num 3)"),
+                ("viewTop3dBindEdit",         "View Top (Numpad 7)"),
+                ("viewBottom3dBindEdit",      "View Bottom (Ctrl+Num 7)"),
+                ("viewToggleOrtho3dBindEdit", "Toggle Ortho (Numpad 5)"),
+                ("viewCamera3dBindEdit",      "Snap to Camera (Numpad 0)"),
+                ("frameAll3dBindEdit",        "Frame All (Home)"),
+                ("frameSelected3dBindEdit",   "Frame Selected (Numpad .)"),
+            ]
+            for attr_name, label_text in _nav_binds_3d:
+                nav_row = self.ui.formLayout.rowCount()
+                nav_lbl = QLabel(label_text, self.ui.tab3DControls)
+                nav_lbl.setMinimumSize(110, 0)
+                nav_lbl.setStyleSheet("QLabel:hover { color: #555;}")
+                nav_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                nav_bind_widget = SetBindWidget(parent=self.ui.tab3DControls)
+                nav_bind_widget.setObjectName(attr_name)
+                setattr(self.ui, attr_name, nav_bind_widget)
+                self.ui.formLayout.setWidget(nav_row, self.ui.formLayout.ItemRole.LabelRole, nav_lbl)
+                self.ui.formLayout.setWidget(nav_row, self.ui.formLayout.ItemRole.FieldRole, nav_bind_widget)
+
+        # --- Frame-all bind (2D) ---
+        if not hasattr(self.ui, "frameAll2dBindEdit"):
+            d2_row = self.ui.formLayout_2.rowCount()
+            d2_lbl = QLabel("Frame All 2D (Home)", self.ui.tab2DControls)
+            d2_lbl.setMinimumSize(110, 0)
+            d2_lbl.setStyleSheet("QLabel:hover { color: #555;}")
+            d2_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.ui.frameAll2dBindEdit = SetBindWidget(parent=self.ui.tab2DControls)
+            self.ui.frameAll2dBindEdit.setObjectName("frameAll2dBindEdit")
+            self.ui.formLayout_2.setWidget(d2_row, self.ui.formLayout_2.ItemRole.LabelRole, d2_lbl)
+            self.ui.formLayout_2.setWidget(d2_row, self.ui.formLayout_2.ItemRole.FieldRole, self.ui.frameAll2dBindEdit)
+
         self.ui.undefinedMaterialColourEdit.allow_alpha = True
         self.ui.dirtMaterialColourEdit.allow_alpha = True
         self.ui.obscuringMaterialColourEdit.allow_alpha = True
@@ -181,6 +271,14 @@ class ModuleDesignerWidget(SettingsWidget):
         self.ui.useBlenderCheckbox.setChecked(self.settings.useBlender)
         self.ui.fovSpin.setValue(self.settings.fieldOfView)
         self._populate_renderer_refresh_rate_combo()
+        # Restore saved control scheme in combo (block signals to avoid applying the
+        # scheme on load, since the stored bindings already reflect the saved state).
+        if hasattr(self.ui, "controlSchemeCombo"):
+            saved_scheme = self.settings.controlScheme
+            idx = self.ui.controlSchemeCombo.findData(saved_scheme)
+            self.ui.controlSchemeCombo.blockSignals(True)
+            self.ui.controlSchemeCombo.setCurrentIndex(max(0, idx))
+            self.ui.controlSchemeCombo.blockSignals(False)
         self._load3dBindValues()
         self._loadFcBindValues()
         self._load2dBindValues()
@@ -204,9 +302,30 @@ class ModuleDesignerWidget(SettingsWidget):
         self.settings.rotateCameraSensitivity2d = self.ui.rotateCameraSensitivity2dEdit.value()
         self.settings.zoomCameraSensitivity2d = self.ui.zoomCameraSensitivity2dEdit.value()
 
+        if hasattr(self.ui, "controlSchemeCombo"):
+            scheme = self.ui.controlSchemeCombo.currentData()
+            if scheme:
+                self.settings.controlScheme = scheme
+
     def resetControls3d(self):
         self.settings.resetControls3d()
         self._load3dBindValues()
+
+    def _on_scheme_changed(self, index: int) -> None:
+        """Apply a control scheme preset when the combo selection changes."""
+        if not hasattr(self.ui, "controlSchemeCombo"):
+            return
+        scheme: str = self.ui.controlSchemeCombo.itemData(index)
+        if scheme == "blender":
+            bindings = BLENDER_BINDINGS
+        elif scheme == "classic":
+            bindings = CLASSIC_BINDINGS
+        else:
+            return
+        for attr_name, value in bindings.items():
+            setattr(self.settings, attr_name, value)
+        self._load3dBindValues()
+        self._load2dBindValues()
 
     def resetControlsFc(self):
         self.settings.resetControlsFc()
@@ -281,7 +400,7 @@ class ModuleDesignerSettings(Settings):
     )
     moveCameraXY3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCameraXY3dBind",
-        ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
+        ({Qt.Key.Key_Shift}, {Qt.MouseButton.MiddleButton}),
     )
     moveCameraZ3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCameraZ3dBind",
@@ -289,11 +408,11 @@ class ModuleDesignerSettings(Settings):
     )
     moveCameraPlane3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCameraPlane3dBind",
-        (set(), {Qt.MouseButton.MiddleButton}),
+        ({Qt.Key.Key_Shift}, {Qt.MouseButton.MiddleButton}),
     )
     rotateCamera3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "rotateCamera3dBind",
-        (set(), {Qt.MouseButton.LeftButton}),
+        (set(), {Qt.MouseButton.MiddleButton}),
     )
     zoomCamera3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "zoomCamera3dBind",
@@ -301,11 +420,11 @@ class ModuleDesignerSettings(Settings):
     )
     zoomCameraMM3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "zoomCameraMM3dBind",
-        (set(), {Qt.MouseButton.RightButton}),
+        ({Qt.Key.Key_Control}, {Qt.MouseButton.MiddleButton}),
     )
     rotateSelected3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "rotateSelected3dBind",
-        (set(), {Qt.MouseButton.MiddleButton}),
+        ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
     )
     moveSelectedXY3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveSelectedXY3dBind",
@@ -317,7 +436,7 @@ class ModuleDesignerSettings(Settings):
     )
     rotateObject3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "rotateObject3dBind",
-        ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
+        ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
     )
     selectObject3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "selectObject3dBind",
@@ -333,7 +452,7 @@ class ModuleDesignerSettings(Settings):
     )
     moveCameraToSelected3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCameraToSelected3dBind",
-        ({Qt.Key.Key_Z}, None),
+        ({Qt.Key.Key_Period}, None),
     )
     moveCameraToCursor3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCameraToCursor3dBind",
@@ -393,7 +512,7 @@ class ModuleDesignerSettings(Settings):
     )
     duplicateObject3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "duplicateObject3dBind",
-        ({Qt.Key.Key_Alt}, {Qt.MouseButton.LeftButton}),
+        ({Qt.Key.Key_Shift}, {Qt.MouseButton.LeftButton}),
     )
     walkmeshVertexDragXAxis3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "walkmeshVertexDragXAxis3dBind",
@@ -410,6 +529,47 @@ class ModuleDesignerSettings(Settings):
     resetCameraView3dBind: SettingsProperty[Bind] = Settings.addSetting(
         "resetCameraView3dBind",
         ({Qt.Key.Key_Home}, set()),
+    )
+    # Blender numpad view presets
+    viewFront3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewFront3dBind",
+        ({Qt.Key.Key_1}, None),
+    )
+    viewRight3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewRight3dBind",
+        ({Qt.Key.Key_3}, None),
+    )
+    viewTop3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewTop3dBind",
+        ({Qt.Key.Key_7}, None),
+    )
+    viewBack3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewBack3dBind",
+        ({Qt.Key.Key_Control, Qt.Key.Key_1}, None),
+    )
+    viewLeft3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewLeft3dBind",
+        ({Qt.Key.Key_Control, Qt.Key.Key_3}, None),
+    )
+    viewBottom3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewBottom3dBind",
+        ({Qt.Key.Key_Control, Qt.Key.Key_7}, None),
+    )
+    viewToggleOrtho3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewToggleOrtho3dBind",
+        ({Qt.Key.Key_5}, None),
+    )
+    viewCamera3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "viewCamera3dBind",
+        ({Qt.Key.Key_0}, None),
+    )
+    frameAll3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "frameAll3dBind",
+        ({Qt.Key.Key_Home}, set()),
+    )
+    frameSelected3dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "frameSelected3dBind",
+        ({Qt.Key.Key_Period}, None),
     )
     # endregion
 
@@ -505,7 +665,7 @@ class ModuleDesignerSettings(Settings):
 
     moveCamera2dBind: SettingsProperty[Bind] = Settings.addSetting(
         "moveCamera2dBind",
-        ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),
+        (set(), {Qt.MouseButton.MiddleButton}),
     )
     zoomCamera2dBind: SettingsProperty[Bind] = Settings.addSetting(
         "zoomCamera2dBind",
@@ -533,7 +693,11 @@ class ModuleDesignerSettings(Settings):
     )
     moveCameraToSelected2dBind: SettingsProperty[Bind] = Settings.addSetting(
         "snapCameraToSelected2dBind",
-        ({Qt.Key.Key_Z}, set()),
+        ({Qt.Key.Key_Period}, set()),
+    )
+    frameAll2dBind: SettingsProperty[Bind] = Settings.addSetting(
+        "frameAll2dBind",
+        ({Qt.Key.Key_Home}, set()),
     )
     duplicateObject2dBind: SettingsProperty[Bind] = Settings.addSetting(
         "duplicateObject2dBind",
@@ -545,6 +709,13 @@ class ModuleDesignerSettings(Settings):
     toggleLockInstancesBind: SettingsProperty[Bind] = Settings.addSetting(
         "toggleLockInstancesBind",
         ({Qt.Key.Key_L}, set()),
+    )
+    # endregion
+
+    # region Misc
+    controlScheme: SettingsProperty[str] = Settings.addSetting(
+        "controlScheme",
+        "blender",
     )
     # endregion
 

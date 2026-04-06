@@ -28,6 +28,7 @@ from pykotor.resource.formats.lyt import read_lyt
 from pykotor.resource.generics.pth import PTH, PTHEdge, bytes_pth, read_pth
 from pykotor.resource.type import ResourceType
 from toolset.data.misc import ControlItem
+from toolset.gui.common.blender_2d_nav import Blender2DNavigationHelper, aabb_from_points
 from toolset.gui.common.interaction.camera import calculate_zoom_strength
 from toolset.gui.common.walkmesh_materials import get_walkmesh_material_colors
 from toolset.gui.editor import Editor
@@ -582,6 +583,25 @@ class PTHEditor(Editor):
     def rotate_camera(self, angle: float):
         self.ui.renderArea.camera.nudge_rotation(angle)
 
+    def frame_all(self) -> None:
+        """Fit all PTH nodes into the camera viewport (Blender-style Home key)."""
+        points = list(self._pth)
+        if not points:
+            self.ui.renderArea.center_camera()
+            return
+        xs = [p.x for p in points]
+        ys = [p.y for p in points]
+        cx = (min(xs) + max(xs)) / 2.0
+        cy = (min(ys) + max(ys)) / 2.0
+        world_w = max(xs) - min(xs) + 2.0
+        world_h = max(ys) - min(ys) + 2.0
+        sw = self.ui.renderArea.width() or 520
+        sh = self.ui.renderArea.height() or 507
+        zoom = min(sw / world_w, sh / world_h) * 0.85
+        self.ui.renderArea.camera.set_position(cx, cy)
+        self.ui.renderArea.camera.set_zoom(zoom)
+        self.ui.renderArea.update()
+
     def move_selected(self, x: float, y: float):
         """Move all selected nodes to (x, y). Does not push undo; call commit_move_selected() on release."""
         for point in self.ui.renderArea.path_selection.all():
@@ -677,19 +697,26 @@ class PTHControlScheme:
     def __init__(self, editor: PTHEditor):
         self.editor: PTHEditor = editor
         self.settings: GITSettings = GITSettings()
+        self._blender_nav = Blender2DNavigationHelper(
+            self.editor.ui.renderArea,
+            get_content_bounds=lambda: aabb_from_points((point.x, point.y) for point in self.editor.pth()),
+            get_selection_bounds=lambda: aabb_from_points((point.x, point.y) for point in self.editor.selected_nodes()),
+            settings=self.settings,
+        )
 
     def mouseMoveEvent(self, event: QMouseEvent):
         point: QPoint = event.pos()
         self.editor.update_status_bar(left_status=f"{point.x()}, {point.y()}")
 
     def on_mouse_scrolled(self, delta: Vector2, buttons: set[int], keys: set[int]):
+        if self._blender_nav.handle_mouse_scroll(delta, keys, zoom_sensitivity=ModuleDesignerSettings().zoomCameraSensitivity2d):
+            return
         if self.zoom_camera.satisfied(buttons, keys):
             if not delta.y:
                 return  # sometimes it'll be zero when holding middlemouse-down.
             sensSetting = ModuleDesignerSettings().zoomCameraSensitivity2d
             zoom_factor = calculate_zoom_strength(delta.y, sensSetting)
-            # RobustLogger.debug(f"on_mouse_scrolled zoom_camera (delta.y={delta.y}, zoom_factor={zoom_factor}, sensSetting={sensSetting}))")
-            self.editor.zoom_camera(zoom_factor)
+            self.editor.ui.renderArea.zoom_at_screen(zoom_factor)
 
     def on_mouse_moved(
         self,
@@ -779,6 +806,8 @@ class PTHControlScheme:
         buttons: set[Qt.MouseButton] | set[int] | set[Qt.MouseButton | int],
         keys: set[Qt.Key] | set[QKeySequence] | set[int] | set[Qt.Key | QKeySequence | int],
     ):
+        if self._blender_nav.handle_key_pressed(set(keys), pan_step=ModuleDesignerSettings().moveCameraSensitivity2d / 10):
+            return
         if self.delete_selected.satisfied(buttons, keys):
             node = None
             try:
@@ -879,6 +908,8 @@ class PTHControlScheme:
     # Use @property decorators to allow Users to change their settings without restarting the editor.
     @property
     def pan_camera(self) -> ControlItem:
+        if self.settings.controlScheme != "classic":
+            return ControlItem((set(), {Qt.MouseButton.MiddleButton}))
         return ControlItem(self.settings.moveCameraBind)
 
     @pan_camera.setter
@@ -886,6 +917,8 @@ class PTHControlScheme:
 
     @property
     def rotate_camera(self) -> ControlItem:
+        if self.settings.controlScheme != "classic":
+            return ControlItem(({Qt.Key.Key_Control}, {Qt.MouseButton.MiddleButton}))
         return ControlItem(self.settings.rotateCameraBind)
 
     @rotate_camera.setter
@@ -893,6 +926,8 @@ class PTHControlScheme:
 
     @property
     def zoom_camera(self) -> ControlItem:
+        if self.settings.controlScheme != "classic":
+            return ControlItem((set(), set()))
         return ControlItem(self.settings.zoomCameraBind)
 
     @zoom_camera.setter

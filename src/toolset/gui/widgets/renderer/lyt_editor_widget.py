@@ -665,6 +665,18 @@ class LYTEditorWidget(QWidget):
         QShortcut(QKeySequence("Ctrl+E"), self, self.edit_walkmesh)
         QShortcut(QKeySequence("Ctrl+I"), self, self.import_texture)
         QShortcut(QKeySequence("Ctrl+M"), self, self.manage_textures)
+        QShortcut(QKeySequence("+"), self, self.zoom_pan_widget.zoom_in)
+        QShortcut(QKeySequence("-"), self, self.zoom_pan_widget.zoom_out)
+        QShortcut(QKeySequence("Home"), self, self.zoom_pan_widget.reset_zoom_pan)
+        QShortcut(QKeySequence("Ctrl+0"), self, self.zoom_pan_widget.reset_zoom_pan)
+        QShortcut(QKeySequence("Left"), self, lambda: self.zoom_pan_widget.pan_by(-32, 0))
+        QShortcut(QKeySequence("Right"), self, lambda: self.zoom_pan_widget.pan_by(32, 0))
+        QShortcut(QKeySequence("Up"), self, lambda: self.zoom_pan_widget.pan_by(0, -32))
+        QShortcut(QKeySequence("Down"), self, lambda: self.zoom_pan_widget.pan_by(0, 32))
+        QShortcut(QKeySequence("Shift+Left"), self, lambda: self.zoom_pan_widget.pan_by(-8, 0))
+        QShortcut(QKeySequence("Shift+Right"), self, lambda: self.zoom_pan_widget.pan_by(8, 0))
+        QShortcut(QKeySequence("Shift+Up"), self, lambda: self.zoom_pan_widget.pan_by(0, -8))
+        QShortcut(QKeySequence("Shift+Down"), self, lambda: self.zoom_pan_widget.pan_by(0, 8))
         QShortcut(QKeySequence("Ctrl++"), self, self.zoom_pan_widget.zoom_in)
         QShortcut(QKeySequence("Ctrl+-"), self, self.zoom_pan_widget.zoom_out)
 
@@ -1065,6 +1077,38 @@ class LYTEditorWidget(QWidget):
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == Qt.Key.Key_Delete:
             self.delete_selected_item()
+        elif event.key() == Qt.Key.Key_Home:
+            self.zoom_pan_widget.reset_zoom_pan()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Period:
+            self.zoom_pan_widget.reset_zoom_pan()
+            event.accept()
+            return
+        elif event.key() in {Qt.Key.Key_Equal, Qt.Key.Key_Plus}:
+            self.zoom_pan_widget.zoom_in()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Minus:
+            self.zoom_pan_widget.zoom_out()
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Left:
+            self.zoom_pan_widget.pan_by(-32 if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier) else -8, 0)
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Right:
+            self.zoom_pan_widget.pan_by(32 if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier) else 8, 0)
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Up:
+            self.zoom_pan_widget.pan_by(0, -32 if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier) else -8)
+            event.accept()
+            return
+        elif event.key() == Qt.Key.Key_Down:
+            self.zoom_pan_widget.pan_by(0, 32 if not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier) else 8)
+            event.accept()
+            return
         elif event.key() == Qt.Key.Key_F2:
             self.rename_selected_item()
         super().keyPressEvent(event)
@@ -1605,6 +1649,10 @@ class ZoomPanWidget(QWidget):
         self.zoom_factor = max(min(factor, 5.0), 0.1)
         self.update()
 
+    def pan_by(self, dx: int, dy: int):
+        self.pan_offset += QPoint(dx, dy)
+        self.update()
+
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.MouseButton.MiddleButton:
             self.panning = True
@@ -1661,6 +1709,7 @@ class ZoomPanWidget(QWidget):
     def reset_zoom_pan(self):
         self.zoom_factor = 1.0
         self.pan_offset = QPoint(0, 0)
+        self.update()
 
 
 class LYTEditorWidget(QWidget):

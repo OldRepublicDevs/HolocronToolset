@@ -25,7 +25,7 @@ class GITSettings(Settings):
 
     def resetControls(self):
         for setting in dir(self):
-            if not setting.endswith("Bind"):
+            if not (setting.endswith("Bind") or setting == "controlScheme"):
                 continue
             self.reset_setting(setting)
 
@@ -152,6 +152,10 @@ class GITSettings(Settings):
     # endregion
 
     # region Binds (Controls)
+    controlScheme: SettingsProperty[str] = Settings.addSetting(
+        "controlScheme",
+        "blender",
+    )
     moveCameraBind = Settings.addSetting(
         "moveCameraBind",
         ({Qt.Key.Key_Control}, {Qt.MouseButton.LeftButton}),

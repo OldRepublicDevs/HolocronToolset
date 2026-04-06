@@ -61,7 +61,7 @@ class UTDEditor(Editor):
             6. Set up menus, signals and installation.
             7. Update 3D preview and call new() to initialize editor.
         """
-        supported: list[ResourceType] = [ResourceType.UTD, ResourceType.BTD]
+        supported: list[ResourceType] = [ResourceType.UTD]
         super().__init__(parent, "Door Editor", "door", supported, supported, installation)
 
         self.global_settings: GlobalSettings = GlobalSettings()
@@ -70,19 +70,13 @@ class UTDEditor(Editor):
 
         from toolset.uic.qtpy.editors.utd import Ui_MainWindow  # noqa: PLC0415
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
 
         # Initialize model info widget state (collapsed by default)
@@ -196,6 +190,8 @@ class UTDEditor(Editor):
             - Populates appearance and faction dropdowns from loaded 2da files
             - Shows/hides TSL-specific UI elements based on installation type.
         """
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
         self.ui.previewRenderer.installation = installation
@@ -624,7 +620,7 @@ class UTDEditor(Editor):
         Reads the EXACT lookup info from scene.texture_lookup_info - this is the
         SAME info that the renderer used when loading textures. No additional lookups.
         """
-        scene = self.ui.previewRenderer._scene
+        scene = self.ui.previewRenderer.scene
         if scene is None:
             return
 

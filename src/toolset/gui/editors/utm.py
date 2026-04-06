@@ -20,7 +20,8 @@ from utility.error_handling import format_exception_with_variables
 if TYPE_CHECKING:
     import os
 
-    from qtpy.QtWidgets import QWidget
+    from qtpy.QtWidgets import QComboBox, QLineEdit, QPlainTextEdit, QWidget
+    from typing_extensions import Literal
 
     from pykotor.resource.formats.gff.gff_data import GFF
     from toolset.data.installation import HTInstallation
@@ -54,19 +55,13 @@ class UTMEditor(Editor):
 
         from toolset.uic.qtpy.editors.utm import Ui_MainWindow
 
-        self.ui = Ui_MainWindow()
+        self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         self._setup_menus()
         self._add_help_action()
         self._setup_signals()
-        if installation is not None:  # will only be none in the unittests
+        if installation is not None:
             self._setup_installation(installation)
-
-        # Setup event filter to prevent scroll wheel interaction with controls
-        from toolset.gui.common.filters import NoScrollEventFilter
-
-        self._no_scroll_filter = NoScrollEventFilter(self)
-        self._no_scroll_filter.setup_filter(parent_widget=self)
 
         self.new()
         self.adjustSize()
@@ -93,6 +88,8 @@ class UTMEditor(Editor):
             - Sets the installation on the UI name edit to the passed installation
             - Allows editing of the installation details in the UI.
         """
+        if not hasattr(self, "ui"):
+            return  # UI not initialized yet, will be set up in __init__
         self._installation = installation
         self.ui.nameEdit.set_installation(installation)
 
@@ -116,13 +113,13 @@ class UTMEditor(Editor):
                 "Right-click to find references to this template resref in the installation.",
             ),
         ):
-            self._setup_reference_field(widget, resource_types, reference_type, tooltip_text)
+            self._setup_reference_field(widget, resource_types, reference_type, tooltip_text)  # type: ignore[arg-type]
 
     def _setup_reference_field(
         self,
-        widget,
+        widget: QComboBox | QLineEdit | QPlainTextEdit,
         resource_types: list[ResourceType],
-        reference_type: str,
+        reference_type: Literal["script", "conversation", "tag", "template_resref", "resref", "quest"],
         tooltip_text: str,
     ) -> None:
         """Configure context-menu reference search behavior for a widget."""
