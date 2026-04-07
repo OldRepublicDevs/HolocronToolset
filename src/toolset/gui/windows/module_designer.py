@@ -6266,7 +6266,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.update_status_bar(QCursor.pos(), buttons, keys, self.ui.mainRenderer)
         self._controls3d.on_keyboard_pressed(buttons, keys)
 
-    def on_3d_object_selected(self, instance: GITInstance):
+    def on_3d_object_selected(self, instance: GITObject | None):
         if instance is not None:
             self.set_selection([instance])
         else:

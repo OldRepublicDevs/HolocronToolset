@@ -15,7 +15,10 @@ from typing import TYPE_CHECKING, Callable, ClassVar
 import qtpy
 
 from qtpy import QtCore
-from qtpy.QtCore import Qt
+from qtpy.QtCore import (
+    Qt,
+    Signal,  # pyright: ignore[reportPrivateImportUsage]
+)
 from qtpy.QtGui import QColor, QCursor, QPainter, QPen, QPolygonF
 from qtpy.QtWidgets import (
     QApplication,
@@ -26,7 +29,7 @@ from loggerplus import RobustLogger
 from pykotor.gl.scene import Scene
 from pykotor.resource.formats.bwm.bwm_data import BWM
 from pykotor.resource.formats.lyt.lyt_data import LYT
-from pykotor.resource.generics.git import GITInstance
+from pykotor.resource.generics.git import GITObject
 from pykotor.resource.type import ResourceType
 from toolset.gui.widgets.renderer.base import OpenGLSceneRenderer
 from toolset.utils.misc import keyboard_modifiers_to_qt_keys
@@ -98,13 +101,13 @@ class FrameStats:
 
 
 class ModuleRenderer(OpenGLSceneRenderer):
-    sig_renderer_initialized: ClassVar[QtCore.Signal] = QtCore.Signal()  # pyright: ignore[reportPrivateImportUsage]
+    sig_renderer_initialized: ClassVar[Signal] = Signal()  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when the context is being setup, the QMainWindow must be in an activated/unhidden state."""
 
-    sig_scene_initialized: ClassVar[QtCore.Signal] = QtCore.Signal()  # pyright: ignore[reportPrivateImportUsage]
+    sig_scene_initialized: ClassVar[Signal] = Signal()  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when scene has been initialized."""
 
-    sig_mouse_moved: ClassVar[QtCore.Signal] = QtCore.Signal(  # pyright: ignore[reportPrivateImportUsage]  # noqa: E501
+    sig_mouse_moved: ClassVar[Signal] = Signal(  # pyright: ignore[reportPrivateImportUsage]  # noqa: E501
         object,
         object,
         object,
@@ -113,33 +116,33 @@ class ModuleRenderer(OpenGLSceneRenderer):
     )  # screen coords, screen delta, world/mouse pos, mouse, keys
     """Signal emitted when mouse is moved over the widget."""
 
-    sig_mouse_scrolled: ClassVar[QtCore.Signal] = QtCore.Signal(
+    sig_mouse_scrolled: ClassVar[Signal] = Signal(
         object, object, object
     )  # screen delta, mouse, keys  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when mouse is scrolled over the widget."""
 
-    sig_mouse_released: ClassVar[QtCore.Signal] = QtCore.Signal(
+    sig_mouse_released: ClassVar[Signal] = Signal(
         object, object, object, object
     )  # screen coords, mouse, keys, released_button  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when a mouse button is released after being pressed on the widget."""
 
-    sig_mouse_pressed: ClassVar[QtCore.Signal] = QtCore.Signal(
+    sig_mouse_pressed: ClassVar[Signal] = Signal(
         object, object, object
     )  # screen coords, mouse, keys  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when a mouse button is pressed on the widget."""
 
-    sig_keyboard_pressed: ClassVar[QtCore.Signal] = QtCore.Signal(
+    sig_keyboard_pressed: ClassVar[Signal] = Signal(
         object, object
     )  # mouse, keys  # pyright: ignore[reportPrivateImportUsage]
 
-    sig_keyboard_released: ClassVar[QtCore.Signal] = QtCore.Signal(
+    sig_keyboard_released: ClassVar[Signal] = Signal(
         object, object
     )  # mouse, keys  # pyright: ignore[reportPrivateImportUsage]
 
-    sig_object_selected: ClassVar[QtCore.Signal] = QtCore.Signal(object)  # pyright: ignore[reportPrivateImportUsage]
+    sig_object_selected: ClassVar[Signal] = Signal(object)  # pyright: ignore[reportPrivateImportUsage]
     """Signal emitted when an object has been selected through the renderer."""
 
-    sig_lyt_updated: ClassVar[QtCore.Signal] = QtCore.Signal(object)  # pyright: ignore[reportPrivateImportUsage]
+    sig_lyt_updated: ClassVar[Signal] = Signal(object)  # pyright: ignore[reportPrivateImportUsage]
 
     def __init__(self, parent: QWidget):
         initial_mouse = Vector2(QCursor.pos().x(), QCursor.pos().y())
@@ -537,7 +540,7 @@ class ModuleRenderer(OpenGLSceneRenderer):
             pick_y = max(0, min(drawable_height - 1, drawable_height - 1 - int(mouse_y)))
             obj: RenderObject | None = self.scene.pick(pick_x, pick_y)
 
-            if obj is not None and isinstance(obj.data, GITInstance):
+            if obj is not None and isinstance(obj.data, GITObject):
                 self.sig_object_selected.emit(obj.data)
             else:
                 self.scene.selection.clear()
