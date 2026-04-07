@@ -615,7 +615,7 @@ def ensure_context_room_selection(
     renderer: IndoorSelectionRendererLike | IndoorMapRenderer, room: IndoorMapRoom | None
 ) -> int:
     if room is None:
-        return 0
+        return len(renderer.selected_rooms())
     if room not in renderer.selected_rooms():
         renderer.select_room(room, clear_existing=True)
     return len(renderer.selected_rooms())

@@ -1097,7 +1097,7 @@ class IndoorMapRenderer(Base2DMapRenderer):
             bg_color = QColor(0, 0, 0, 180)
 
         for room in self._map.rooms:
-            base_bwm = room.base_walkmesh()
+            base_bwm: BWM = room.base_walkmesh()
             cache = self._get_bwm_surface_cache(base_bwm)
             if not cache.vertices:
                 continue
@@ -1127,14 +1127,32 @@ class IndoorMapRenderer(Base2DMapRenderer):
                 max_x = max(vertex.x for vertex in world_vertices)
                 min_y = min(vertex.y for vertex in world_vertices)
                 max_y = max(vertex.y for vertex in world_vertices)
-            center_world = QPointF((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
-            center_screen = painter.transform().map(center_world)
+            center_world: QPointF = QPointF((min_x + max_x) * 0.5, (min_y + max_y) * 0.5)
+            center_screen: QPointF = painter.transform().map(center_world)
 
             painter.save()
             painter.resetTransform()
-            painter.setPen(QPen(text_color, 1))
-            painter.setBrush(bg_color)
+            is_active = bool(self._selected_rooms and room is self._selected_rooms[-1])
+            is_selected = room in self._selected_rooms
+            is_hovered = room is self._under_mouse_room
+
+            label_text_color = QColor(text_color)
+            label_bg_color = QColor(bg_color)
             room_name = room.component.name or room.component.id
+            if is_active:
+                label_text_color = QColor(35, 24, 0)
+                label_bg_color = QColor(255, 245, 180, 225)
+                room_name = f"{room_name} [active]"
+            elif is_selected:
+                label_text_color = QColor(255, 255, 255)
+                label_bg_color = QColor(_ROOM_SELECTED_QCOLOR)
+                label_bg_color.setAlpha(210)
+            elif is_hovered:
+                label_bg_color = QColor(_ROOM_HOVER_QCOLOR)
+                label_bg_color.setAlpha(185)
+
+            painter.setPen(QPen(label_text_color, 1))
+            painter.setBrush(label_bg_color)
             text_rect = painter.fontMetrics().boundingRect(room_name)
             text_x = center_screen.x() - text_rect.width() / 2
             text_y = center_screen.y() + text_rect.height() / 2
@@ -1187,6 +1205,54 @@ class IndoorMapRenderer(Base2DMapRenderer):
             selected=self._selected_hook,
             room_for_selection=None,
         )
+
+    def _draw_room_outline(
+        self,
+        painter: QPainter,
+        room: IndoorMapRoom,
+        *,
+        color: QColor,
+        width_scale: float,
+    ) -> None:
+        base_bwm = room.base_walkmesh()
+        cache = self._get_bwm_surface_cache(base_bwm)
+
+        pen = QPen(QColor(color), width_scale / max(self.camera.zoom(), 1e-6), Qt.PenStyle.SolidLine)
+        painter.save()
+        painter.translate(room.position.x, room.position.y)
+        painter.rotate(room.rotation)
+        painter.scale(-1.0 if room.flip_x else 1.0, -1.0 if room.flip_y else 1.0)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        if not cache.perimeter_path.isEmpty():
+            painter.drawPath(cache.perimeter_path)
+        elif cache.bbmax.x != cache.bbmin.x or cache.bbmax.y != cache.bbmin.y:
+            painter.drawRect(
+                QRectF(
+                    cache.bbmin.x,
+                    cache.bbmin.y,
+                    cache.bbmax.x - cache.bbmin.x,
+                    cache.bbmax.y - cache.bbmin.y,
+                )
+            )
+        painter.restore()
+
+    def _draw_room_emphasis_outlines(self, painter: QPainter) -> None:
+        active_room = self._selected_rooms[-1] if self._selected_rooms else None
+
+        if self._under_mouse_room is not None and self._under_mouse_room not in self._selected_rooms:
+            hover_outline = QColor(_ROOM_HOVER_QCOLOR)
+            hover_outline.setAlpha(240)
+            self._draw_room_outline(painter, self._under_mouse_room, color=hover_outline, width_scale=3.5)
+
+        for room in self._selected_rooms:
+            selected_outline = QColor(_ROOM_SELECTED_QCOLOR)
+            selected_outline.setAlpha(235)
+            self._draw_room_outline(painter, room, color=selected_outline, width_scale=4.0)
+
+        if active_room is not None:
+            active_outline = QColor(255, 245, 180, 250)
+            self._draw_room_outline(painter, active_room, color=active_outline, width_scale=5.5)
 
     def _draw_room_highlight(
         self,
@@ -1620,7 +1686,6 @@ class IndoorMapRenderer(Base2DMapRenderer):
         for room in self._map.rooms:
             self._draw_room_walkmesh(painter, room)
         self._draw_room_boundaries(painter)
-        self._draw_room_labels(painter)
         self._draw_vis_overlay(painter)
 
         # Draw hooks (magnets)
@@ -1682,6 +1747,9 @@ class IndoorMapRenderer(Base2DMapRenderer):
                 ROOM_SELECTED_ALPHA,
                 _ROOM_SELECTED_QCOLOR,
             )
+
+        self._draw_room_emphasis_outlines(painter)
+        self._draw_room_labels(painter)
 
         # Draw spawn point (warp point)
         self._draw_spawn_point(painter, self._map.warp_point)
