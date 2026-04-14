@@ -1252,12 +1252,11 @@ class ModuleRenderer(OpenGLSceneRenderer):
         if callback is not None:
             callback_requested = bool(callback(delta_time))
         self._emit_camera_changed_if_needed()
-        if callback_requested or self._needs_continuous_render():
-            # Use update() instead of repaint() - this schedules a repaint rather than
-            # forcing an immediate synchronous paint. Qt will batch multiple update()
-            # calls into a single paint, which is more efficient.
-            # repaint() bypasses the event queue and can cause stuttering.
-            self.update()
+        # Always schedule a repaint so the viewport stays live.
+        # Use update() instead of repaint() — Qt batches multiple update() calls
+        # into a single paint, which is already efficient.  The timer interval
+        # (default 33 ms ≈ 30 FPS) is the true frame-rate governor.
+        self.update()
 
         if self.underMouse() and self.free_cam and len(self._keys_down) > 0:
             self.sig_keyboard_pressed.emit(self._mouse_down, self._keys_down)

@@ -570,7 +570,7 @@ Should return 1 or 0, representing a boolean.
         self.ui.voiceComboBox.currentTextChanged.connect(self.on_node_update)
 
         self.ui.soundButton.clicked.connect(
-            lambda ui=self.ui: (
+            lambda checked=False, ui=self.ui: (
                 self.play_sound(
                     ui.soundComboBox.currentText(), [SearchLocation.SOUND, SearchLocation.VOICE]
                 )
@@ -579,7 +579,7 @@ Should return 1 or 0, representing a boolean.
             or None
         )
         self.ui.voiceButton.clicked.connect(
-            lambda ui=self.ui: (
+            lambda checked=False, ui=self.ui: (
                 self.play_sound(ui.voiceComboBox.currentText(), [SearchLocation.VOICE]) and None
             )
             or None
