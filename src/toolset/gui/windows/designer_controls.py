@@ -79,7 +79,9 @@ def _build_camera_input_state(
         input_kwargs["middle_button"] = True
         input_kwargs["alt_held"] = True
 
-    filtered_kwargs: dict[str, Any] = {key: value for key, value in input_kwargs.items() if key in parameter_names}
+    filtered_kwargs: dict[str, Any] = {
+        key: value for key, value in input_kwargs.items() if key in parameter_names
+    }
     return resolved_input_state_cls(**filtered_kwargs)
 
 

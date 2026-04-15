@@ -541,7 +541,9 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._read_supported: list[RESOURCE_FORMAT] = read_supported
         self._write_supported: list[RESOURCE_FORMAT] = write_supported
         self._module_read_supported: list[ResourceType] = _canonical_resource_types(read_supported)
-        self._module_write_supported: list[ResourceType] = _canonical_resource_types(write_supported)
+        self._module_write_supported: list[ResourceType] = _canonical_resource_types(
+            write_supported
+        )
 
         self._save_filter: str = tr("All valid files (")
         for resource in write_supported:

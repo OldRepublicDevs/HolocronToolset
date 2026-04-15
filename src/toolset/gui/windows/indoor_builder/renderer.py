@@ -40,13 +40,17 @@ else:
 
 from pykotor.common.indoorkit import KitComponentHook
 from pykotor.common.indoormap import IndoorMap, IndoorMapRoom
+
 try:
     from pykotor.gl.native.gl_accel import (
         c_available as _c_accel_available,
     )
 except ModuleNotFoundError:
+
     def _c_accel_available() -> bool:  # type: ignore[misc]
         return False
+
+
 from toolset.gui.common.base_2d_renderer import Base2DMapRenderer
 from toolset.gui.common.marquee import MARQUEE_MOVE_THRESHOLD_PIXELS
 from toolset.gui.common.snapping import snap_value
@@ -1221,7 +1225,9 @@ class IndoorMapRenderer(Base2DMapRenderer):
         base_bwm = room.base_walkmesh()
         cache = self._get_bwm_surface_cache(base_bwm)
 
-        pen = QPen(QColor(color), width_scale / max(self.camera.zoom(), 1e-6), Qt.PenStyle.SolidLine)
+        pen = QPen(
+            QColor(color), width_scale / max(self.camera.zoom(), 1e-6), Qt.PenStyle.SolidLine
+        )
         painter.save()
         painter.translate(room.position.x, room.position.y)
         painter.rotate(room.rotation)
@@ -1244,10 +1250,15 @@ class IndoorMapRenderer(Base2DMapRenderer):
     def _draw_room_emphasis_outlines(self, painter: QPainter) -> None:
         active_room = self._selected_rooms[-1] if self._selected_rooms else None
 
-        if self._under_mouse_room is not None and self._under_mouse_room not in self._selected_rooms:
+        if (
+            self._under_mouse_room is not None
+            and self._under_mouse_room not in self._selected_rooms
+        ):
             hover_outline = QColor(_ROOM_HOVER_QCOLOR)
             hover_outline.setAlpha(240)
-            self._draw_room_outline(painter, self._under_mouse_room, color=hover_outline, width_scale=3.5)
+            self._draw_room_outline(
+                painter, self._under_mouse_room, color=hover_outline, width_scale=3.5
+            )
 
         for room in self._selected_rooms:
             selected_outline = QColor(_ROOM_SELECTED_QCOLOR)

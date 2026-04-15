@@ -62,6 +62,7 @@ except ImportError:
                     loaded.txi = reader.read_all().decode(encoding="ascii", errors="ignore")
             return loaded
 
+
 if TYPE_CHECKING:
     import os
 

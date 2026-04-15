@@ -297,7 +297,12 @@ class ViewCompassWidget(QWidget):
                 self._drag_active = True
                 self._pressed_axis = None
                 yaw = _wrap_angle_pi(self._drag_start_yaw - delta.x() * self._DRAG_SENSITIVITY)
-                pitch = max(0.01, min(math.pi - 0.01, self._drag_start_pitch - delta.y() * self._DRAG_SENSITIVITY))
+                pitch = max(
+                    0.01,
+                    min(
+                        math.pi - 0.01, self._drag_start_pitch - delta.y() * self._DRAG_SENSITIVITY
+                    ),
+                )
                 self.set_camera_angles(yaw, pitch)
                 self.sig_orbit_view.emit(yaw, pitch)
                 event.accept()
