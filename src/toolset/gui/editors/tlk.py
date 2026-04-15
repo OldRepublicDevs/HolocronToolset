@@ -26,7 +26,7 @@ from pykotor.common.misc import ResRef
 from pykotor.extract.file import FileResource
 from pykotor.resource.formats.ssf.ssf_data import SSFSound
 from pykotor.resource.formats.tlk import TLK, TLKEntry, bytes_tlk, read_tlk, write_tlk
-from pykotor.resource.type import ResourceType
+from pykotor.resource.type import ResourceType, ToolsetFormat
 from toolset.gui.common.localization import tr, trf
 from toolset.gui.dialogs.asyncloader import AsyncLoader
 from toolset.gui.dialogs.search import FileResults
@@ -66,10 +66,10 @@ class TLKEditor(Editor):
         parent: QWidget | None,
         installation: HTInstallation | None = None,
     ):
-        supported: list[ResourceType] = [
+        supported = [
             ResourceType.TLK,
-            ResourceType.TLK_XML,
-            ResourceType.TLK_JSON,
+            ToolsetFormat.TLK_XML,
+            ToolsetFormat.TLK_JSON,
         ]
         super().__init__(parent, "TLK Editor", "none", supported, supported, installation)
 

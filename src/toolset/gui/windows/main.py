@@ -46,7 +46,7 @@ from pykotor.resource.formats.erf import ERF, ERFType, read_erf, write_erf
 from pykotor.resource.formats.mdl import read_mdl, write_mdl
 from pykotor.resource.formats.rim import RIM, read_rim, write_rim
 from pykotor.resource.formats.tpc import read_tpc, write_tpc
-from pykotor.resource.type import ResourceType
+from pykotor.resource.type import ResourceType, ToolsetFormat
 from pykotor.tools import module
 from pykotor.tools.misc import (
     is_any_erf_type_file,
@@ -2980,7 +2980,7 @@ class ToolWindow(QMainWindow):
         mdl: MDL | None = read_mdl(data, 0, 0, mdxData, 0, 0)
         assert mdl is not None, "mdl is None in _decompile_mdl"
         data = bytearray()
-        write_mdl(mdl, data, ResourceType.MDL_ASCII)
+        write_mdl(mdl, data, ToolsetFormat.MDL_ASCII)
         return data
 
     def _extract_mdl_textures(

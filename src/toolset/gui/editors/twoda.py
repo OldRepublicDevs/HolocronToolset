@@ -27,7 +27,7 @@ from qtpy.QtWidgets import (
 )
 
 from pykotor.resource.formats.twoda import TwoDA, read_2da, write_2da
-from pykotor.resource.type import ResourceType
+from pykotor.resource.type import ResourceType, ToolsetFormat
 from toolset.gui.common.filters import NoScrollEventFilter
 from toolset.gui.common.localization import translate
 from toolset.gui.editor import Editor
@@ -1518,8 +1518,8 @@ class TwoDAEditor(Editor):
 
     Supported formats:
     - Native 2DA binary format (ResourceType.TwoDA)
-    - CSV format (ResourceType.TwoDA_CSV)
-    - JSON format (ResourceType.TwoDA_JSON)
+    - CSV format (ToolsetFormat.TwoDA_CSV)
+    - JSON format (ToolsetFormat.TwoDA_JSON)
     """
 
     def _nav_resource_types(self) -> list[ResourceType]:
@@ -1530,10 +1530,10 @@ class TwoDAEditor(Editor):
         parent: QWidget | None,
         installation: HTInstallation | None = None,
     ):
-        supported: list[ResourceType] = [
+        supported = [
             ResourceType.TwoDA,
-            ResourceType.TwoDA_CSV,
-            ResourceType.TwoDA_JSON,
+            ToolsetFormat.TwoDA_CSV,
+            ToolsetFormat.TwoDA_JSON,
         ]
         super().__init__(parent, "2DA Editor", "none", supported, supported, installation)
         self.resize(800, 550)

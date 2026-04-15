@@ -38,6 +38,7 @@ from qtpy.QtWidgets import (
 )
 
 from loggerplus import RobustLogger  # pyright: ignore[reportMissingTypeStubs]
+from pykotor.common.misc import ResRef
 from pykotor.common.module import Module
 from pykotor.extract.capsule import Capsule
 from pykotor.extract.file import FileResource, ResourceIdentifier
@@ -45,8 +46,8 @@ from pykotor.extract.installation import SearchLocation
 from pykotor.resource.formats.bif import read_bif
 from pykotor.resource.formats.erf import ERF, ERFType, read_erf, write_erf
 from pykotor.resource.formats.gff import GFFStruct, bytes_gff, read_gff
-from pykotor.resource.formats.rim import read_rim, write_rim
-from pykotor.resource.type import ResourceType
+from pykotor.resource.formats.rim import RIM, read_rim, write_rim
+from pykotor.resource.type import RESOURCE_FORMAT, ResourceType, get_toolset_formats_for_type
 from pykotor.tools.misc import (
     is_any_erf_type_file,
     is_bif_file,
@@ -72,12 +73,6 @@ if TYPE_CHECKING:
 
     from pathlib import PurePath
 
-    from PyQt6.QtMultimedia import (
-        QMediaPlayer as PyQt6MediaPlayer,  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
-    )
-    from PySide6.QtMultimedia import (
-        QMediaPlayer as PySide6MediaPlayer,  # pyright: ignore[reportMissingImports, reportAttributeAccessIssue]
-    )
     from qtpy.QtCore import QRect
     from qtpy.QtGui import QScreen, _QAction
     from qtpy.QtWidgets import (
@@ -96,8 +91,8 @@ if TYPE_CHECKING:
 
 class Editor(QMainWindow, StandaloneWindowMixin):
     sig_new_file: Signal = Signal()
-    sig_saved_file: Signal = Signal(str, str, ResourceType, bytes)
-    sig_loaded_file: Signal = Signal(str, str, ResourceType, bytes)
+    sig_saved_file: Signal = Signal(str, str, object, bytes)
+    sig_loaded_file: Signal = Signal(str, str, object, bytes)
 
     CAPSULE_FILTER: str = "*.mod *.erf *.rim *.sav *.bif"
 
@@ -106,8 +101,8 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         parent: QWidget | None,
         title: str,
         icon_name: str,
-        read_supported: list[ResourceType],
-        write_supported: list[ResourceType],
+        read_supported: list[RESOURCE_FORMAT],
+        write_supported: list[RESOURCE_FORMAT],
         installation: HTInstallation | None = None,
     ):
         super().__init__(parent)
@@ -117,7 +112,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._global_settings: GlobalSettings = GlobalSettings()
 
         self._editor_title: str = title
-        self._restype: ResourceType = next(
+        self._restype: RESOURCE_FORMAT = next(
             iter(read_supported or write_supported), ResourceType.INVALID
         )
         self._resname: str = f"untitled_{uuid.uuid4().hex[:8]}"
@@ -517,26 +512,36 @@ class Editor(QMainWindow, StandaloneWindowMixin):
 
     def setup_editor_filters(
         self,
-        read_supported: list[ResourceType],
-        write_supported: list[ResourceType],
+        read_supported: list[RESOURCE_FORMAT],
+        write_supported: list[RESOURCE_FORMAT],
     ):
+        def _canonical_resource_types(formats: list[RESOURCE_FORMAT]) -> list[ResourceType]:
+            canonical_formats: list[ResourceType] = []
+            for resource_format in formats:
+                canonical_type = resource_format.target_type()
+                if canonical_type not in canonical_formats:
+                    canonical_formats.append(canonical_type)
+            return canonical_formats
+
         write_supported = (
             read_supported.copy() if read_supported is write_supported else write_supported
         )
-        additional_formats: set[str] = {"XML", "JSON", "CSV", "ASCII", "YAML"}
-        for add_format in additional_formats:
-            read_supported.extend(
-                ResourceType.__members__[f"{restype.name}_{add_format}"]
-                for restype in read_supported
-                if f"{restype.name}_{add_format}" in ResourceType.__members__  # noqa: E501
-            )
-            write_supported.extend(
-                ResourceType.__members__[f"{restype.name}_{add_format}"]
-                for restype in write_supported
-                if f"{restype.name}_{add_format}" in ResourceType.__members__  # noqa: E501
-            )
-        self._read_supported: list[ResourceType] = read_supported
-        self._write_supported: list[ResourceType] = write_supported
+        read_supported.extend(
+            fmt
+            for restype in tuple(read_supported)
+            for fmt in get_toolset_formats_for_type(restype.target_type())
+            if fmt not in read_supported
+        )
+        write_supported.extend(
+            fmt
+            for restype in tuple(write_supported)
+            for fmt in get_toolset_formats_for_type(restype.target_type())
+            if fmt not in write_supported
+        )
+        self._read_supported: list[RESOURCE_FORMAT] = read_supported
+        self._write_supported: list[RESOURCE_FORMAT] = write_supported
+        self._module_read_supported: list[ResourceType] = _canonical_resource_types(read_supported)
+        self._module_write_supported: list[ResourceType] = _canonical_resource_types(write_supported)
 
         self._save_filter: str = tr("All valid files (")
         for resource in write_supported:
@@ -608,14 +613,18 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                 self._resname = "new"
                 self._restype = self._write_supported[0]
 
-            dialog2 = SaveToModuleDialog(self._resname, self._restype, self._write_supported)
+            dialog2 = SaveToModuleDialog(
+                self._resname,
+                self._restype.target_type(),
+                self._module_write_supported,
+            )
             if dialog2.exec():
                 self._resname = dialog2.resname()
                 self._restype = dialog2.restype()
                 self._filepath = Path(filepath_str)
         else:
             self._filepath = Path(filepath_str)
-            self._resname, self._restype = identifier.unpack()
+            self._resname, self._restype = identifier.resname, identifier.restype
         self.save()
 
         self.refresh_window_title()
@@ -633,9 +642,11 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             return
 
         try:
-            data, data_ext = self.build()
-            if data is None:
+            built_data, built_data_ext = self.build()
+            if built_data is None:
                 return
+            data_bytes: bytes = cast(bytes, bytes(built_data))
+            data_ext_bytes: bytes = cast(bytes, bytes(built_data_ext))
             from toolset.gui.editors.gff import GFFEditor
 
             # HACK: Write a real implementation for this later, and remove this hack.
@@ -658,23 +669,23 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                         "Save game resource detected: Preserving all extra GFF fields to prevent save corruption."
                     )
                 old_gff: GFF = read_gff(self._revert)
-                new_gff: GFF = read_gff(data)
+                new_gff: GFF = read_gff(data_bytes)
                 GFFStruct._add_missing(new_gff.root, old_gff.root)
-                data: bytes = bytes_gff(new_gff)
-            self._revert = data
+                data_bytes = bytes_gff(new_gff)
+            self._revert = data_bytes
 
             self.refresh_window_title()
 
             if is_bif_file(self._filepath):
-                self._save_ends_with_bif(data, data_ext)
+                self._save_ends_with_bif(data_bytes, data_ext_bytes)
             elif is_capsule_file(self._filepath.parent):
-                self._save_nested_capsule(data, data_ext)
+                self._save_nested_capsule(data_bytes, data_ext_bytes)
             elif is_rim_file(self._filepath.name):
-                self._save_ends_with_rim(data, data_ext)
+                self._save_ends_with_rim(data_bytes, data_ext_bytes)
             elif is_any_erf_type_file(self._filepath):
-                self._save_ends_with_erf(data, data_ext)
+                self._save_ends_with_erf(data_bytes, data_ext_bytes)
             else:
-                self._save_ends_with_other(data, data_ext)
+                self._save_ends_with_other(data_bytes, data_ext_bytes)
         except Exception as e:  # noqa: BLE001
             self.blink_window()
             RobustLogger().critical(tr("Failed to write to file"), exc_info=True)
@@ -709,7 +720,11 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             if str_filepath is None or not str(str_filepath).strip():
                 return
             r_filepath: Path = Path(str_filepath)
-            dialog2 = SaveToModuleDialog(self._resname, self._restype, self._write_supported)
+            dialog2 = SaveToModuleDialog(
+                self._resname,
+                self._restype.target_type(),
+                self._module_write_supported,
+            )
             if dialog2.exec():
                 self._resname = dialog2.resname()
                 self._restype = dialog2.restype()
@@ -745,11 +760,12 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             return
 
         rim: RIM = read_rim(self._filepath)
+        canonical_restype = self._restype.target_type()
 
-        if self._restype == ResourceType.MDL:
-            rim.set_data(self._resname, ResourceType.MDX, data_ext)
+        if canonical_restype == ResourceType.MDL:
+            rim.set_data(ResRef(self._resname), ResourceType.MDX, data_ext)
 
-        rim.set_data(self._resname, self._restype, data)
+        rim.set_data(ResRef(self._resname), canonical_restype, data)
 
         write_rim(rim, self._filepath)
         self.sig_saved_file.emit(str(self._filepath), self._resname, self._restype, bytes(data))
@@ -820,17 +836,25 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         for index, (_capsule_path, this_erf_or_rim) in enumerate(reversed(nested_capsules)):
             if index == 0:
                 if not self._is_capsule_editor:
-                    this_erf_or_rim.set_data(self._resname, self._restype, bytes(data))
+                    this_erf_or_rim.set_data(
+                        ResRef(self._resname),
+                        self._restype.target_type(),
+                        bytes(data),
+                    )
                 continue
             child_index: int = len(nested_capsules) - index
             child_capsule_path, child_erf_or_rim = nested_capsules[child_index]
             if self._filepath != child_capsule_path or not self._is_capsule_editor:
                 data = bytearray()
-                write_erf(child_erf_or_rim, data) if isinstance(
-                    child_erf_or_rim, ERF
-                ) else write_rim(child_erf_or_rim, data)
+                if isinstance(child_erf_or_rim, ERF):
+                    write_erf(child_erf_or_rim, data)
+                elif isinstance(child_erf_or_rim, RIM):
+                    write_rim(cast(RIM, child_erf_or_rim), data)
+                else:
+                    msg = f"Nested archive type {type(child_erf_or_rim).__name__} is not writable"
+                    raise TypeError(msg)
             this_erf_or_rim.set_data(
-                child_capsule_path.stem,
+                ResRef(child_capsule_path.stem),
                 ResourceType.from_extension(child_capsule_path.suffix),
                 bytes(data),
             )
@@ -838,9 +862,13 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         assert this_erf_or_rim is not None, (
             "this_erf_or_rim is None somehow? This should be impossible."
         )
-        write_erf(this_erf_or_rim, self._filepath) if isinstance(
-            this_erf_or_rim, ERF
-        ) else write_rim(this_erf_or_rim, self._filepath)
+        if isinstance(this_erf_or_rim, ERF):
+            write_erf(this_erf_or_rim, self._filepath)
+        elif isinstance(this_erf_or_rim, RIM):
+            write_rim(cast(RIM, this_erf_or_rim), self._filepath)
+        else:
+            msg = f"Nested archive type {type(this_erf_or_rim).__name__} is not writable"
+            raise TypeError(msg)
         self.sig_saved_file.emit(str(self._filepath), self._resname, self._restype, bytes(data))
 
     def _save_ends_with_erf(
@@ -868,10 +896,12 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             erf = ERF(erftype)
         erf.erf_type = erftype
 
-        if self._restype == ResourceType.MDL:
-            erf.set_data(self._resname, ResourceType.MDX, data_ext)
+        canonical_restype = self._restype.target_type()
 
-        erf.set_data(self._resname, self._restype, data)
+        if canonical_restype == ResourceType.MDL:
+            erf.set_data(ResRef(self._resname), ResourceType.MDX, data_ext)
+
+        erf.set_data(ResRef(self._resname), canonical_restype, data)
 
         write_erf(erf, self._filepath)
         self.sig_saved_file.emit(str(self._filepath), self._resname, self._restype, bytes(data))
@@ -932,7 +962,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self,
         r_filepath: Path,
     ):
-        dialog = LoadFromModuleDialog(Capsule(r_filepath), self._read_supported)
+        dialog = LoadFromModuleDialog(Capsule(r_filepath), self._module_read_supported)
         if dialog.exec():
             resname: str | None = dialog.resname()
             restype: ResourceType | None = dialog.restype()
@@ -959,7 +989,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self,
         filepath: os.PathLike | str,
         resref: str,
-        restype: ResourceType,
+        restype: RESOURCE_FORMAT,
         data: bytes | bytearray,
     ):
         self._filepath = Path(filepath)
@@ -1093,7 +1123,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             QTimer.singleShot(0, self.media_player.player.play)
 
         elif qtpy.QT6:
-            player: PyQt6MediaPlayer | PySide6MediaPlayer = cast("Any", self.media_player.player)
+            player: Any = cast("Any", self.media_player.player)
 
             # Reuse the persistent QAudioOutput from MediaPlayerWidget — never replace it.
             # Calling setAudioOutput() on every play resets Qt6's async FFmpeg backend,

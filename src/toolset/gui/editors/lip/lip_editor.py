@@ -23,7 +23,7 @@ from qtpy.QtWidgets import (
 
 from loggerplus import RobustLogger
 from pykotor.resource.formats.lip import LIP, LIPKeyFrame, LIPShape, bytes_lip, read_lip
-from pykotor.resource.type import ResourceType
+from pykotor.resource.type import ResourceType, ToolsetFormat
 from toolset.gui.editor import Editor
 
 if TYPE_CHECKING:
@@ -301,7 +301,7 @@ class LIPEditor(Editor):
         installation: HTInstallation | None = None,
     ):
         """Initialize the LIP editor."""
-        supported = [ResourceType.LIP, ResourceType.LIP_XML, ResourceType.LIP_JSON]
+        supported = [ResourceType.LIP, ToolsetFormat.LIP_XML, ToolsetFormat.LIP_JSON]
         super().__init__(parent, "LIP Editor", "lip", supported, supported, installation)
 
         # Phoneme to viseme mapping from KLE

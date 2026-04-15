@@ -32,7 +32,7 @@ from pykotor.resource.formats.gff import (
     read_gff,
     write_gff,
 )
-from pykotor.resource.type import ResourceType
+from pykotor.resource.type import RESOURCE_FORMAT, ResourceType, ToolsetFormat
 from toolset.gui.common.localization import translate as tr
 from toolset.gui.editor import Editor
 from utility.common.geometry import Vector3, Vector4
@@ -213,11 +213,13 @@ class GFFEditor(Editor):
         assert gff_content is not None
 
         # Determine if we should write as XML based on file extension
-        gff_type: ResourceType = ResourceType.GFF
+        gff_type: RESOURCE_FORMAT = ResourceType.GFF
         if self._filepath is not None:
             suffix = self._filepath.suffix.lower()
             if suffix.endswith(".xml"):
-                gff_type = ResourceType.GFF_XML
+                gff_type = ToolsetFormat.GFF_XML
+            elif suffix.endswith(".json"):
+                gff_type = ToolsetFormat.GFF_JSON
 
         gff = GFF(gff_content)
         item: QStandardItem | None = self.model.item(0, 0)
