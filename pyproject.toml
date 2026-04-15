@@ -368,7 +368,7 @@ max-line-length = 175
 name = "toolset"
 windowed = true
 icon = "src/resources/icons/sith.ico"
-exclude-modules = ["numpy", "PyOpenGL", "PyGLM", "dl_translate", "torch"]
+exclude-modules = ["numpy", "PyOpenGL", "PyGLM"]
 hidden-imports = ["PIL._tkinter_finder"]
 
 [tool.dependencies]

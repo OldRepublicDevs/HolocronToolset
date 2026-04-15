@@ -19,6 +19,7 @@ from qtpy.QtWidgets import (
     QMessageBox,
 )
 
+from pykotor.cli.logger import OutputMode
 from pykotor.diff_tool.app import DiffConfig, run_application
 from pykotor.extract.installation import Installation
 
@@ -326,7 +327,7 @@ class KotorDiffWindow(QMainWindow):
             ini_filename=(self.ui.iniNameEdit.text().strip() or "changes.ini"),
             output_log_path=None,
             log_level=self.ui.logLevelCombo.currentText(),
-            output_mode="quiet",
+            output_mode=OutputMode.QUIET,
             use_colors=False,
             compare_hashes=self.ui.compareHashesCheck.isChecked(),
             use_profiler=False,
