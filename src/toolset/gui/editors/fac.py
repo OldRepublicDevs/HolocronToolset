@@ -182,7 +182,7 @@ class FACEditor(Editor):
     ):
         """Load faction data from a file.
 
-        FAC GFF defaults (REVA): FactionName "" (K1 0x0052b5c0, TSL Aspyr 0x007ef390, TSL Legacy 0x005acf30);
+        FAC GFF defaults: FactionName "" (K1 0x0052b5c0, TSL Aspyr 0x007ef390, TSL Legacy 0x005acf30);
         FactionGlobal 0 when present, 1 when field missing (all three); FactionParentID 0 (engine) / we use 0xFFFFFFFF for no parent;
         FactionID1/2/Rep 0; FactionRep clamped 0-100. Lists FactionList/RepList omit → empty.
 

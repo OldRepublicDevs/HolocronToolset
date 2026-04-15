@@ -341,7 +341,7 @@ class GITEditor(Editor, BlenderEditorMixin):
     ):
         """Load a resource from a file.
 
-        GIT defaults (REVA): K1 LoadGIT 0x0050dd80 — UseTemplates/CurrentWeather/WeatherStarted ReadFieldBYTE 0;
+        GIT defaults: K1 LoadGIT 0x0050dd80 — UseTemplates/CurrentWeather/WeatherStarted ReadFieldBYTE 0;
         LoadProperties 0x00507490, CSWSAmbientSound::Load 0x005c95f0 (AreaProperties: AmbientSndDayVol/MusicDay/etc. INT 0);
         lists omit → empty. TSL Aspyr LoadGIT 0x0071ae10.
 
@@ -399,7 +399,7 @@ class GITEditor(Editor, BlenderEditorMixin):
     def build(self) -> tuple[bytes, bytes]:
         """Build GIT bytes.
 
-        Write path (REVA): K1 SaveGIT 0x0050ba00 — UseTemplates 1; SaveProperties 0x00506090, CSWSAmbientSound::Save 0x005c96e0 (AreaProperties INT); lists per type. Omit OK.
+        Write path: K1 SaveGIT 0x0050ba00 — UseTemplates 1; SaveProperties 0x00506090, CSWSAmbientSound::Save 0x005c96e0 (AreaProperties INT); lists per type. Omit OK.
         """
         return bytes_git(self._git), b""
 
