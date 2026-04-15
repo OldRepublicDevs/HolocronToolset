@@ -1255,7 +1255,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.resourceTree.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
         # Track which resource is being dragged
         self.ui.resourceTree.itemPressed.connect(self._on_resource_tree_item_pressed)
-        # Accept drops on the 3D and 2D viewports (resources: tree → 3D or 2D)
+        # Accept drops on the 3D and 2D viewports (resources: tree -> 3D or 2D)
         self.ui.mainRenderer.setAcceptDrops(True)
         self.ui.mainRenderer.installEventFilter(self)
         self.ui.flatRenderer.setAcceptDrops(True)
@@ -1422,7 +1422,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
     def _handle_resource_drop(self, resource: ModuleResource, screen_pos: QPoint) -> None:
         """Spawn a new GIT instance for *resource* at the world position under *screen_pos* (3D viewport).
 
-        Drag-drop design: (1) Resources: drag from resource tree → drop on 3D or 2D viewport.
+        Drag-drop design: (1) Resources: drag from resource tree -> drop on 3D or 2D viewport.
         (2) Room pieces: place via Layout tab (select component, click on indoor 2D or 3D view).
         """
         world_pos = Vector3(0.0, 0.0, 0.0)
@@ -2836,7 +2836,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self._sync_lyt_from_indoor_map()
 
     def _sync_lyt_from_indoor_map(self) -> None:
-        """Sync IndoorMap rooms → module LYT (in-memory) and refresh layout tree."""
+        """Sync IndoorMap rooms -> module LYT (in-memory) and refresh layout tree."""
         lyt = self._get_or_create_layout_resource()
         if lyt is None:
             return
@@ -7744,12 +7744,12 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             )
             return True
 
-        # Z — cycle viewport shading (Lightmapped → Solid → Wireframe → ...)
+        # Z — cycle viewport shading (Lightmapped -> Solid -> Wireframe -> ...)
         if key == Qt.Key.Key_Z and has_no_mods:
             self._cycle_viewport_shading()
             return True
 
-        # T — cycle Walkmesh selection mode (Face → Edge → Vertex)
+        # T — cycle Walkmesh selection mode (Face -> Edge -> Vertex)
         if key == Qt.Key.Key_T and has_no_mods and self._editor_mode == EditorMode.WALKMESH:
             self._cycle_walkmesh_select_mode()
             return True
@@ -7802,7 +7802,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self.duplicate_selected_instances()
             return True
 
-        # Space — cycle through editor modes (Object → Layout → Walkmesh → ...)
+        # Space — cycle through editor modes (Object -> Layout -> Walkmesh -> ...)
         if key == Qt.Key.Key_Space and has_no_mods:
             next_mode = (self._editor_mode + 1) % 3
             self.ui.modeSelector.setCurrentIndex(next_mode)
@@ -7811,7 +7811,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         return False
 
     def _cycle_viewport_shading(self):
-        """Cycle viewport shading: Lightmapped → Solid → Wireframe → Lightmapped ...
+        """Cycle viewport shading: Lightmapped -> Solid -> Wireframe -> Lightmapped ...
 
         Updates the lightmapCheck UI checkbox to match; mode 2 enables wireframe.
         """

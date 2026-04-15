@@ -11,20 +11,20 @@ This tutorial shows how to link two modules with area transitions. You will:
 
 ## 1. Create a module with the Map Builder
 
-Open **File** → **Indoor Map Builder**. Download the **Enclave Surface** kit if needed (**File** → **Download Kits**). Create a simple layout.
+Open **File** -> **Indoor Map Builder**. Download the **Enclave Surface** kit if needed (**File** -> **Download Kits**). Create a simple layout.
 
 ![Layout](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3a.png)
 
-Open **File** → **Settings** and set the warp code (e.g. **nthenc**). Build via **File** → **Build**. Test in-game with **warp nthenc**.
+Open **File** -> **Settings** and set the warp code (e.g. **nthenc**). Build via **File** -> **Build**. Test in-game with **warp nthenc**.
 
 ![Settings](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3b.png)
 ![Build](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3c.png)
 
 ---
 
-## 2. Configure the door (new module → Jedi Enclave)
+## 2. Configure the door (new module -> Jedi Enclave)
 
-In the main window **Modules** tab click **Refresh**, find your module, and open its GIT. Select the door between the two hallway models; right-click → **Edit Instance**.
+In the main window **Modules** tab click **Refresh**, find your module, and open its GIT. Select the door between the two hallway models; right-click -> **Edit Instance**.
 
 ![Modules tab](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3d.png)
 ![Edit door](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3e.png)
@@ -42,7 +42,7 @@ Set:
 
 ## 3. Waypoint in the new module (arrival from Enclave)
 
-Right-click in the new module → **Insert Instance** → add a waypoint in front of the door. Right-click it → **Edit Instance**. Set **ResRef** and **Tag** (e.g. **from_danm13**). Right-click → **Edit Resource** to create the waypoint file; match ResRef/Tag. Save the GIT.
+Right-click in the new module -> **Insert Instance** -> add a waypoint in front of the door. Right-click it -> **Edit Instance**. Set **ResRef** and **Tag** (e.g. **from_danm13**). Right-click -> **Edit Resource** to create the waypoint file; match ResRef/Tag. Save the GIT.
 
 ![Waypoint](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3g.png)
 ![Waypoint instance](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3h.png)
@@ -50,13 +50,13 @@ Right-click in the new module → **Insert Instance** → add a waypoint in fron
 
 ---
 
-## 4. Trigger in the Jedi Enclave (Enclave → new module)
+## 4. Trigger in the Jedi Enclave (Enclave -> new module)
 
 Open the **Jedi Enclave** module GIT (e.g. danm13).
 
 ![Enclave module](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3j.png)
 
-Right-click behind the Ebon Hawk → **Insert Trigger**. Right-click the trigger → **Edit Instance**. Set:
+Right-click behind the Ebon Hawk -> **Insert Trigger**. Right-click the trigger -> **Edit Instance**. Set:
 
 - **ResRef** and **Tag** -- e.g. **from_nthenc** (Tag must match the door’s **Link To Tag** in the new module)
 - **Links To Waypoint**
@@ -66,7 +66,7 @@ Right-click behind the Ebon Hawk → **Insert Trigger**. Right-click the trigger
 
 ![Trigger instance](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3l.png)
 
-Right-click trigger → **Edit Resource**; set **Type** to **Transition**. Use **Edit Geometry** to draw the trigger volume (right-click → Insert vertices, drag, then Finish Editing).
+Right-click trigger -> **Edit Resource**; set **Type** to **Transition**. Use **Edit Geometry** to draw the trigger volume (right-click -> Insert vertices, drag, then Finish Editing).
 
 ![Trigger resource](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3m.png)
 ![Trigger geometry](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3n.png)
@@ -75,7 +75,7 @@ Right-click trigger → **Edit Resource**; set **Type** to **Transition**. Use *
 
 ## 5. Waypoint in the Enclave (arrival from new module)
 
-Right-click → **Insert Waypoint** in front of the trigger (away from the door). **Edit Instance**: set **Tag** and **ResRef** to **from_nthenc**. **Edit Resource** to create the waypoint file with the same values. Save the GIT.
+Right-click -> **Insert Waypoint** in front of the trigger (away from the door). **Edit Instance**: set **Tag** and **ResRef** to **from_nthenc**. **Edit Resource** to create the waypoint file with the same values. Save the GIT.
 
 ![Waypoint in Enclave](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3o.png)
 ![Waypoint resource](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/3p.png)

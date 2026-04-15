@@ -652,9 +652,9 @@ class UTDEditor(Editor):
                     if self._installation
                     else str(mdl.filepath)
                 )
-                summary = f"{modelname} → {mdl_rel}"
+                summary = f"{modelname} -> {mdl_rel}"
             except (ValueError, AttributeError):
-                summary = f"{modelname} → {mdl.filepath}"
+                summary = f"{modelname} -> {mdl.filepath}"
         self.ui.modelInfoSummaryLabel.setText(summary)
 
     def _format_search_order(self, search_order: list[SearchLocation]) -> str:
@@ -669,7 +669,7 @@ class UTDEditor(Editor):
             SearchLocation.TEXTURES_TPC: "Texture Pack C",
             SearchLocation.TEXTURES_GUI: "GUI Textures",
         }
-        return " → ".join(location_names.get(loc, str(loc)) for loc in search_order)
+        return " -> ".join(location_names.get(loc, str(loc)) for loc in search_order)
 
     def _on_textures_loaded(self):
         """Called when renderer signals that textures have finished loading.

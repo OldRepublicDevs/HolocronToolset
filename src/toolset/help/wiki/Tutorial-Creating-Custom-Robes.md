@@ -21,7 +21,7 @@ Edit the images in an editor that supports transparency (e.g. Paint.NET on Windo
 
 ## Step 3: Create the item file
 
-Under **Core** → **Items**, open **g_a_jedirobe01**.
+Under **Core** -> **Items**, open **g_a_jedirobe01**.
 
 ![Open item](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/images/tutorials1-creatingCustomRobes=3.png)
 ![Item editor](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/images/tutorials1-creatingCustomRobes=4.png)
@@ -30,7 +30,7 @@ Change:
 
 - **Tag** and **ResRef** to something unique (e.g. **greenrobes**).
 - **Texture Variation** to **5** (matching the renamed texture files).
-- **Name** and **Description** if desired: click the ellipsis (**...**) next to the text field → **None** → enter your text.
+- **Name** and **Description** if desired: click the ellipsis (**...**) next to the text field -> **None** -> enter your text.
 
 ![Set fields](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/images/tutorials1-creatingCustomRobes=5.png)
 ![Name/description](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/images/tutorials1-creatingCustomRobes=6.png)

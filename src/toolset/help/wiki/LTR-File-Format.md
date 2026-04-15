@@ -2,7 +2,7 @@
 
 LTR (Letter) files store the probability tables the engine uses to procedurally generate NPC names. The data is a third-order Markov chain: given zero, one, or two characters of context, the tables encode the likelihood of each possible next character appearing at the start, middle, or end of a name. This lets the engine produce random names that sound plausible for a given species or culture without hardcoding a name list.
 
-KotOR's LTR files use a **28-character alphabet** (`a`–`z` plus `'` and `-`), which is a KotOR-specific extension of the 26-character alphabet used in Neverwinter Nights [[`ltr_data.py` L57–60 — "NWN uses 26-character set"](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/ltr/ltr_data.py#L57-L60)]. The alphabet size is stored in the file header, so readers can handle either variant. Like all resources, LTR files are resolved through the standard [resource resolution order](Concepts#resource-resolution-order) (override → [MOD/ERF/SAV](Container-Formats#erf) → [KEY/BIF](Container-Formats#key)).
+KotOR's LTR files use a **28-character alphabet** (`a`–`z` plus `'` and `-`), which is a KotOR-specific extension of the 26-character alphabet used in Neverwinter Nights [[`ltr_data.py` L57–60 — "NWN uses 26-character set"](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/ltr/ltr_data.py#L57-L60)]. The alphabet size is stored in the file header, so readers can handle either variant. Like all resources, LTR files are resolved through the standard [resource resolution order](Concepts#resource-resolution-order) (override -> [MOD/ERF/SAV](Container-Formats#erf) -> [KEY/BIF](Container-Formats#key)).
 
 ## Table of Contents
 

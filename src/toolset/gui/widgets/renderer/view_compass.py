@@ -12,9 +12,9 @@ Coordinate conventions (same as the GL camera in
   * World X  = right  (red)
   * World Y  = forward / "north"  (green)
   * World Z  = up  (blue)
-  * Positive pitch ≈ 0        → bottom view (camera below scene, looking up)
-  * Positive pitch ≈ π        → top view (camera above scene, looking down)
-  * pitch = π/2               → horizontal views
+  * Positive pitch ≈ 0        -> bottom view (camera below scene, looking up)
+  * Positive pitch ≈ π        -> top view (camera above scene, looking down)
+  * pitch = π/2               -> horizontal views
 """
 
 from __future__ import annotations
@@ -64,9 +64,9 @@ def _project_axis(
     """Project a world-space direction (dx,dy,dz) onto the screen plane.
 
     Returns (screen_x, screen_y, depth) where:
-      * screen_x > 0  → right side of the compass
-      * screen_y > 0  → bottom of the compass (widget Y-down convention)
-      * depth > 0     → axis faces *toward* the viewer (draw on top)
+      * screen_x > 0  -> right side of the compass
+      * screen_y > 0  -> bottom of the compass (widget Y-down convention)
+      * depth > 0     -> axis faces *toward* the viewer (draw on top)
 
     Math derivation (see module docstring):
       Camera world matrix rotation columns from
@@ -96,7 +96,7 @@ def _project_axis(
     uy = cos_pitch * sin_yaw
     uz = sin_pitch
 
-    # camera back column (points FROM scene TOWARD camera → positive = facing viewer)
+    # camera back column (points FROM scene TOWARD camera -> positive = facing viewer)
     bx = sin_pitch * cos_yaw
     by = sin_pitch * sin_yaw
     bz = -cos_pitch

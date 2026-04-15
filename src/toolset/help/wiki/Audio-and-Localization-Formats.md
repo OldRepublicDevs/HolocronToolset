@@ -569,7 +569,7 @@ See [HoloPatcher README for Mod Developers](HoloPatcher#mod-developers).
 
 **Related formats:**
 
-- [TLK](Audio-and-Localization-Formats#tlk) (StrRef → sound)
+- [TLK](Audio-and-Localization-Formats#tlk) (StrRef -> sound)
 - [SSF](Audio-and-Localization-Formats#ssf)
 - [LIP](Audio-and-Localization-Formats#lip)
 - [DLG](GFF-Creature-and-Dialogue#dlg) (`VO_ResRef`)
@@ -663,7 +663,7 @@ External tooling such as SithCodec and `SWKotOR-Audio-Encoder` implement the sam
 
 ### Historical context (LucasForums Archive)
 
-TSLPatcher-era threads discuss **Streamsounds** / **Streamwaves** paths, codec issues in Miles-based workflows, and DLG-related **`StreamVoice`** layout (e.g. `alienvo.2da` → `StreamVoice\AVO\`). Treat these as **dated player/modder reports**, not engine specifications—pair with **SithCodec**, **PyKotor `io_wav`**, and the cross-refs at the top of this page.
+TSLPatcher-era threads discuss **Streamsounds** / **Streamwaves** paths, codec issues in Miles-based workflows, and DLG-related **`StreamVoice`** layout (e.g. `alienvo.2da` -> `StreamVoice\AVO\`). Treat these as **dated player/modder reports**, not engine specifications—pair with **SithCodec**, **PyKotor `io_wav`**, and the cross-refs at the top of this page.
 
 - [Convert KOTOR sounds to a usable audio file](https://www.lucasforumsarchive.com/thread/208881-convert-kotor-sounds-to-a-usable-audio-file)
 - [Editing KotOR voiceover files — which program?](https://www.lucasforumsarchive.com/thread/208744-editing-kotor-voiceover-files-program)

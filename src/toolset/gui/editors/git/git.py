@@ -343,7 +343,7 @@ class GITEditor(Editor, BlenderEditorMixin):
 
         GIT defaults: K1 LoadGIT 0x0050dd80 — UseTemplates/CurrentWeather/WeatherStarted ReadFieldBYTE 0;
         LoadProperties 0x00507490, CSWSAmbientSound::Load 0x005c95f0 (AreaProperties: AmbientSndDayVol/MusicDay/etc. INT 0);
-        lists omit → empty. TSL Aspyr LoadGIT 0x0071ae10.
+        lists omit -> empty. TSL Aspyr LoadGIT 0x0071ae10.
 
         Args:
         ----

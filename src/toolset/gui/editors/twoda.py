@@ -953,7 +953,7 @@ class BulkEditDialog(QDialog):
         layout.addWidget(self.find_edit, 3, 1)
 
         # Preview
-        layout.addWidget(QLabel("Example: 'test' → "), 4, 0)
+        layout.addWidget(QLabel("Example: 'test' -> "), 4, 0)
         self.preview_label = QLabel("")
         layout.addWidget(self.preview_label, 4, 1)
 

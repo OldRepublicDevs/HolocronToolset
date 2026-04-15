@@ -153,7 +153,7 @@ class JRLEditor(Editor):
         self._installation = installation
         self.ui.categoryNameEdit.set_installation(installation)
 
-        # Tag field: right-click → find quest journal references
+        # Tag field: right-click -> find quest journal references
         installation.setup_file_context_menu(
             self.ui.categoryTag,
             resref_type=[],

@@ -12,7 +12,7 @@ Create a new merchant. Set **Tag** and **ResRef** to match the filename (e.g. **
 
 ## Step 2: Create the NPC (UTC)
 
-Base the NPC on **c_jawa** (Core tab). Set **Tag** and **ResRef** to match the filename (e.g. **aarn**). Set the **Conversation** field to **aarn** (same as the DLG we will create). Give a name via the ellipsis → None → type **aarn**. Save.
+Base the NPC on **c_jawa** (Core tab). Set **Tag** and **ResRef** to match the filename (e.g. **aarn**). Set the **Conversation** field to **aarn** (same as the DLG we will create). Give a name via the ellipsis -> None -> type **aarn**. Save.
 
 ![NPC from template](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/2d.png)
 ![Conversation link](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/2e.png)
@@ -41,7 +41,7 @@ void main()
 }
 ```
 
-The tag in `GetObjectByTag()` must match the UTM *Tag*. Save and **File** → **Compile**.
+The tag in `GetObjectByTag()` must match the UTM *Tag*. Save and **File** -> **Compile**.
 
 ![Compile](https://raw.githubusercontent.com/OpenKotOR/HolocronToolset/refs/heads/master/src/toolset/help/tutorials/2z.png)
 

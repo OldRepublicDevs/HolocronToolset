@@ -56,7 +56,7 @@ See:
 
 The *KEY* file, specifically `chitin.key` in KotOR, serves as the master index for the shipped archive system:
 
-1. **Resource Lookup**: Maps *ResRef* + *Resource Type* ([hex IDs and labels](Resource-Formats-and-Resolution#resource-type-identifiers)) → [BIF](Container-Formats#bif) location
+1. **Resource Lookup**: Maps *ResRef* + *Resource Type* ([hex IDs and labels](Resource-Formats-and-Resolution#resource-type-identifiers)) -> [BIF](Container-Formats#bif) location
 2. **[BIF](Container-Formats#bif) Registration**: Tracks all [BIF files](Container-Formats#bif) and their install paths
 3. **Resource Naming**: Provides the filename (*ResRef*) missing from [BIF files](Container-Formats#bif)
 4. **Drive Mapping**: Historical feature indicating which media held each [BIF](Container-Formats#bif):
@@ -530,7 +530,7 @@ Other engines and tools cover the same container family in parallel: reone's [`e
 
 Both families are loaded as module-side capsules ahead of [KEY](Container-Formats#key) and [BIF](Container-Formats#bif) for resources they contain; see [resource resolution order](Concepts#resource-resolution-order). PyKotor can turn a loaded RIM into an in-memory ERF via `RIM.to_erf()` for writing MOD/ERF output.
 
-Field sizes, implicit offset `0` → table at byte 120, and padding behavior are specified on [RIM File Format](Container-Formats#rim).
+Field sizes, implicit offset `0` -> table at byte 120, and padding behavior are specified on [RIM File Format](Container-Formats#rim).
 
 ---
 

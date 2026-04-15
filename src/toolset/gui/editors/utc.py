@@ -1327,7 +1327,7 @@ class UTCEditor(Editor):
             SearchLocation.TEXTURES_TPC: "Texture Pack C",
             SearchLocation.TEXTURES_GUI: "GUI Textures",
         }
-        return " → ".join(location_names.get(loc, str(loc)) for loc in search_order)
+        return " -> ".join(location_names.get(loc, str(loc)) for loc in search_order)
 
     def _on_textures_loaded(self):
         """Called when renderer signals that textures have finished loading.

@@ -594,7 +594,7 @@ class ModuleRenderer(OpenGLSceneRenderer):
         # This avoids the extremely expensive `Scene.screen_to_world()` extra render pass,
         # which was a major FPS bottleneck during interactive editing.
         # Only read depth when the mouse has actually moved since last read to avoid
-        # unnecessary GPU→CPU stalls from glReadPixels.
+        # unnecessary GPU->CPU stalls from glReadPixels.
         logical_x = float(self._mouse_prev.x)
         logical_y = float(self._mouse_prev.y)
         _mouse_moved = (

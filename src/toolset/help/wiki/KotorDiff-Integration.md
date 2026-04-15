@@ -29,7 +29,7 @@ pykotorcli diff "C:\Program Files (x86)\Steam\steamapps\common\swkotor" "D:\work
 
 Module capsules may be `.rim` ([RIM File Format](Container-Formats#rim)), `.mod`/`.erf` ([ERF File Format](Container-Formats#erf)), or composite module folders.
 
-## Headless pipeline: NSS → pack → diff (P1)
+## Headless pipeline: NSS -> pack -> diff (P1)
 
 **Goal:** Automate compile, pack resources into a module or tree layout, then diff against a baseline installation to review what changed or to scaffold incremental TSLPatcher output.
 

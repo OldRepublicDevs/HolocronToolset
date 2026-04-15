@@ -314,7 +314,7 @@ def _export_indoor_map_to_mod(
 
 
 class TestIndoorBuilderRoundtrip:
-    """Roundtrip tests for IndoorMapBuilder: Import → Export → Compare."""
+    """Roundtrip tests for IndoorMapBuilder: Import -> Export -> Compare."""
 
     def test_roundtrip_k1_lyt_room_count(
         self,
@@ -588,7 +588,7 @@ class TestIndoorBuilderRoundtrip:
         k1_module_roots: list[str],
         tmp_path: Path,
     ):
-        """Test K1: Two full roundtrips (import→export, import→export) produce identical WOK output.
+        """Test K1: Two full roundtrips (import->export, import->export) produce identical WOK output.
 
         Ensures we check against module resources: the first export dumps WOKs into a .mod;
         the second roundtrip re-imports from the same installation and exports again. Comparing
@@ -599,7 +599,7 @@ class TestIndoorBuilderRoundtrip:
         if not k1_module_roots:
             pytest.skip("No K1 module roots")
         for module_root in k1_module_roots[:1]:
-            # First roundtrip: import → export mod1
+            # First roundtrip: import -> export mod1
             indoor_map1 = _import_module_into_indoor_map(module_root, k1_pykotor_installation)
             mod1_path = tmp_path / f"{module_root}_round1.mod"
             _export_indoor_map_to_mod(indoor_map1, k1_pykotor_installation, mod1_path)
@@ -610,7 +610,7 @@ class TestIndoorBuilderRoundtrip:
                 if restype == ResourceType.WOK
             }
 
-            # Second roundtrip: import again (same source) → export mod2
+            # Second roundtrip: import again (same source) -> export mod2
             indoor_map2 = _import_module_into_indoor_map(module_root, k1_pykotor_installation)
             mod2_path = tmp_path / f"{module_root}_round2.mod"
             _export_indoor_map_to_mod(indoor_map2, k1_pykotor_installation, mod2_path)

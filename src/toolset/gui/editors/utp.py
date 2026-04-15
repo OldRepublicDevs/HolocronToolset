@@ -638,10 +638,10 @@ class UTPEditor(Editor):
             if mdl is None:
                 info_lines.append(f"  Missing: {modelname}.mdl")
                 # Show search locations that were checked
-                info_lines.append("  (Searched: Override → Modules → Chitin BIFs)")
+                info_lines.append("  (Searched: Override -> Modules -> Chitin BIFs)")
             if mdx is None:
                 info_lines.append(f"  Missing: {modelname}.mdx")
-                info_lines.append("  (Searched: Override → Modules → Chitin BIFs)")
+                info_lines.append("  (Searched: Override -> Modules -> Chitin BIFs)")
 
         full_text = "\n".join(info_lines)
         self.ui.modelInfoLabel.setText(full_text)
@@ -656,9 +656,9 @@ class UTPEditor(Editor):
                     if self._installation
                     else str(mdl.filepath)
                 )
-                summary = f"{modelname} → {mdl_rel}"
+                summary = f"{modelname} -> {mdl_rel}"
             except (ValueError, AttributeError):
-                summary = f"{modelname} → {mdl.filepath}"
+                summary = f"{modelname} -> {mdl.filepath}"
         self.ui.modelInfoSummaryLabel.setText(summary)
 
     def _on_model_info_toggled(self, checked: bool):
@@ -682,7 +682,7 @@ class UTPEditor(Editor):
             SearchLocation.TEXTURES_TPC: "Texture Pack C",
             SearchLocation.TEXTURES_GUI: "GUI Textures",
         }
-        return " → ".join(location_names.get(loc, str(loc)) for loc in search_order)
+        return " -> ".join(location_names.get(loc, str(loc)) for loc in search_order)
 
     def _on_textures_loaded(self):
         """Called when renderer signals that textures have finished loading.

@@ -312,7 +312,7 @@ For weapons, the three digits split into **shape** (first two) and **color** (la
 
 **Shapes:** scan `012`, `022`, … (step **10**). If `082` exists, assume `083`, `084` exist for that shape.
 
-Composite icon paint order: **bottom → middle → top** (overlapping).
+Composite icon paint order: **bottom -> middle -> top** (overlapping).
 
 #### 4.1.4 Armor (ModelType 3)
 
@@ -326,7 +326,7 @@ Icon   = ip<gender>_<bodypart><number>.plt                   e.g. ipm_chest001.p
 
 Full armor icon draw order: **pelvis, chest, belt, right shoulder, left shoulder, robe** (others have no icons).
 
-**Table 4.1.4 — Body part → `parts_*.2da`**
+**Table 4.1.4 — Body part -> `parts_*.2da`**
 
 | Body part(s) | 2DA |
 |--------------|-----|
@@ -347,9 +347,9 @@ If a `parts_<part>.2da` row has **`ACBONUS`** ≠ **`****`**, that row index is 
 
 ### 4.2 Property availability
 
-Use **`PropColumn`** from `baseitems.2da` → find the column in **`itemprops.2da`** whose name starts with that number (e.g. **`16_Misc`**). Value **1** = property row available for that base item; **`****`** = not available. Rows align with **`itempropdef.2da`**.
+Use **`PropColumn`** from `baseitems.2da` -> find the column in **`itemprops.2da`** whose name starts with that number (e.g. **`16_Misc`**). Value **1** = property row available for that base item; **`****`** = not available. Rows align with **`itempropdef.2da`**.
 
-*Example:* base item **12** (amulet) has **`PropColumn` 16** → read column **`16_Misc`** in `itemprops.2da`.
+*Example:* base item **12** (amulet) has **`PropColumn` 16** -> read column **`16_Misc`** in `itemprops.2da`.
 
 ### 4.3 Property description construction
 
@@ -371,11 +371,11 @@ StrRef from column **0** (**Name**) of **`itempropdef.2da`** at row **`PropertyN
 
 #### 4.3.3 CostTable value
 
-**`CostTableResRef`** on `itempropdef.2da` row = index into **`iprp_costtable.2da`** → **`Name`** = cost-table ResRef. Index **`CostValue`** in that table → **`Name`** StrRef (e.g. `1 Damage`).
+**`CostTableResRef`** on `itempropdef.2da` row = index into **`iprp_costtable.2da`** -> **`Name`** = cost-table ResRef. Index **`CostValue`** in that table -> **`Name`** StrRef (e.g. `1 Damage`).
 
 #### 4.3.4 Param
 
-Resolve param table index from subtype’s **`Param1ResRef`** if present; else from **`itempropdef.2da`** **`Param1ResRef`**. Index **`iprp_paramtable.2da`** → **`Name`** StrRef (param label) and **`TableResRef`** (param 2DA). Index **`Param1Value`** in that param 2DA → value StrRef.
+Resolve param table index from subtype’s **`Param1ResRef`** if present; else from **`itempropdef.2da`** **`Param1ResRef`**. Index **`iprp_paramtable.2da`** -> **`Name`** StrRef (param label) and **`TableResRef`** (param 2DA). Index **`Param1Value`** in that param 2DA -> value StrRef.
 
 ### 4.4 Cost calculation
 
@@ -406,7 +406,7 @@ ItemPropertyCost = PropertyCost + SubtypeCost + CostValue
 
 Add to **`Multiplier`** or **`NegMultiplier`** by sign. **Params do not change** property cost.
 
-- **`PropertyCost`** — **`Cost`** float on **`itempropdef.2da`** row **`PropertyName`** (`****` → 0).
+- **`PropertyCost`** — **`Cost`** float on **`itempropdef.2da`** row **`PropertyName`** (`****` -> 0).
 - **`SubtypeCost`** — only if **`PropertyCost` = 0**: **`Cost`** on subtype 2DA row **`Subtype`**. If **`PropertyCost` > 0**, **`SubtypeCost` = 0**.
 - **`CostValue`** — cost 2DA **`Cost`** at row **`CostValue`**, where the 2DA ResRef comes from **`iprp_costtable.2da`** via **`CostTable`**.
 
@@ -422,7 +422,7 @@ Same term resolution as non-cast spells. Then weight:
 - Second most: **×75%**
 - All others: **×50%**
 
-Sum → **`SpellCosts`**; plug into top-level formula.
+Sum -> **`SpellCosts`**; plug into top-level formula.
 
 ### 4.5 Required lore and level
 
@@ -592,7 +592,7 @@ Dynamic columns **`<number>_<string>`**: **`number`** matches **`PropColumn`** f
 | `Name` | String | StrRef — subtype name. |
 | `Label` | String | Label. |
 | `Cost` | Float | Required if `itempropdef.2da` **`Cost`** is `****`. |
-| `Param1ResRef` | Integer | Param table index, or `****` → fall back to `itempropdef.2da`. |
+| `Param1ResRef` | Integer | Param table index, or `****` -> fall back to `itempropdef.2da`. |
 
 **Extra columns (by file)**
 
@@ -686,7 +686,7 @@ Dynamic columns **`<number>_<string>`**: **`number`** matches **`PropColumn`** f
 
 **`weaponsounds.2da`** — material columns (`Leather0/1`, `Chain0/1`, …) hold hit WAV ResRefs; special cases for Stone/Wood/Chitin/etc. **`Parry0`**, **`Critical0`**, miss columns.
 
-**Creature / placeable** routing via `appearance.2da` → `appearancesndset.2da` / `placeables.2da` → `placeableobjsnds.2da` → **`ArmorType`** column names in `weaponsounds.2da` with random **`0`/`1`** suffix. **`defaultacsounds.2da`** maps chest armor to **`ArmorType`**.
+**Creature / placeable** routing via `appearance.2da` -> `appearancesndset.2da` / `placeables.2da` -> `placeableobjsnds.2da` -> **`ArmorType`** column names in `weaponsounds.2da` with random **`0`/`1`** suffix. **`defaultacsounds.2da`** maps chest armor to **`ArmorType`**.
 
 ---
 
@@ -701,7 +701,7 @@ Dynamic columns **`<number>_<string>`**: **`number`** matches **`PropColumn`** f
 
 ---
 
-*Edition notes: Per-page BioWare letterheads removed. **§5.5** intro in the PDF incorrectly names `iprp_paramtable.2da` as the cost-table registry; this edition uses **`iprp_costtable.2da`** for §5.5 and **`iprp_paramtable.2da`** for §5.6. Minor OCR-style fixes: GIT sentence “contains does not contain” → “does not contain”; **`PropertyName`** typo “2PropertyName”; “them item” → “the item”; “contructed” → “constructed”; “sheields” → “shields”; “Mulitply/muliply” → “Multiply”; duplicate “additional” in a table title; “Sise” → “Size” where meant.*
+*Edition notes: Per-page BioWare letterheads removed. **§5.5** intro in the PDF incorrectly names `iprp_paramtable.2da` as the cost-table registry; this edition uses **`iprp_costtable.2da`** for §5.5 and **`iprp_paramtable.2da`** for §5.6. Minor OCR-style fixes: GIT sentence “contains does not contain” -> “does not contain”; **`PropertyName`** typo “2PropertyName”; “them item” -> “the item”; “contructed” -> “constructed”; “sheields” -> “shields”; “Mulitply/muliply” -> “Multiply”; duplicate “additional” in a table title; “Sise” -> “Size” where meant.*
 
 ---
 

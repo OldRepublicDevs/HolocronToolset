@@ -16,7 +16,7 @@ def test_indoor_builder_action_exit_accepts_qaction_triggered_bool(
     qtbot.addWidget(builder)
     builder.show()
 
-    # QAction.trigger() emits triggered(bool) → our connection must drop args.
+    # QAction.trigger() emits triggered(bool) -> our connection must drop args.
     builder.ui.actionExit.trigger()
 
     # Process events; if the slot signature is wrong, this raises TypeError and the test fails.

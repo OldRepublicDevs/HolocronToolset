@@ -15,7 +15,7 @@ from toolset.gui.widgets.settings.widgets.base import SettingsWidget
 # ---------------------------------------------------------------------------
 # Preset binding tables for control scheme selection.
 # ---------------------------------------------------------------------------
-# These dicts map SettingsProperty attribute names → (keys, buttons) tuples.
+# These dicts map SettingsProperty attribute names -> (keys, buttons) tuples.
 # STANDARD_BINDINGS matches the current defaults in ModuleDesignerSettings;
 # LEGACY_BINDINGS restores the legacy pre-standard-navigation values.
 # ---------------------------------------------------------------------------

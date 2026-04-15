@@ -151,7 +151,7 @@ class TextureLoaderProcess(multiprocessing.Process):
             raise FileNotFoundError(f"Texture not found: {resref}.{restype.extension}")
 
         texture_bytes = texture_data.data
-        # IMPORTANT: Always convert to a Qt-displayable pixel format (DXT → RGB/RGBA),
+        # IMPORTANT: Always convert to a Qt-displayable pixel format (DXT -> RGB/RGBA),
         # matching the TPCEditor display logic.
         mipmap = load_preview_mipmap_from_bytes(restype, texture_bytes, icon_size)
 

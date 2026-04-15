@@ -123,7 +123,7 @@ Xrefs (cross references) show where a function or symbol is called or referenced
 Cross references (xrefs) for a symbol
 <img width="1920" height="720" alt="frame_00-07-00" src="https://github.com/user-attachments/assets/672bfca6-e42b-4daa-80bd-ed86874fd2ab" />
 
-In the data section, unanalyzed bytes appear as address, byte, and default interpretation. Right-click → **Data** → **String** (or another type) to define data; the string is then marked up where it is used in code.
+In the data section, unanalyzed bytes appear as address, byte, and default interpretation. Right-click -> **Data** -> **String** (or another type) to define data; the string is then marked up where it is used in code.
 
 Data section: defining a string via Right-click Data
 <img width="1920" height="720" alt="frame_00-07-50" src="https://github.com/user-attachments/assets/f4fb2678-3b67-4396-853b-547c17fe7e2c" />

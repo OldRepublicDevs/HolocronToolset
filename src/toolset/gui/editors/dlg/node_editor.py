@@ -994,7 +994,7 @@ class DialogueNodeEditor(QGraphicsView):
         self,
         event: QWheelEvent,
     ):
-        # Handle zooming (AnchorUnderMouse already set → zooms to cursor)
+        # Handle zooming (AnchorUnderMouse already set -> zooms to cursor)
         zoom_factor: float = 1.15
         if event.angleDelta().y() > 0:
             self.scale(zoom_factor, zoom_factor)

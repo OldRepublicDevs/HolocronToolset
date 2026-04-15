@@ -12,9 +12,9 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 
 **How to use:**
 
-1. Bookmark resources (Ctrl+B or right-click → Add to Favorites)
+1. Bookmark resources (Ctrl+B or right-click -> Add to Favorites)
 2. Open Favorites (Ctrl+Shift+B)
-3. Select a favorite → Click "Go To"
+3. Select a favorite -> Click "Go To"
 4. Instantly navigates to that resource in the file browser
 
 **Why it's useful:** No more searching through thousands of files to find frequently used resources.
@@ -40,7 +40,7 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 - Detects name collisions before renaming
 - Shows clear error messages if something goes wrong
 
-**Example:** Rename `my_texture.tpc` → `character_head.tpc` in seconds.
+**Example:** Rename `my_texture.tpc` -> `character_head.tpc` in seconds.
 
 ---
 
@@ -51,9 +51,9 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 **How to use:**
 
 1. Select resource(s) in Override
-2. Cut (Ctrl+X or right-click → Cut)
+2. Cut (Ctrl+X or right-click -> Cut)
 3. Navigate to destination folder
-4. Paste (Ctrl+V or right-click → Paste)
+4. Paste (Ctrl+V or right-click -> Paste)
 5. Resources moved, model updated automatically
 
 **Example:** Organize your Override folder by moving all textures into a `textures/` subfolder.
@@ -67,7 +67,7 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 **How to use:**
 
 1. Select multiple resources (Shift+Click or Ctrl+Click)
-2. Right-click → "Batch Operations..." (or Ctrl+Shift+O)
+2. Right-click -> "Batch Operations..." (or Ctrl+Shift+O)
 3. Choose operation:
    - **Extract All** -- Save all to a folder
    - **Duplicate All to Override** -- Copy all to Override
@@ -87,7 +87,7 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 **How to use:**
 
 1. Select files to rename
-2. Batch Operations → "Rename with Pattern"
+2. Batch Operations -> "Rename with Pattern"
 3. Enter find pattern: `old_*.tpc` (use * for any text)
 4. Enter replace pattern: `new_*.tpc`
 5. Preview: "15 files will be renamed"
@@ -96,9 +96,9 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 
 **Examples:**
 
-- `texture_*` → `char_*` renames `texture_001.tpc` to `char_001.tpc`
-- `temp_*` → `*` removes "temp_" prefix from all files
-- `*_old` → `*` removes "_old" suffix
+- `texture_*` -> `char_*` renames `texture_001.tpc` to `char_001.tpc`
+- `temp_*` -> `*` removes "temp_" prefix from all files
+- `*_old` -> `*` removes "_old" suffix
 
 ---
 
@@ -126,7 +126,7 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 
 **How to use:**
 
-1. Right-click on any folder OR File → New
+1. Right-click on any folder OR File -> New
 2. Select "New Resource..."
 3. Choose resource type (2DA Table, Script Source, Creatures, Placeables, Items, Triggers, Dialogs, Journals, etc.)
 4. Enter resource name
@@ -149,8 +149,8 @@ The most impactful recent additions to the Holocron Toolset are listed below. Ea
 
 **How to use:**
 
-- **Single editor open:** Ctrl+S → editor saves immediately
-- **Multiple editors open:** Ctrl+S → dialog shows all open editors; choose Save selected, Save All, or Cancel
+- **Single editor open:** Ctrl+S -> editor saves immediately
+- **Multiple editors open:** Ctrl+S -> dialog shows all open editors; choose Save selected, Save All, or Cancel
 
 Saves go to the Override folder (or current location); file browser refreshes; "Saved: filename.ext" message shown.
 

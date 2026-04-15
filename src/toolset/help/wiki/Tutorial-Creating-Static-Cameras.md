@@ -30,7 +30,7 @@ Camera information is stored in the module's [GIT (Game Instance Template)](GFF-
 ## Step 1: Open the module and GIT
 
 - **With Holocron Toolset:** In the **Modules** tab, select the module (e.g. Manaan Ahto West: `manm26aa.rim` or the corresponding `.mod`). Open the **GIT** file listed under Module Data (e.g. **manm26aa**). You can edit the [GIT](GFF-File-Format#git-game-instance-template) directly; saving will write back to the module or override as configured.
-- **With KotOR Tool:** Expand [RIM](Container-Formats#rim) archives → Modules → your module (e.g. `manm26aa.rim`, not the `_s` one `manm26aa_s.rim`). Expand Dynamic Area Info, extract the GIT to a folder, then open it in K-GFF (or another GFF editor).
+- **With KotOR Tool:** Expand [RIM](Container-Formats#rim) archives -> Modules -> your module (e.g. `manm26aa.rim`, not the `_s` one `manm26aa_s.rim`). Expand Dynamic Area Info, extract the GIT to a folder, then open it in K-GFF (or another GFF editor).
 
 In the GIT, open or expand **CameraList** to see existing cameras.
 
@@ -40,7 +40,7 @@ In the GIT, open or expand **CameraList** to see existing cameras.
 
 1. Enter the area in-game where you want the camera. Use the cheat **giveitem sa_ori_arm** to get the orientation armband.
 2. Move your **player character** to the exact spot and face the direction you want the camera to face. The armband reports the **player's** position and orientation, not the third-person camera. First-person view (e.g. Caps Lock) helps aim.
-3. Use the armband. Then open the **Feedback** screen (Messages → Show Feedback) to read the output. You need:
+3. Use the armband. Then open the **Feedback** screen (Messages -> Show Feedback) to read the output. You need:
    - **Player position** (X, Y, Z)
    - **Quaternion X** and **Quaternion Y** (for the Orientation field; a custom armband script may be needed for these two values specifically)
 

@@ -589,7 +589,7 @@ Components are identified using the following process:
    - It's listed as a [room model](Level-Layout-Formats#room-definitions) in the [LYT file](Level-Layout-Formats#lyt)
    - It has both [MDL](MDL-MDX-File-Format) and [WOK files](Level-Layout-Formats#bwm)
    - It's not a skybox (skyboxes have [MDL](MDL-MDX-File-Format)/[MDX](MDL-MDX-File-Format) but no [WOK](Level-Layout-Formats#bwm))
-4. **Component Name Mapping**: Component IDs are mapped from [model](MDL-MDX-File-Format) names using `_get_component_name_mapping()` to create friendly names (e.g., `danm13_room01` → `room_01`)
+4. **Component Name Mapping**: Component IDs are mapped from [model](MDL-MDX-File-Format) names using `_get_component_name_mapping()` to create friendly names (e.g., `danm13_room01` -> `room_01`)
 
 This component-identification sequence is implemented in the model classification and mapping pass in the kit extraction code ([`kit.py` L600-L767](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/tools/kit.py#L600-L767)).
 
@@ -927,7 +927,7 @@ PyKotor's door model-resolution helper is implemented in the door utility module
 - The `modelname` column in that row provides the placeable [model](MDL-MDX-File-Format) name
 - **PyKotor Implementation**: Matches reone exactly - uses `placeable_tools.get_model()` which reads `placeables.2da`
 
-**KotOR.js** ([`ModulePlaceable.ts` L729–L732](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModulePlaceable.ts#L729-L732) — `Appearance` → `placeableAppearance`; [L575](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModulePlaceable.ts#L575) — `modelname`):
+**KotOR.js** ([`ModulePlaceable.ts` L729–L732](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModulePlaceable.ts#L729-L732) — `Appearance` -> `placeableAppearance`; [L575](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModulePlaceable.ts#L575) — `modelname`):
 
 - Placeable [models](MDL-MDX-File-Format) are resolved similarly using `placeables.2da`
 - The appearance ID from [UTP](GFF-File-Format#utp-placeable) is used to lookup [model](MDL-MDX-File-Format) name
@@ -952,7 +952,7 @@ This texture/lightmap reference scanning behavior is implemented in the model ut
 
 **reone** ([`src/libs/resource/provider/`](https://github.com/seedhartha/reone/tree/master/src/libs/resource/provider)):
 
-- Resource resolution follows KOTOR priority: Override → Modules → Chitin
+- Resource resolution follows KOTOR priority: Override -> Modules -> Chitin
 - `.mod` files take precedence over `.rim` files in Modules directory
 - **PyKotor Implementation**: Matches reone exactly - uses same priority order via `_get_resource_priority()`
 

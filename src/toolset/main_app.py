@@ -108,7 +108,7 @@ class VerboseEventTracer(QObject):
             spontaneous,
             accepted,
         )
-        self.logger.debug("          details → %s", details)
+        self.logger.debug("          details -> %s", details)
 
         if isinstance(obj, QWidget):
             window_handle = obj.windowHandle()

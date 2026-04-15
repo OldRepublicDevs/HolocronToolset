@@ -2287,7 +2287,7 @@ class Ui_MainWindow(object):
         self.powerList.setToolTip(
             _translate(
                 "MainWindow",
-                "Force Power List (GFF: ClassList → KnownList0/1/2). Lists Force powers and spells\n"
+                "Force Power List (GFF: ClassList -> KnownList0/1/2). Lists Force powers and spells\n"
                 "            known by this creature. Powers are stored per class in ClassList: each class has\n"
                 "            KnownList0 (level 1), KnownList1 (level 2), KnownList2 (level 3) containing Spell IDs\n"
                 "            (WORD 0–65535) that reference spells.2da. The game uses these for Jedi/Sith Force\n"
@@ -2300,7 +2300,7 @@ class Ui_MainWindow(object):
         self.powerSummaryEdit.setToolTip(
             _translate(
                 "MainWindow",
-                "Read-only summary of the creature's Force powers and spells (GFF: ClassList →\n"
+                "Read-only summary of the creature's Force powers and spells (GFF: ClassList ->\n"
                 "               KnownList0/1/2). Lists power names from spells.2da. Add or remove powers using the\n"
                 "               Powers list above; this panel updates automatically. The game grants these abilities\n"
                 "               when the creature loads.",

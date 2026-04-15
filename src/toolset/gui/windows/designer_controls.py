@@ -674,11 +674,11 @@ class ModuleDesignerControls3d:
             return
 
         # Blender numpad view presets ─────────────────────────────────────────
-        # Numpad 1/Ctrl+1 → front/back  (yaw=0 / pi, pitch=pi/2 = horizon)
-        # Numpad 3/Ctrl+3 → right/left  (yaw=-pi/2 / pi/2, pitch=pi/2)
-        # Numpad 7/Ctrl+7 → top/bottom  (yaw=0, pitch≈0 / ≈pi)
-        # Numpad 5        → toggle orthographic
-        # Numpad 0        → snap to first GIT camera
+        # Numpad 1/Ctrl+1 -> front/back  (yaw=0 / pi, pitch=pi/2 = horizon)
+        # Numpad 3/Ctrl+3 -> right/left  (yaw=-pi/2 / pi/2, pitch=pi/2)
+        # Numpad 7/Ctrl+7 -> top/bottom  (yaw=0, pitch≈0 / ≈pi)
+        # Numpad 5        -> toggle orthographic
+        # Numpad 0        -> snap to first GIT camera
         if self.view_front.satisfied(buttons, keys):
             self._apply_numpad_view(yaw=0.0, pitch=math.pi / 2)
             return

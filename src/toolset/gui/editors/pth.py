@@ -518,7 +518,7 @@ class PTHEditor(Editor):
             target = self._pth.get(edge.target)
             if target:
                 self._properties_connections.addItem(
-                    f"→ {edge.target} ({target.x:.1f}, {target.y:.1f})"
+                    f"-> {edge.target} ({target.x:.1f}, {target.y:.1f})"
                 )
         for edge in self._pth.incoming(idx):
             self._properties_connections.addItem(f"← {edge.source}")

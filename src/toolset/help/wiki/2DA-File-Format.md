@@ -2668,7 +2668,7 @@ The following 2DA files are used for item property parameter and cost calculatio
 
 **PyKotor:**
 
-- [`_GFF_FIELD_TO_2DA` — `"LightColor"` → `iprp_lightcol` L774](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/extract/twoda.py#L774) — [GFF](GFF-File-Format) field wiring (UTI / item property context)
+- [`_GFF_FIELD_TO_2DA` — `"LightColor"` -> `iprp_lightcol` L774](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/extract/twoda.py#L774) — [GFF](GFF-File-Format) field wiring (UTI / item property context)
 - [`TwoDARegistry` docstring — `iprp_lightcol` / `Load2DArrays_LightColor()` L600](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/extract/twoda.py#L600)
 
 **HolocronToolset:**
@@ -2694,7 +2694,7 @@ The following 2DA files are used for item property parameter and cost calculatio
 
 **PyKotor:**
 
-- [`twoda.py` `_GFF_FIELD_TO_2DA` — `"MonsterDamage"` → `iprp_monstdam` L779](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/extract/twoda.py#L779)
+- [`twoda.py` `_GFF_FIELD_TO_2DA` — `"MonsterDamage"` -> `iprp_monstdam` L779](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/extract/twoda.py#L779)
 - [`read_2da` L67+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/twoda/twoda_auto.py#L67) — generic 2DA reader
 
 **Note:** Unlike `iprp_combatdam`, there is no separate `TwoDARegistry.IPRP_MONSTDAM` constant—the file is reached via the **MonsterDamage** GFF field mapping above and via **[itemprops.2da](#itemprops2da)** cost-table wiring.

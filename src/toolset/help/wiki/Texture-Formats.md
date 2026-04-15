@@ -20,7 +20,7 @@ DirectDraw Surface (DDS) textures appear in two variants across Odyssey engine c
 - **Standard DirectX DDS** (header magic `0x44445320`, 124-byte header) — used by modding tools, ports, and external texture editors.
 - **BioWare DDS variant** (no magic; width/height/bpp/dataSize leading integers) — the headerless format used in KotOR and Neverwinter Nights game assets, inherited from the Aurora engine.
 
-The engine resolves DDS textures through the standard [resource resolution order](Concepts#resource-resolution-order) (override → [MOD/ERF/SAV](Container-Formats#erf) → [KEY/BIF](Container-Formats#key)). Hex type ID **`0x07F1`** is listed under [Resource Type Identifiers](Resource-Formats-and-Resolution#resource-type-identifiers).
+The engine resolves DDS textures through the standard [resource resolution order](Concepts#resource-resolution-order) (override -> [MOD/ERF/SAV](Container-Formats#erf) -> [KEY/BIF](Container-Formats#key)). Hex type ID **`0x07F1`** is listed under [Resource Type Identifiers](Resource-Formats-and-Resolution#resource-type-identifiers).
 
 ## Table of Contents
 
@@ -77,7 +77,7 @@ No file magic is present in this format. Payload is always compressed data (DXT1
 
 - `TPCDDSWriter` emits only standard DDS headers:
   - Supports *DXT1*, *DXT3*, *DXT5*, and uncompressed *BGR/BGRA*.
-  - Non-DDS-friendly formats are converted (*RGB*→*BGR*, *RGBA*→*BGRA*).
+  - Non-DDS-friendly formats are converted (*RGB*->*BGR*, *RGBA*->*BGRA*).
   - Mipmap counts validated per layer; cubemaps set caps (*DDSCAPS2_CUBEMAP*|*ALLFACES*).
 - Payloads are written in the already-compressed/uncompressed form stored in the [*TPC*](Texture-Formats#tpc) instance; no re-compression occurs.
 

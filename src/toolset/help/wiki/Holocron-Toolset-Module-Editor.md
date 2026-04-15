@@ -2,9 +2,9 @@
 
 The Module Editor is the primary workspace for editing module content in 3D or 2D. Use it whenever you need to place or reposition creatures, placeables, waypoints, triggers, doors, cameras, or other spatial objects within an existing area. It renders the area geometry alongside all placed instances from the currently loaded module, and lets you select, move, rotate, duplicate, and delete them directly in the viewport.
 
-Open it from the Main Window via **Tools** → **Module Designer**.
+Open it from the Main Window via **Tools** -> **Module Designer**.
 
-**Typical workflow:** Load a module → navigate the viewport to the location you want to edit → place or select instances → adjust position and orientation → save. For building a new area from scratch, use the [Map Builder](Holocron-Toolset-Map-Builder) instead.
+**Typical workflow:** Load a module -> navigate the viewport to the location you want to edit -> place or select instances -> adjust position and orientation -> save. For building a new area from scratch, use the [Map Builder](Holocron-Toolset-Map-Builder) instead.
 
 ## Controls
 

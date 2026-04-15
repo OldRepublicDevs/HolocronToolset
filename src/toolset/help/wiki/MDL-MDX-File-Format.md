@@ -2,7 +2,7 @@
 
 The MDL (Model) and MDX (Model Extension) files together define every 3D model in Knights of the Old Republic and The Sith Lords — characters, placeables, doors, area rooms, lightsaber blades, particle effects, and GUI elements ([`MDL` L1544](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/mdl/mdl_data.py#L1544), [`MDLNode` L2051](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/mdl/mdl_data.py#L2051)). The MDL file contains the node hierarchy, animation data, and structural metadata; the MDX file contains the raw vertex buffer data (positions, normals, texture coordinates, bone weights) that the renderer consumes directly ([`MDLBinaryReader.load` L2248](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/mdl/io_mdl.py#L2248), [xoreos-docs `kotor_mdl.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/aurora/kotor_mdl.html)). This split lets the engine memory-map vertex data efficiently while keeping the logical model structure in a parseable tree.
 
-Models are referenced by [ResRef](Concepts#resref-resource-reference) from [GFF](GFF-File-Format) templates such as [UTC](GFF-File-Format#utc-creature) creatures, [UTI](GFF-File-Format#uti-item) items, and [UTP](GFF-File-Format#utp-placeable) placeables. Area room models are positioned by [LYT](Level-Layout-Formats#lyt) layout files and paired with [BWM](Level-Layout-Formats#bwm) walkmesh data. Textures are referenced by name and resolved as [TPC](Texture-Formats#tpc) or [TGA](Texture-Formats#txi) through the standard [resource resolution order](Concepts#resource-resolution-order) (override → MOD/SAV → KEY/BIF).
+Models are referenced by [ResRef](Concepts#resref-resource-reference) from [GFF](GFF-File-Format) templates such as [UTC](GFF-File-Format#utc-creature) creatures, [UTI](GFF-File-Format#uti-item) items, and [UTP](GFF-File-Format#utp-placeable) placeables. Area room models are positioned by [LYT](Level-Layout-Formats#lyt) layout files and paired with [BWM](Level-Layout-Formats#bwm) walkmesh data. Textures are referenced by name and resolved as [TPC](Texture-Formats#tpc) or [TGA](Texture-Formats#txi) through the standard [resource resolution order](Concepts#resource-resolution-order) (override -> MOD/SAV -> KEY/BIF).
 
 ## Table Of Contents
 
@@ -1609,7 +1609,7 @@ The following sections contain detailed reverse-engineering analysis of the MDL/
 
 This subsection ties the **Model Loading System** bullets above to concrete engine behavior for binary [MDL/MDX](MDL-MDX-File-Format): the MDL side carries hierarchy, animation, and metadata; the companion MDX stream carries mesh payload. Addresses below are for the common **K1** (`k1_win_gog_swkotor.exe`) / **TSL** (`swkotor2.exe`) builds used in this doc—re-verify in your own binary.
 
-##### Low-level file load (`LoadModel` → `Input::Read`)
+##### Low-level file load (`LoadModel` -> `Input::Read`)
 
 **End-to-end flow**
 
@@ -1870,7 +1870,7 @@ void AurResGetNextLine(void) {
 
 1. **Parses function names** from the input line (lines 228-242)
    - Extracts the first word (function name) before `=` or space
-   - Example: `"position = 1.0 2.0 3.0"` → function name: `"position"`
+   - Example: `"position = 1.0 2.0 3.0"` -> function name: `"position"`
 
 2. **Looks up function in callback table** (line 248 in K1, line 249 in TSL)
 
@@ -1898,7 +1898,7 @@ void AurResGetNextLine(void) {
 
 **Important:** `FuncInterp` is a **general script interpreter**, not MDL-specific. It relies on registered callbacks to handle specific commands.
 
-## Model Field Parsing: `ModelParseField` → `Model::InternalParseField`
+## Model Field Parsing: `ModelParseField` -> `Model::InternalParseField`
 
 ### `ModelParseField` @ (/K1/k1_win_gog_swkotor.exe: 0x0043e1e0, TSL: N/A)
 

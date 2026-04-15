@@ -1703,9 +1703,9 @@ class NSSEditor(Editor):
                 )
                 if len(params) > 3:
                     param_str += "..."
-                completer_list.append(f"{func.name}({param_str}) → {return_type}")
+                completer_list.append(f"{func.name}({param_str}) -> {return_type}")
             else:
-                completer_list.append(f"{func.name}(...) → {return_type}")
+                completer_list.append(f"{func.name}(...) -> {return_type}")
 
         # Add constants with type hints
         for const in constants:
