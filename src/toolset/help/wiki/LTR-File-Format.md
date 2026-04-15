@@ -24,7 +24,7 @@ KotOR's LTR files use a **28-character alphabet** (`a`–`z` plus `'` and `-`), 
 - KotOR always uses the **28-character alphabet** (`a–z` plus `'` and `-`). **Neverwinter Nights (NWN) used 26 characters**; the header stores the count. This is a **KotOR-specific difference** from NWN.
 - *LTR* files are binary: a short header (see below) followed by three probability tables (singles, doubles, triples) stored as contiguous **float32** arrays (cumulative probabilities in vanilla data).
 
-**Cross-reference implementations (line anchors are against `master` and may drift):**
+Cross-reference implementations (line anchors are against `master` and may drift):
 
 - **PyKotor**:
 
@@ -81,7 +81,7 @@ The **triple-letter** section encodes 2-character context. There are `letter_cou
 
 Total size (KotOR): `28 × 28 × 3 × 28 × 4 = 263,424` bytes.
 
-**Layout offsets (28-letter, float32):** singles begin at byte **9** (immediately after header). Doubles begin at `9 + 28×3×4 = 345` (`0x159`). Triples begin at `345 + 28×28×3×4 = 9,753` (`0x2619`). (Some older notes and comments used different hex offsets—trust the byte counts and reader loops in [`io_ltr.py` L88–L108](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ltr/io_ltr.py#L88-L108).)
+Layout offsets for 28-letter `float32` tables are straightforward: singles begin at byte **9** immediately after the header, doubles begin at `9 + 28×3×4 = 345` (`0x159`), and triples begin at `345 + 28×28×3×4 = 9,753` (`0x2619`). Some older notes and comments used different hex offsets, so the byte counts and reader loops in [`io_ltr.py` L88–L108](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ltr/io_ltr.py#L88-L108) are the safer authority.
 
 ---
 
@@ -93,10 +93,7 @@ Each block is represented by the `LTRBlock` class in PyKotor ([`ltr_data.py` `LT
 - **Doubles (`_doubles`)**: Indexed by the previous character; used for the second character.
 - **Triples (`_triples`)**: Two-dimensional array indexed by the previous two characters; used for every character after the second.
 
-**References:**
-
-- [reone `ltr.h` L24–L48](https://github.com/seedhartha/reone/blob/master/include/reone/resource/ltr.h#L24-L48)
-- [xoreos `ltrfile.h` L57–L76](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/ltrfile.h#L57-L76).
+The corresponding structures are also visible in [reone `ltr.h` L24–L48](https://github.com/seedhartha/reone/blob/master/include/reone/resource/ltr.h#L24-L48) and [xoreos `ltrfile.h` L57–L76](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/ltrfile.h#L57-L76).
 
 ---
 

@@ -1,8 +1,10 @@
 # GFF — Generic File Format
 
-The Generic File Format (GFF) is the all-purpose binary container used to store structured game data in Knights of the Old Republic and The Sith Lords. Nearly every non-script, non-texture resource the engine reads at runtime is a GFF file: area definitions, creature templates, item blueprints, dialogue trees, journal entries, placeables, triggers, waypoints, and user interface layouts [[`gff_data.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L1-L20)]. The format was designed for rapid iteration — new fields can be added to any resource type without breaking backward compatibility, because readers simply skip labels they do not recognize [[`gff_data.py` module docstring](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L1-L20)]. xoreos-tools keeps a dedicated `gff2xml` converter in its standard tool list, which is a practical external reminder that GFF is best thought of as a reusable binary container family rather than a one-off KotOR format [[Running xoreos-tools](https://wiki.xoreos.org/index.php/Running_xoreos-tools)].
+The Generic File Format (GFF) is the structured binary container that the Odyssey runtime feeds into `CResGFF` readers. In all three analyzed binaries, a typed read follows the same high-level chain: resolve a field ordinal from a label, resolve that ordinal into a field record, validate the field type tag, then decode the referenced payload or copy the caller-supplied default. `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)` `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
 
-GFF is shared across BioWare's Aurora engine family. The [official BioWare GFF specification](Bioware-Aurora-Core-Formats#gff) describes the original container design; KotOR and TSL build on that same structure with game-specific field schemas, resource subtypes, and modding workflows. For the common GFF struct schemas shared across area and module files, see [Bioware Aurora Common GFF Structs](Bioware-Aurora-Module-and-Area#commongffstructs).
+Representative callers show that this is not a niche format used by one subsystem. K1 callers include `LoadAreaHeader @ 0x00508c50`, `LoadDialogBase @ 0x0059f5f0`, and `ReadStatsFromGff @ 0x005afce0`; TSL callers include `LoadAreaHeader @ 0x00718a20`, `LoadDialogBase @ 0x0074f4f0`, and `ReadStatsFromGff @ 0x006ec350`; Aurora callers include `LoadDialog @ 0x14041b5c0`, `LoadStore @ 0x1404fbbf0`, and `LoadWaypoint @ 0x140509f80`. PyKotor models the same shared container through `GFFContent` tags such as `UTC`, `UTI`, `ARE`, `DLG`, `IFO`, and `JRL`. [[`gff_data.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py)]
+
+The detailed byte layout below is parser-derived from PyKotor and corroborating open readers. PyKotor's `GFFBinaryReader.load` reads the type tag, version tag, and seven offset/count pairs in header order, then rejects declared versions other than `V3.2`, which matches the currently recovered KotOR-family usage described here. [[`io_gff.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py), [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), [xoreos `gff3file.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/gff3file.cpp)]
 
 Like all game resources, GFF files are resolved through the standard [resource resolution order](Concepts#resource-resolution-order): the engine checks the [override folder](Concepts#override-folder) first, then the active [MOD/ERF](Container-Formats#erf) module capsule, then [KEY/BIF](Container-Formats#key) base data. Modders can therefore shadow any vanilla GFF by placing a replacement in override or inside a module `.mod` file (see [Mod Creation Best Practices](Mod-Creation-Best-Practices#file-priority-and-where-to-put-your-files)). For merge-safe field-level edits, use [TSLPatcher/HoloPatcher GFFList syntax](TSLPatcher-GFF-Syntax#gfflist-syntax) instead of full-file replacement.
 
@@ -75,18 +77,22 @@ GFF files work alongside [2DA](2DA-File-Format) configuration tables, [TLK](Audi
 
 ## File Structure Overview
 
-A GFF file is a hierarchical tree of structs, fields, and lists. Each struct contains named fields; each field holds either a simple value (integer, float, string) or a reference to a nested struct or list of structs. This recursive design means the same binary container can represent a creature with an inventory of items, a dialogue tree with branching replies, or an area definition with dozens of placed objects — all without changing the file format itself.
+A GFF file is a tree of structs, fields, and lists, but the binaries do not walk that tree abstractly. They follow a concrete label-to-field-to-payload chain:
+
+1. `GetFieldByLabel` normalizes the requested label to a 16-byte temporary buffer and scans the current struct's candidate field slots until the corresponding 16-byte label-table record matches. K1 copies into a 16-byte stack buffer with `_strncpy`; TSL explicitly zeroes the buffer first and then calls `_strncpy`; Aurora uses `strncpy` and adds an `Emit` diagnostic path when caller state is invalid. `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)`
+2. `GetField` resolves the actual field record for that struct-relative ordinal. In all three binaries it rejects null struct/table pointers and out-of-range indices, then branches between the direct single-field encoding and the indirect multi-field encoding. K1 and TSL read 32-bit table pointers from `this+0x40/0x44/0x4c/0x64`; Aurora uses 64-bit equivalents at `this+0x78/0x88/0x98/0xc8`. `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)`
+3. Typed readers validate the field tag and decode payloads. `ReadFieldCResRef` requires type `0x0b`; `ReadFieldCExoLocString` requires type `0x0c`; `GetListCount` requires type `0x0f`. Failed lookup, failed bounds checks, or wrong field types clear the success flag and copy or synthesize the caller's default value instead of crashing through malformed data. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)`
 
 ### GFF: BioWare's Data Container
 
-The format provides several properties that made it practical for rapid game development:
+The recovered readers expose a few runtime properties that matter more than the usual high-level description:
 
-- **Type safety**: every field carries an explicit data type, so readers can validate structure without external schemas.
-- **Compact binary encoding**: significantly smaller than equivalent XML or JSON, which mattered for CD-based distribution.
-- **Direct memory mapping**: the offset-based layout allows fast load without full parsing.
-- **Backward and forward compatibility**: readers skip unknown labels, so adding a new field to a creature template does not break older tools or saves.
+- **Field tags are authoritative at read time**: typed readers compare the first dword of the resolved field record against the expected type (`0x0b` for `ResRef`, `0x0c` for `CExoLocString`, `0x0f` for list fields) before touching payload bytes. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)`
+- **Unknown or missing labels fail soft**: `GetFieldByLabel` returns `-1` when the label does not match any candidate field, and the typed readers then clear the success flag and return the default object instead of reading arbitrary bytes. `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
+- **Single-field and multi-field structs are encoded differently**: all three `GetField` implementations special-case `field_count == 1` and use the struct record's second dword directly, but switch to an indirection table for `field_count > 1`. `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)`
+- **External payloads are length-checked before decode**: KotOR I and TSL call dedicated helper functions to resolve field-data and list-data slices, while Aurora inlines the same size and remaining-byte checks inside the typed readers. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)`
 
-The engine uses the four-character file type signature (e.g. `UTC `, `DLG `, `ARE `) plus the version tag `V3.2` to identify GFF content [[`gff_data.py` — "shipped games create new GFF files with version label V3.2 only"](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L10)]. The same binary layout serves all of these resource types:
+PyKotor's in-memory model exposes the same shared container idea through `GFFContent`, while `GFFBinaryReader.load` accepts only `V3.2` on input. That matches the family recovered here: one container layout reused by many content signatures rather than separate binary formats for creatures, areas, dialogues, and journals. [[`gff_data.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py), [`io_gff.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py)]
 
 **Typical Applications:**
 
@@ -160,7 +166,7 @@ The *GFF file header* is 56 bytes in size (0x38):
 | List Indices Offset  | UInt32  | 48 (0x30) | 4    | Offset to list indices array                  |
 | List Indices Count   | UInt32  | 52 (0x34) | 4    | Number of list indices                        |
 
-PyKotor implements (GFF binary header loading [io_gff.py L82+](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82)), and the reone engine provides reference implementation ([gffreader.cpp L30–L44](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L30-L44)).
+This header layout is parser-derived rather than attributed here to one recovered named engine loader. PyKotor's `GFFBinaryReader.load` reads the type tag, version tag, and offset/count pairs in exactly this order, then seeks into the struct, field, label, field-data, field-indices, and list-indices tables. [[`io_gff.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py), [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L30-L44)]
 
 ### Label Array
 
@@ -170,7 +176,7 @@ Labels are 16-[byte](https://en.wikipedia.org/wiki/Byte) [null-terminated](https
 | ------ | -------- | ---- | ---------------------------------------------------------------- |
 | Labels | [Char](GFF-File-Format#gff-data-types) | 16×N | Array of field name labels (null-padded to 16 bytes)            |
 
-Label parsing is referenced in the reone implementation ([gffreader.cpp L151–L154](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L151-L154)).
+The runtime view of a label is exactly this 16-byte padded record. `GetFieldByLabel` in all three binaries copies the requested label into a 16-byte temporary buffer and then compares the candidate label-table record as four 32-bit chunks before it returns a struct-relative field ordinal. K1 uses `_strncpy`; TSL zeroes the buffer first; Aurora uses `strncpy` and includes an explicit diagnostic path when caller state is invalid. `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)`
 
 ### Struct Array
 
@@ -182,7 +188,7 @@ Each struct entry is 12 bytes:
 | Data/Offset| [UInt32](GFF-File-Format#gff-data-types) | 4 (0x04) | 4    | field index (if 1 field) or offset to field indices (if multiple) |
 | Field Count| [UInt32](GFF-File-Format#gff-data-types) | 8 (0x08) | 4    | Number of fields in this struct (0, 1, or >1)                   |
 
-Struct array layout is documented in the reone implementation ([gffreader.cpp L40–L62](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L40-L62)).
+`GetField` makes the important runtime distinction here: if `Field Count == 1`, the `Data/Offset` slot is already the field index; if `Field Count > 1`, the same slot is interpreted as an offset into the field-indices table. That direct-versus-indirect branch is present in K1, TSL, and Aurora, even though the pointer-sized members move in Aurora's 64-bit class layout. `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)`
 
 ### Field Array
 
@@ -194,11 +200,11 @@ Each field entry is 12 bytes:
 | Label Index | UInt32 | 4 (0x04) | 4    | index into label array for field name                           |
 | Data/Offset | UInt32 | 8 (0x08) | 4    | Inline data (simple types) or offset to field data (complex types) |
 
-Field array structure is implemented in the reone engine ([gffreader.cpp L67–L76](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L67-L76)).
+At runtime the first and third dwords matter most. `ReadFieldCResRef` compares the first dword against `0x0b`, `ReadFieldCExoLocString` compares it against `0x0c`, and `GetListCount` compares it against `0x0f`; only after that type check do the readers treat the third dword as inline data or as an offset into the external data tables. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)`
 
 ### Field Data
 
-Complex field types store their data in the field data section:
+Complex field types store their payloads in the field data section, and the typed readers do explicit byte-budget checks before decoding them. KotOR I and TSL resolve those slices through dedicated helpers; Aurora performs the same offset and remaining-byte checks inline inside the typed readers. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
 
 | Field Type        | Storage Format                                                      |
 | ----------------- | ------------------------------------------------------------------- |
@@ -207,19 +213,23 @@ Complex field types store their data in the field data section:
 | Double            | 8 bytes (double)                                                    |
 | String            | 4 bytes length + N bytes string data                                |
 | ResRef            | 1 byte length + N bytes ResRef data (max 16 chars)                  |
-| LocalizedString   | 4 bytes count + N×8 bytes ([Language ID](Concepts#language-ids-kotor) + [StrRef](Audio-and-Localization-Formats#string-references-strref) pairs)              |
+| LocalizedString   | 4 bytes total payload size + 4 bytes [StrRef](Audio-and-Localization-Formats#string-references-strref) + 4 bytes substring count + repeated `(substring ID, byte length, bytes)` records |
 | Binary            | 4 bytes length + N bytes binary data                                 |
 | Vector3           | 12 bytes (3×float)                                                   |
 | Vector4           | 16 bytes (4×float)                                                   |
 
-Complex payload decoding for these field-data-backed types is visible in the reone reader implementation ([gffreader.cpp L78-L146](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp#L78-L146)).
+Two runtime-verified examples matter most to KotOR tooling:
+
+- `ReadFieldCResRef` requires at least one payload byte, treats that byte as the ResRef length, then requires at least `length + 1` total bytes before constructing the result. K1 and TSL do that after `GetDataField`; Aurora performs the same checks inline and then calls `InitFromCharArray`. `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
+- `ReadFieldCExoLocString` requires at least 4 bytes for the outer size field, then walks a byte-budgeted blob containing a `StrRef`, a substring count, and repeated `(substring ID, string length, bytes)` entries. All three binaries derive language/gender from the substring ID and call `AddString` for each decoded substring; K1 and TSL use helper-based payload access, while Aurora inlines the loop over the substring records. `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
 
 <a id="field-indices-multiple-element-map--multimap"></a>
+
 ### field Indices (Multiple Element Map / MultiMap)
 
 When a struct has multiple fields, the struct's data field contains an offset into the field indices array (also called the "Multiple Element Map" or "MultiMap" in [xoreos-docs `specs/torlack/itp.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/itp.html)), which lists the field indices for that struct.
 
-**Access Pattern**: When a struct has exactly one field, the struct's data field directly contains the field index. When a struct has more than one field, the data field contains a byte offset into the field indices array, which is an array of uint32 values listing the field indices.
+**Access Pattern**: `GetField` in all three binaries implements the same branch. When a struct has exactly one field, the struct record's second dword is used directly as the field index. When a struct has more than one field, that same slot is treated as an offset into the field-indices array, and the requested struct-relative ordinal is used to fetch the final field index from there. `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)`
 
 This MultiMap terminology and access pattern follow the historical Torlack/xoreos write-up ([specs/torlack/itp.html](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/itp.html)).
 
@@ -227,7 +237,7 @@ This MultiMap terminology and access pattern follow the historical Torlack/xoreo
 
 Lists are stored as arrays of struct indices. The list field contains an offset into the list indices array, which contains the struct indices that make up the list.
 
-**Access Pattern**: For a LIST type field, the field's data/offset value specifies a byte offset into the list indices table. At that offset, the first uint32 is the count of entries, followed by that many uint32 values representing the struct indices.
+**Access Pattern**: `GetListCount` proves the first runtime step for list payloads in all three binaries. It resolves the list label, requires field type `0x0f`, then reads the first dword of the referenced list payload as the element count. K1 and TSL perform that through `GetDataLayoutList @ (/K1/k1_win_gog_swkotor.exe @ 0x00410a60, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006239e0)`; Aurora performs the same bounds checks inline against the list-data table at `this+0xd8`. After that count dword, the payload consists of that many struct indices. `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)`
 
 The same LIST indirection scheme is described in the Torlack/xoreos documentation for Aurora-family GFF containers ([specs/torlack/itp.html](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/itp.html)).
 
@@ -337,186 +347,223 @@ When modifying *GFF Lists*, always maintain struct IDs and parent references to 
 *GFF (Generic file format)* files are used as containers for various game resource types. Each generic type has its own structure and field definitions.
 
 <a id="are"></a>
+
 ### ARE (Area)
 
 See [ARE (Area)](GFF-Module-and-Area#are) for detailed documentation.
 
 <a id="dlg"></a>
+
 ### DLG (Dialogue)
 
 See [DLG (Dialogue)](GFF-Creature-and-Dialogue#dlg) for detailed documentation.
 
 <a id="fac"></a>
+
 ### FAC (Faction)
 
 See [FAC (Faction)](GFF-Items-and-Economy#fac) for detailed documentation.
 
 <a id="git"></a>
+
 ### GIT (Game Instance Template)
 
 See [GIT (Game Instance Template)](GFF-Module-and-Area#git) for detailed documentation.
 
 <a id="gui"></a>
+
 ### GUI (Graphical User Interface)
 
 Graphical User Interface. See [GUI (Graphical User Interface)](GFF-GUI) for detailed documentation.
 
 <a id="ifo"></a>
+
 ### IFO (Module Info)
 
 See [IFO (Module Info)](GFF-Module-and-Area#ifo) for detailed documentation.
 
 <a id="jrl"></a>
+
 ### JRL (Journal)
 
 See [JRL (Journal)](GFF-Items-and-Economy#jrl) for detailed documentation.
 
 <a id="pth"></a>
+
 ### PTH (Path)
 
 See [PTH (Path)](GFF-Spatial-Objects#pth) for detailed documentation.
 
 <a id="utc"></a>
+
 ### UTC (Creature)
 
 See [UTC (Creature)](GFF-Creature-and-Dialogue#utc) for detailed documentation.
 
 <a id="utd"></a>
+
 ### UTD (Door)
 
 See [UTD (Door)](GFF-Spatial-Objects#utd) for detailed documentation.
 
 <a id="ute"></a>
+
 ### UTE (Encounter)
 
 See [UTE (Encounter)](GFF-Spatial-Objects#ute) for detailed documentation.
 
 <a id="uti"></a>
+
 ### UTI (Item)
 
 See [UTI (Item)](GFF-Items-and-Economy#uti) for detailed documentation.
 
 <a id="utm"></a>
+
 ### UTM (Merchant)
 
 See [UTM (Merchant)](GFF-Items-and-Economy#utm) for detailed documentation.
 
 <a id="utp"></a>
+
 ### UTP (Placeable)
 
 See [UTP (Placeable)](GFF-Spatial-Objects#utp) for detailed documentation.
 
 <a id="uts"></a>
+
 ### UTS (Sound)
 
 See [UTS (Sound)](GFF-Spatial-Objects#uts) for detailed documentation.
 
 <a id="utt"></a>
+
 ### UTT (Trigger)
 
 See [UTT (Trigger)](GFF-Spatial-Objects#utt) for detailed documentation.
 
 <a id="utw"></a>
+
 ### UTW (Waypoint)
 
 See [UTW (Waypoint)](GFF-Spatial-Objects#utw) for detailed documentation.
 
 <a id="bic-character"></a>
+
 ### BIC (Character)
 
 Character data file (type ID 2015), GFF. Older Aurora format for PC/NPC character definitions. In KotOR the engine supports this type but no shipped content uses it — use [UTC (Creature)](GFF-Creature-and-Dialogue#utc) instead.
 
 <a id="btc-creature-template--bioware"></a>
+
 ### BTC (Creature Template — BioWare)
 
 BioWare-authored creature blueprint (type ID 2026), GFF. The engine-internal complement to the modder-facing [UTC](GFF-Creature-and-Dialogue#utc). Seldom encountered directly in mods.
 
 <a id="btd-door-template--bioware"></a>
+
 ### BTD (Door Template — BioWare)
 
 BioWare-authored door blueprint (type ID 2041), GFF. Counterpart to the modder-facing [UTD](GFF-Spatial-Objects#utd). In KotOR the engine supports this type but shipped modules use UTD for modder-placed doors.
 
 <a id="bte-encounter-template--bioware"></a>
+
 ### BTE (Encounter Template — BioWare)
 
 BioWare-authored encounter blueprint (type ID 2039), GFF. Counterpart to the modder-facing [UTE](GFF-Spatial-Objects#ute).
 
 <a id="btg-random-item-generator--bioware"></a>
+
 ### BTG (Random Item Generator — BioWare)
 
 BioWare-authored random item generator blueprint (type ID 2054), GFF. Counterpart to the modder-facing [UTG](#utg-random-item-generator). Defines a randomized loot table authored by BioWare; not used directly in modding.
 
 <a id="bti-item-template--bioware"></a>
+
 ### BTI (Item Template — BioWare)
 
 BioWare-authored item blueprint (type ID 2024), GFF. Counterpart to the modder-facing [UTI](GFF-Items-and-Economy#uti).
 
 <a id="btm-merchant-template--bioware"></a>
+
 ### BTM (Merchant Template — BioWare)
 
 BioWare-authored merchant/store blueprint (type ID 2050), GFF. Counterpart to the modder-facing [UTM](GFF-Items-and-Economy#utm). KotOR supports the type but modders use UTM.
 
 <a id="btp-placeable-template--bioware"></a>
+
 ### BTP (Placeable Template — BioWare)
 
 BioWare-authored placeable blueprint (type ID 2043), GFF. Counterpart to the modder-facing [UTP](GFF-Spatial-Objects#utp).
 
 <a id="btt-trigger-template--bioware"></a>
+
 ### BTT (Trigger Template — BioWare)
 
 BioWare-authored trigger blueprint (type ID 2031), GFF. Counterpart to the modder-facing [UTT](GFF-Spatial-Objects#utt).
 
 <a id="cwa-crowd-attributes"></a>
+
 ### CWA (Crowd Attributes)
 
 Odyssey crowd-attribute data (type ID 3025) [[`CWA`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L475-L476)], GFF. Stores NPC crowd behavior parameters for KotOR area populations. Not edited directly by modders.
 
 <a id="gic-game-instance-comments"></a>
+
 ### GIC (Game Instance Comments)
 
 Game instance comments (type ID 2046) [[`GIC`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L290)], GFF. Toolset-only companion to [GIT](GFF-Module-and-Area#git): instance labels and comments that the game engine never reads are stored here rather than in the runtime `.git`.
 
 <a id="itp-palette"></a>
+
 ### ITP (Palette)
 
 Tile/blueprint palette file (type ID 2030), GFF. The Aurora toolset uses `.itp` to organize tiles and object templates into a browsable palette shown in the toolset UI. See [ITP (Palette)](Bioware-Aurora-Module-and-Area#paletteitp) for detailed documentation.
 
 <a id="ptm-plot-manager"></a>
+
 ### PTM (Plot Manager)
 
 Plot instance/manager file (type ID 2065), GFF. Stores plot variable state used by the Aurora toolset's plot wizard system. Not normally edited by KotOR modders.
 
 <a id="ptt-plot-wizard-template"></a>
+
 ### PTT (Plot Wizard Template)
 
 Plot wizard template (type ID 2066), GFF. Provides the blueprint data driving the Aurora toolset plot wizard. Not normally edited by KotOR modders.
 
 <a id="qst2-quest--odyssey"></a>
+
 ### QST2 (Quest — Odyssey)
 
 Odyssey quest file (type ID 3012), GFF. A second Odyssey-specific quest data type. Not present in retail KotOR I/TSL content; tracked in the registry for cross-engine completeness.
 
 <a id="sto-store--odyssey"></a>
+
 ### STO (Store — Odyssey)
 
 Odyssey store/merchant data (type ID 3013), GFF. Not present in retail KotOR content; tracked in the registry for cross-engine completeness.
 
 <a id="ult-light-template"></a>
+
 ### ULT (Light Template)
 
 Light template (type ID 20015), GFF. Defines a reusable light source object in the NWN2-era Aurora toolset. Not a KotOR I/TSL runtime type.
 
 <a id="utg-random-item-generator"></a>
+
 ### UTG (Random Item Generator)
 
 Random item generator template (type ID 2055), GFF. The user-authored counterpart to [BTG](#btg-random-item-generator--bioware). Defines a randomized loot table. Present in the engine's type registry but not commonly used in KotOR modding.
 
 <a id="utr-tree-template"></a>
+
 ### UTR (Tree Template)
 
 Tree template (type ID 20005), GFF. Defines a reusable vegetation/tree object in the NWN2-era toolset. Not a KotOR I/TSL runtime type.
 
 <a id="wmp-world-map"></a>
+
 ### WMP (World Map)
 
 World map data (type ID 20020), GFF. Stores the game-world map layout including area connections and availability flags. Used by the GUI subsystem for the galaxy/travel map. Not normally patched directly; galaxy map changes typically go through `planetary.2da` or module IFO edits instead.

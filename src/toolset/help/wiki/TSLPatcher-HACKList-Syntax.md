@@ -13,7 +13,7 @@ In PyKotor's current implementation, HACKList is a first-class emitted section: 
 - Performing surgical modifications to hardcoded constants
 - Updating scripts to reference new [TLK](Audio-and-Localization-Formats#tlk) entries or [2DA](2DA-File-Format) row numbers/indexes
 
-**Important:** HACKList is executed **after** [`[CompileList]`](TSLPatcher-CompileList-Syntax) during patcher execution, allowing compiled scripts to be modified after compilation if needed.
+Important: HACKList is executed **after** [`[CompileList]`](TSLPatcher-CompileList-Syntax) during patcher execution, allowing compiled scripts to be modified after compilation if needed.
 
 ## Table of Contents
 
@@ -84,13 +84,13 @@ Each [NCS file](NCS-File-Format) requires its own section (e.g., `[myscript.ncs]
 | `!SaveAs` or `!Filename` | string | Same as section name | Final filename to save as |
 | `ReplaceFile` | 0/1 | 0 | **Note:** Unlike other patch lists, HACKList uses `ReplaceFile` (without exclamation point) |
 
-**Destination values:**
+Destination values:
 
 - `override` or empty: Save to the Override folder
 - `Modules\module.mod`: Insert into an [ERF](Container-Formats#erf)/MOD/[RIM](Container-Formats#rim) container
 - Use backslashes for path separators
 
-**Important:** The `ReplaceFile` key in HACKList does NOT use an exclamation point prefix. This is unique to HACKList compared to other patch lists.
+Important: The `ReplaceFile` key in HACKList does not use an exclamation point prefix. This is unique to HACKList compared to other patch lists.
 
 ## Token Types and Data Sizes Syntax
 
@@ -128,7 +128,7 @@ All multi-[byte](https://en.wikipedia.org/wiki/Byte) values are written in **[bi
 
 ### type Compatibility Notes
 
-**Historical Background:** TSLPatcher originally distinguished between `strref` and `strref32` (and `2damemory` vs `2damemory32`), but PyKotor's implementation unifies these:
+Historical background: TSLPatcher originally distinguished between `strref` and `strref32` (and `2damemory` vs `2damemory32`), but PyKotor's implementation unifies these:
 
 - `[StrRef](Audio-and-Localization-Formats#string-references-strref)#` tokens are automatically handled as 32-bit values
 - `2DAMEMORY#` tokens are automatically handled as 32-bit values
@@ -156,7 +156,7 @@ File0=myscript.ncs
 0x100=StrRef5
 ```
 
-**Use Cases:**
+Use cases:
 
 - Injecting dynamically-added [dialog.tlk](Audio-and-Localization-Formats#tlk) string references
 - Patching scripts to reference custom text entries
@@ -181,13 +181,13 @@ File0=myscript.ncs
 0x50=2DAMEMORY1
 ```
 
-**Use Cases:**
+Use cases:
 
 - Injecting dynamically-added [2DA](2DA-File-Format) row numbers
 - Patching appearance/spell IDs to reference new rows
 - Updating hardcoded IDs to mod-added entries
 
-**Important Limitation:** [`!FieldPath`](TSLPatcher-GFFList-Syntax#field-path-syntax) values are NOT supported in HACKList. Only numeric memory values can be used.
+Important limitation: [`!FieldPath`](TSLPatcher-GFFList-Syntax#field-path-syntax) values are not supported in HACKList. Only numeric memory values can be used.
 
 ## Offset Calculation Syntax
 
@@ -459,9 +459,9 @@ File0=buggy_script.ncs
 
 ### Offset Calculation Errors
 
-**Problem:** The patched value doesn't seem to take effect
+Problem: The patched value doesn't seem to take effect.
 
-**Solutions:**
+Solutions:
 
 1. Verify the offset using *DeNCS*
 2. Check if you're modifying the correct bytes (instruction vs operand) (e.g. `CONSTI` is an opcode, `-4` is an operand)
@@ -470,21 +470,21 @@ File0=buggy_script.ncs
 
 ### Memory Token Not Defined ([`StrRefN`](TSLPatcher-TLKList-Syntax#strref-entries)/[`2DAMEMORYN`](TSLPatcher-2DAList-Syntax#2damemory-tokens))
 
-**Problem:** `StrRefN`/`2DAMEMORYN` was not defined before use
+Problem: `StrRefN`/`2DAMEMORYN` was not defined before use.
 
-**Solutions:**
+Solutions:
 
 1. Ensure the token is defined in [`[TLKList]`](TSLPatcher-TLKList-Syntax)/[`[2DAList]`](TSLPatcher-2DAList-Syntax) **before** `[HACKList]` execution
 2. Check the token number for typos (e.g. `StrRef1` instead of `StrRef10`)
 3. Verify token definition syntax in the appropriate section
 
-**Important:** `[HACKList]` executes **after** [`[CompileList]`](TSLPatcher-CompileList-Syntax) and **after** [`[TLKList]`](TSLPatcher-TLKList-Syntax) and [`[2DAList]`](TSLPatcher-2DAList-Syntax) in HoloPatcher, so memory tokens should be available.
+Important: `[HACKList]` executes **after** [`[CompileList]`](TSLPatcher-CompileList-Syntax) and after [`[TLKList]`](TSLPatcher-TLKList-Syntax) and [`[2DAList]`](TSLPatcher-2DAList-Syntax) in HoloPatcher, so memory tokens should be available.
 
 ### Wrong Data Size
 
-**Problem:** Script crashes or behaves unexpectedly after patching
+Problem: Script crashes or behaves unexpectedly after patching.
 
-**Solutions:**
+Solutions:
 
 1. Verify you're using the correct data size (`u8`/`u16`/`u32`/`StrRefN`/`2DAMEMORYN`)
 2. Check *DeNCS* output to confirm the operand size
@@ -493,9 +493,9 @@ File0=buggy_script.ncs
 
 ### File Not Found ([`!SourceFile`](TSLPatcher-InstallList-Syntax#file-level-configuration))
 
-**Problem:** `File not found` error during patching
+Problem: `File not found` error during patching.
 
-**Solutions:**
+Solutions:
 
 1. Verify [`!SourceFile`](TSLPatcher-InstallList-Syntax#file-level-configuration) points to the correct filename (e.g. `source.ncs`)
 2. Check [`!DefaultSourceFolder`](TSLPatcher-InstallList-Syntax#source-folder-configuration) and [`!SourceFolder`](TSLPatcher-InstallList-Syntax#source-folder-configuration) paths (e.g. `tslpatchdata\source.ncs`)
@@ -504,9 +504,9 @@ File0=buggy_script.ncs
 
 ### Archival Insertion Issues ([`!Destination`](TSLPatcher-InstallList-Syntax#file-level-configuration))
 
-**Problem:** Modified script not appearing in [ERF](Container-Formats#erf)/MOD/[RIM](Container-Formats#rim) container
+Problem: Modified script not appearing in [ERF](Container-Formats#erf)/MOD/[RIM](Container-Formats#rim) container.
 
-**Solutions:**
+Solutions:
 
 1. Verify [`!Destination`](TSLPatcher-InstallList-Syntax#file-level-configuration) path uses backslashes
 2. Check the bioware container exists before insertion (e.g. `Modules\mymod.mod`)
@@ -527,7 +527,7 @@ File0=buggy_script.ncs
 6. [`[HACKList]`](TSLPatcher-HACKList-Syntax) (modify [NCS](NCS-File-Format) bytecode) ← **You are here**
 7. [`[SSFList]`](TSLPatcher-SSFList-Syntax) (modify soundset files)
 
-**Important:** This differs from TSLPatcher's original order, where [`[HACKList]`](TSLPatcher-HACKList-Syntax) executes before [`[CompileList]`](TSLPatcher-CompileList-Syntax). HoloPatcher runs [`[CompileList]`](TSLPatcher-CompileList-Syntax) first to allow scripts to be compiled and then potentially edited. This order change is intentional and should not affect mod compatibility in practice.
+Important: This differs from TSLPatcher's original order, where [`[HACKList]`](TSLPatcher-HACKList-Syntax) executes before [`[CompileList]`](TSLPatcher-CompileList-Syntax). HoloPatcher runs [`[CompileList]`](TSLPatcher-CompileList-Syntax) first to allow scripts to be compiled and then edited if needed.
 
 All memory tokens from [`[TLKList]`](TSLPatcher-TLKList-Syntax) and [`[2DAList]`](TSLPatcher-2DAList-Syntax) are available during [`[HACKList]`](TSLPatcher-HACKList-Syntax) processing.
 
@@ -553,7 +553,7 @@ ReplaceFile=1
 
 `ReplaceFile=0` means **"skip if file exists"**, while `ReplaceFile=1` means ***"overwrite existing file"***.
 
-This probably came about because HACKList was created well before TSLPatcher as we know it, and the syntax was not standardized. IIRC this is only used in High Level Force Powers mod.
+This non-prefixed `ReplaceFile` spelling is a legacy HACKList syntax quirk preserved for compatibility.
 
 ### Compatibility Notes
 
@@ -583,7 +583,7 @@ When working with [NCS](NCS-File-Format) [bytecode](https://en.wikipedia.org/wik
 
 ### *Inserting* vs *Modifying*
 
-**Important:** `[HACKList]` can only **modify existing bytes**. It cannot:
+Important: `[HACKList]` can only **modify existing bytes**. It cannot:
 
 - Insert new bytes (files would shift offsets)
 - Delete bytes (files would shrink)

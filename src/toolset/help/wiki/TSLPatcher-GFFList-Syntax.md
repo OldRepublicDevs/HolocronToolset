@@ -145,13 +145,13 @@ Each [GFF file](GFF-File-Format) requires its own section (e.g., `[example.dlg]`
 | `!SaveAs` | string | Same as section name | Alternative filename to save as (useful for renaming files during installation) |
 | `!OverrideType` | string | `ignore` | How to handle existing files in Override when destination is an [ERF](Container-Formats#erf) or [RIM](Container-Formats#rim) container. Valid values: `ignore` (default), `warn` (log warning), `rename` (prefix with `old_`) |
 
-**Destination values:**
+Destination values:
 
 - `override` or empty: Save to the Override folder
 - `Modules\module.mod`: Insert into a module capsule ([MOD](Container-Formats#erf), [ERF](Container-Formats#erf), or [RIM](Container-Formats#rim); use backslashes for path separators)
 - Container paths must be relative to the game folder root
 
-**Source file Resolution:**
+Source file resolution:
 
 The patcher resolves source files in this order:
 
@@ -193,7 +193,7 @@ Orientation=0.0|0.0|0.0|1.0
   - `FieldName(strref)` for localized string [StrRef](Audio-and-Localization-Formats#string-references-strref)
   - `FieldName(lang0)` through `FieldName(lang9)` for language/gender strings
 
-**Supported Memory Token formats:**
+Supported memory token formats:
 
 - `[StrRef](Audio-and-Localization-Formats#string-references-strref)#` - References [TLK](Audio-and-Localization-Formats#tlk) memory token
 - `2DAMEMORY#` - References [2DA](2DA-File-Format) memory token
@@ -244,7 +244,7 @@ There are two distinct scenarios when using AddField:
    - `Label=` is **required** (except when the struct itself is being added to a list)
    - `Path=` can be empty to inherit from parent, or explicit to target a specific location
 
-**Critical Distinction:**
+Critical distinction:
 
 ```ini
 ; Scenario 1: Adding a STRUCT to a LIST (note blank Label)
@@ -266,7 +266,7 @@ Value=42
 
 When adding nested fields via `AddField#`, child sections automatically inherit the parent's resolved path if their `Path=` is empty. This allows you to build complex nested structures without repeating full paths.
 
-**Basic Path Inheritance (Struct within a Struct):**
+Basic path inheritance (struct within a struct):
 
 ```ini
 [parent_struct]
@@ -282,7 +282,7 @@ Label=SubField
 Value=42
 ```
 
-**Path Inheritance with Lists:**
+Path inheritance with lists:
 
 When adding a `STRUCT` to a `LIST`, the patcher automatically resolves the list index at runtime. Child fields added inside that gff struct inherit a path that includes the resolved index:
 
@@ -314,7 +314,7 @@ Label=Sound               ; Required - adding field INSIDE struct
 Value=
 ```
 
-**How Path Resolution Works:**
+How path resolution works:
 
 1. When you add a `STRUCT` to a `LIST` with `Path=MyList`, the patcher:
    - Finds the LIST field named "MyList"
@@ -561,7 +561,7 @@ AddField1=second_entry
 
 #### Binary (Binary - Binary data)
 
-- ***Note:*** Only supported by ***HoloPatcher***.
+Note: Only supported by **HoloPatcher**.
 
 ```ini
 [binary_field]
@@ -571,13 +571,13 @@ Label=BinaryData
 Value=0xFF00FF00
 ```
 
-**Supported formats (auto-detected):**
+Supported formats (auto-detected):
 
 1. **Binary string**: `Value=10101010` (sequence of 0s and 1s, processed in 8-bit chunks)
 2. **Hex string**: `Value=0xFF00FF00` or `Value=FF00FF00` (hexadecimal, even length required; `0x` prefix optional)
 3. **Base64**: `Value=SGVsbG8gV29ybGQ=` (standard Base64 encoding)
 
-**Note:** The Binary field type is a HoloPatcher extension and is not supported by classic TSLPatcher. Classic TSLPatcher does not support adding Binary fields via GFFList.
+Note: The Binary field type is a HoloPatcher extension and is not supported by classic TSLPatcher. Classic TSLPatcher does not support adding Binary fields via GFFList.
 
 ### Language/Gender IDs for `CExoLocString` (Localized String)
 
@@ -618,7 +618,7 @@ TypeId=5
 2DAMEMORY0=ListIndex
 ```
 
-**2DAMEMORY# Usage:**
+2DAMEMORY# usage:
 
 1. At file level:
    - `2DAMEMORY#=!FieldPath` - Store absolute field path
@@ -676,14 +676,14 @@ Value=2DAMEMORY10
 
 When adding a `STRUCT` element to an existing `LIST` field, you must follow specific rules:
 
-**Required Configuration:**
+Required configuration:
 
 - `FieldType=Struct` - Only structs can be list elements
 - `Label=` must be **blank** - `LIST` elements don't have labels
 - `Path=` must point to the LIST field name (e.g., `Path=RepliesList`)
 - `TypeId=` specifies the struct's type ID (numeric, `ListIndex`, or token)
 
-**Example - Basic `STRUCT` Addition to `LIST`:**
+Example: basic `STRUCT` addition to `LIST`:
 
 ```ini
 [example.dlg]
@@ -712,7 +712,7 @@ Label=Sound                  ; Required - fields inside structs have labels
 Value=
 ```
 
-**Understanding `ListIndex` Resolution:**
+Understanding `ListIndex` resolution:
 
 When you add a `STRUCT` to a `LIST`, the patcher automatically determines which position (index) it occupies:
 
@@ -725,7 +725,7 @@ This index is used to construct the full path for any child fields. For example,
 - The struct itself is added to `RepliesList[2]` (0-based indexing)
 - Child fields with empty `Path=` inherit `RepliesList\2\{field_name}`
 
-**Storing and Using the `ListIndex`:**
+Storing and using the `ListIndex`:
 
 You can store the index where a `STRUCT` is added for later reference:
 
@@ -738,7 +738,7 @@ TypeId=5
 2DAMEMORY0=ListIndex        ; Store the index (e.g., 3) in 2DAMEMORY0
 ```
 
-**Using `ListIndex` for `TypeId`:**
+Using `ListIndex` for `TypeId`:
 
 Some [GFF](GFF-File-Format) structures require the `TypeId` to match the `ListIndex`. Use `TypeId=ListIndex`:
 
@@ -761,7 +761,7 @@ StrRef=StrRef100
 lang0=My Custom Quests
 ```
 
-**Complete Example - Dialog Entry with Cross-References:**
+Complete example: dialog entry with cross-references:
 
 ```ini
 [example.dlg]
@@ -808,14 +808,14 @@ Label=EntriesRepliesList   ; Required - field inside struct
 Value=2DAMEMORY5            ; Use stored entry index as value
 ```
 
-**key Rules Summary:**
+Key rules summary:
 
-1. **Adding `STRUCT` to `LIST`:** `Label=` must be blank, `Path=` points to list name
-2. **Adding field to `STRUCT`:** `Label=` is required, `Path=` can be empty (inherits) or explicit
-3. **Path inheritance**: Child fields with empty `Path=` automatically inherit parent's resolved path, including `ListIndex`es
-4. **`ListIndex` resolution**: Happens automatically at runtime based on insertion order
-5. **`TypeId=ListIndex`**: Auto-sets `TypeId` to match the `ListIndex` (used in journal categories, etc.)
-6. **`2DAMEMORY#=ListIndex`**: Stores the index for later use in cross-references or calculations
+1. Adding `STRUCT` to `LIST`: `Label=` must be blank, `Path=` points to list name.
+1. Adding a field to `STRUCT`: `Label=` is required, `Path=` can be empty (inherits) or explicit.
+1. Path inheritance: Child fields with empty `Path=` automatically inherit the parent's resolved path, including `ListIndex` values.
+1. `ListIndex` resolution: Happens automatically at runtime based on insertion order.
+1. `TypeId=ListIndex`: Auto-sets `TypeId` to match the `ListIndex`.
+1. `2DAMEMORY#=ListIndex`: Stores the index for later use in cross-references or calculations.
 
 ### Adding Complete Nested structures
 
@@ -857,7 +857,7 @@ Label=Value                ; Required - fields inside structs have labels
 Value=123
 ```
 
-**Step-by-Step Breakdown:**
+Step-by-step breakdown:
 
 1. `item_properties` creates a new `LIST` field named "PropertyList" at root level
 2. `property_struct` adds a `STRUCT` element to that `LIST` (hence blank `Label=`)
@@ -871,7 +871,7 @@ This pattern is common when adding new property lists, dialog entries, journal c
 
 Store and use field paths dynamically. This feature (added in TSLPatcher v1.2.7b9) allows you to add fields and then reference them later using `2DAMEMORY#` tokens.
 
-**Storing a Field Path:**
+Storing a field path:
 
 ```ini
 [example.dlg]
@@ -893,7 +893,7 @@ StrRef=-1
 lang0=Dynamic reply text
 ```
 
-**Using a Stored Field Path:**
+Using a stored field path:
 
 After storing a path with `2DAMEMORY#=!FieldPath`, you can use that token as a Field Path to modify the field:
 
@@ -903,20 +903,20 @@ After storing a path with `2DAMEMORY#=!FieldPath`, you can use that token as a F
 2DAMEMORY0(lang0)=Updated text ; Sets the lang0 substring of that field
 ```
 
-**Copying field Paths Between Tokens:**
+Copying field paths between tokens:
 
 ```ini
 ; Copy a field path from one token to another
 2DAMEMORY1=2DAMEMORY0         ; Copy the path stored in 2DAMEMORY0 to 2DAMEMORY1
 ```
 
-**Use Cases:**
+Use cases:
 
 - **Dynamic Dialog Branches**: Add new dialog entries/replies and cross-reference them using stored paths
 - **Self-Referencing structures**: Create fields that need to reference other dynamically-added fields
 - **Conditional field Updates**: Store multiple field paths and update them based on runtime conditions
 
-**Important:** When using `2DAMEMORY#=!FieldPath` in an `AddField` section, the stored path includes the field's label. For nested fields, the path is the full absolute path from the [GFF](GFF-File-Format) root.
+Important: When using `2DAMEMORY#=!FieldPath` in an `AddField` section, the stored path includes the field's label. For nested fields, the path is the full absolute path from the [GFF](GFF-File-Format) root.
 
 ### Using `ListIndex` for `TypeId`
 
@@ -926,7 +926,7 @@ Some [GFF](GFF-File-Format) structures require the `STRUCT`'s `TypeId` to match 
 - Certain dialog structures
 - Other list-based structures where type ID corresponds to list position
 
-**Syntax:**
+Syntax:
 
 Set `TypeId=ListIndex` (literal text, not a token) when adding a `STRUCT` to a `LIST`:
 
@@ -949,13 +949,13 @@ StrRef=StrRef100
 lang0=My Custom Quests
 ```
 
-**How It Works:**
+How it works:
 
 - When `TypeId=ListIndex` is specified, the patcher automatically determines the index where the `STRUCT` is added
 - The type ID is set to that numeric index (0, 1, 2, etc.)
 - For example, if the `STRUCT` becomes the 5th element (index 4), the type ID will be set to 4
 
-**Note:** `TypeId=ListIndex` is different from `2DAMEMORY#=ListIndex`. The former sets the `STRUCT`'s `TypeId`, while the latter stores the index in a memory token for later use.
+Note: `TypeId=ListIndex` is different from `2DAMEMORY#=ListIndex`. The former sets the `STRUCT`'s `TypeId`, while the latter stores the index in a memory token for later use.
 
 ### ExclusiveColumn (in Nested [2DA](2DA-File-Format) Integration)
 
@@ -1017,7 +1017,7 @@ lang0=My Custom Quests
 
 Understanding execution order is crucial when your edits depend on earlier tokens or dynamically created fields.
 
-**Standard Execution Order:**
+Classic TSLPatcher execution order:
 
 1. **TLKList**: Appends entries to [dialog.tlk](Audio-and-Localization-Formats#tlk), creates `[StrRef](Audio-and-Localization-Formats#string-references-strref)#` tokens
 2. **InstallList**: Copies files to destination ([ERF](Container-Formats#erf) or [RIM](Container-Formats#rim) containers may be created here)
@@ -1027,7 +1027,9 @@ Understanding execution order is crucial when your edits depend on earlier token
 6. **HACKList**: Applies binary patches to [NCS files](NCS-File-Format)
 7. **SSFList**: Modifies soundset files
 
-**Within GFFList Section:**
+Note: HoloPatcher moves `[InstallList]` ahead of `[TLKList]` so a whole `dialog.tlk` can be installed before TLK edits are applied. The classic ordering above still describes original TSLPatcher convention and PyKotor's INI serialization order.
+
+Within the GFFList section:
 
 Modifications within a single [GFF](GFF-File-Format) file are processed in order:
 
@@ -1035,13 +1037,13 @@ Modifications within a single [GFF](GFF-File-Format) file are processed in order
 2. **Memory assignments** (`2DAMEMORY#=!FieldPath`, `2DAMEMORY#=ListIndex`) are evaluated as fields are added
 3. **Field modifications** are processed last (can reference stored paths via `2DAMEMORY#` memory tokens)
 
-**Best Practices:**
+Best practices:
 
 - **Add before modify**: Use AddField to create structures, store their paths with `2DAMEMORY#=!FieldPath`, then modify them using those tokens
 - **Token dependencies**: Ensure tokens are set before use. `2DAMEMORY#` tokens from 2DAList are available to GFFList
 - **Container handling**: If patching files into [ERF](Container-Formats#erf) or [RIM](Container-Formats#rim) containers, the container must exist (created by InstallList) or be built automatically by the patcher
 
-**Important Notes:**
+Important notes:
 
 - Script token preprocessing (in `[CompileList]`) runs **before** `[GFFList]` to avoid interfering with `!FieldPath` assignments
 - If multiple [GFF](GFF-File-Format) files reference the same memory tokens, they can share `StrRef#` and `2DAMEMORY#` values across files
@@ -1417,6 +1419,7 @@ field type compatibility:
 - Nested structures supported
 - Memory tokens supported
 - Dynamic paths supported
+
 ## Additional Resources
 
 ### Documentation

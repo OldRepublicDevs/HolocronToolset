@@ -166,7 +166,7 @@ AppendFile0=custom_entries.tlk
 1=11
 ```
 
-**key Points:**
+Key points:
 
 - All examples use **append** operations - the recommended approach
 - values specify which [StrRef](Audio-and-Localization-Formats#string-references-strref) indices to read from source files
@@ -480,19 +480,19 @@ HoloPatcher Execution Order:
 A [TLK file](Audio-and-Localization-Formats#tlk) is a binary format containing:
 
 - **header**: file type (`TLK`), version (`V3.0`), language ID, string count, entries offset
-- **Entry headers**: flags, sound ResRef (16 bytes), volume/pitch variance (unused), text offset, text length, sound length (unused)
+- Entry headers: flags, sound ResRef (16 bytes), volume/pitch variance fields, text offset, text length, and sound-length field
 - **Text data**: Actual string content stored at the specified offsets
 
-**[TLK](Audio-and-Localization-Formats#tlk) Entry structure**:
+[TLK](Audio-and-Localization-Formats#tlk) entry structure:
 
 ```python
 class TLKEntry:
     text: str              # The display text (UTF-8 or cp1252 encoding)
     voiceover: ResRef      # Sound file ResRef (max 16 characters)
-    sound_length: float    # Unused by KotOR (present in format but ignored)
+    sound_length: float    # Format field present in TLK entries; not used by KotOR runtime behavior described here
 ```
 
-**string Length Limitations**:
+String length limitations:
 
 - **TSLPatcher v1.2.8b6 and later**: Can handle [TLK](Audio-and-Localization-Formats#tlk) entries with strings of **any size** (no practical limit)
 - **Earlier versions**: Had a bug that prevented proper handling of strings longer than 4096 characters
@@ -500,11 +500,11 @@ class TLKEntry:
 
 ### KotOR [TLK](Audio-and-Localization-Formats#tlk) files
 
-**Standard files**:
+Standard files:
 
 - [`dialog.tlk`](Audio-and-Localization-Formats#tlk) - Main English dialog (always present in game directory)
 
-**Localized Versions** (exclusively KotOR1 Polish):
+Localized versions (exclusively KotOR1 Polish):
 
 - `dialogf.tlk` - Feminine/non-English localized version
 - Must match the number of entries in [`dialog.tlk`](Audio-and-Localization-Formats#tlk) exactly
@@ -911,7 +911,7 @@ StrRef2=2
 # Memory: memory.memory_str[10] = new_stringref (from dialog.tlk append)
 ```
 
-**key Points**:
+Key points:
 
 - See [How Token Creation Works](#how-token-creation-works) for token lifecycle
 - See [Memory System](#memory-system) for StrRef retention
@@ -922,25 +922,11 @@ StrRef2=2
 
 ### Processing Flow
 
-1. Parse [TLKList] section
-2. Load source [TLK files](Audio-and-Localization-Formats#tlk) from `!SourceFile`/`!SourceFileF` e.g. `!SourceFile=append.tlk`
-3. For each [StrRef](Audio-and-Localization-Formats#string-references-strref) entry:
-   - Parse: *key* (ignored), *value* (source index)
-   - Load entry from source file at *value* index
-   - Append to dialog.tlk (gets new stringref)
-   - Create token [StrRef](Audio-and-Localization-Formats#string-references-strref){value} from *value* to store the new stringref
-4. For each AppendFile entry:
-   - Parse: Key (part after the word 'append' is ignored), *value* (filename) e.g. `AppendFile0=some_append_contents.tlk`
-   - Parse subsection [filename] mappings
-   - For each mapping:
-- Parse: *key* (ignored), *value* (source index)
-     - Load entry from referenced file at *value* index
-     - Append to dialog.tlk (gets new stringref)
-     - Create token [StrRef](Audio-and-Localization-Formats#string-references-strref){value} from *value* to store the new stringref
-5. Tokens are now available for substitution in:
-   - [2DAList] sections (2DAMEMORY#=[StrRef](Audio-and-Localization-Formats#string-references-strref)#)
-   - [GFFList] sections (FieldName=[StrRef](Audio-and-Localization-Formats#string-references-strref)#)
-   - [CompileList] scripts (#[StrRef](Audio-and-Localization-Formats#string-references-strref)# tokens)
+1. Parse [TLKList] section.
+1. Load source [TLK files](Audio-and-Localization-Formats#tlk) from `!SourceFile`/`!SourceFileF`, for example `!SourceFile=append.tlk`.
+1. For each [StrRef](Audio-and-Localization-Formats#string-references-strref) entry, parse the *key* as ignored metadata and the *value* as the source index, load the referenced source entry, append it to `dialog.tlk`, and then create the matching `StrRef{value}` token for the newly assigned stringref.
+1. For each `AppendFile` entry, parse the filename from the value, read the matching subsection mappings, and for each mapping parse the source index, load the referenced entry from that file, append it to `dialog.tlk`, and create the matching `StrRef{value}` token for the newly assigned stringref.
+1. Tokens are then available for substitution in [2DAList] sections (`2DAMEMORY#=[StrRef](Audio-and-Localization-Formats#string-references-strref)#`), [GFFList] sections (`FieldName=[StrRef](Audio-and-Localization-Formats#string-references-strref)#`), and [CompileList] scripts (`#[StrRef](Audio-and-Localization-Formats#string-references-strref)#` tokens).
 
 ### Token Substitution Examples
 

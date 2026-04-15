@@ -1,27 +1,27 @@
 # Resource formats and resolution
 
-KotOR does not load files by extension alone. The runtime resolves a resource as a `(ResRef, type ID)` pair, so `foo.utc`, `foo.utp`, `foo.uti`, and `foo.tga` are four different resources even when they share the same base name. PyKotor's registry is the best current single-source summary because each `ResourceType` member carries the numeric ID, canonical extension, broad content family, and declared engine support rather than only a flat filename mapping [[`BiowareEngine`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L49-L67), [`ResourceTuple`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L147-L172), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209)].
+KotOR does not resolve resources by extension alone. The effective lookup key is a `(ResRef, type ID)` pair, and both PyKotor's registry model and the recovered engine routines treat those two values as the identity of a resource rather than as optional metadata attached after a filename match. [[`ResourceTuple`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L147-L172), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209)] `CExoResMan::Exists @ (/K1/k1_win_gog_swkotor.exe @ 0x00408bc0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x0061b830, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14018f590)` `CResGFF::ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
 
-This page is the wiki SSOT for KotOR-facing resource IDs, the Odyssey-specific extension block that older Aurora tables often omit, and the relationship between loose files, module capsules, and global archives. Community documentation and tool history line up with that model: Holowan-era install guidance distinguishes Override files, module files, lips, and TLK placement, while xoreos and related tooling treat KotOR resource handling as a typed, container-aware pipeline rather than a loose bag of files [[Darth333's install guide](https://www.lucasforumsarchive.com/thread/129789-guide-for-the-newbie-what-tools-do-i-need-to-mod-kotor-how-to-install-mods), [xoreos KotOR wiki page](https://wiki.xoreos.org/index.php?title=Knights_of_the_Old_Republic), [xoreos 0.0.6 release notes](https://xoreos.org/blog/2020/08/03/xoreos-0-dot-0-6-elanee-released/)]. For the broader prose on precedence, override behaviour, module capsules, KEY/BIF, and language IDs, see [Concepts](Concepts).
+This page deliberately mixes two different evidence classes and labels them accordingly. Runtime-behavior statements in the opening sections are restricted to claims that can be anchored in at least three binaries from the current Odyssey project; the large type-ID tables later in the page are explicitly **registry-derived** from PyKotor's `ResourceType` enum and its `supported_engines` metadata. [[`BiowareEngine`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L49-L67), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209)] For the broader prose on precedence and localized-string behavior, see [Concepts](Concepts).
 
 ## Resource resolution order
 
 Full prose (resource manager demands, KEY's role, override vs [MOD/ERF](Container-Formats#erf)/[RIM](Container-Formats#rim)): **[Concepts — Resource resolution order](Concepts#resource-resolution-order)**.
 
-**Operational summary:**
+Operational summary:
 
-1. Loose files in `Override` win first. That is why classic mod-install instructions tell users to drop most replacement assets there, and why collision-heavy mods break when they overwrite the same filename without a patcher [[Holowan install guide](https://www.lucasforumsarchive.com/thread/129789-guide-for-the-newbie-what-tools-do-i-need-to-mod-kotor-how-to-install-mods), [Holowan load-order thread](https://www.lucasforumsarchive.com/thread/206128-load-order)].
-2. Module-local containers come next. KotOR commonly loads module data from [MOD](Container-Formats#erf), [ERF](Container-Formats#erf), or [RIM](Container-Formats#rim) capsules, and save-specific capsules can temporarily shadow shipped module resources when the game is working from save-state copies instead of pristine module assets [[Concepts](Concepts#resource-resolution-order), [`RIM`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L417-L419), [`MOD`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L249-L250), [`SAV`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L299-L300)].
-3. Global shipped resources then fall back through [KEY](Container-Formats#key)/[BIF](Container-Formats#bif), which is why extraction tools and modding references treat KEY as the index and BIF as the payload store rather than two independent formats [[Container-Formats](Container-Formats#key), [`KEY`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L2110-L2110), [xoreos 0.0.6 release notes](https://xoreos.org/blog/2020/08/03/xoreos-0-dot-0-6-elanee-released/)].
-4. `dialog.tlk` is resolved through its own string-reference path. Patchers therefore append StrRefs and then inject those numeric values into 2DA, GFF, SSF, or script data instead of shipping whole-table replacements [[Deadly Stream TSLPatcher page](https://deadlystream.com/files/file/1039-tsl-patcher-tlked-and-accessories/), [TSLPatcher TLKList Syntax](TSLPatcher-TLKList-Syntax)].
-
-The practical modder rule that emerged from Holowan still holds: avoid blind overwrites, prefer data patching for shared files, and treat identical filenames in Override as a load-order conflict rather than a mergeable state [[Holowan load-order thread](https://www.lucasforumsarchive.com/thread/206128-load-order)].
+1. PyKotor exposes the top-level search layers as `OVERRIDE`, `MODULES`, and `CHITIN`, and its CHITIN branch explicitly checks both `self._chitin` and `self._patch_erf`. [[`SearchLocation`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/extract/installation.py#L67-L104), [`check_list(self._chitin) or check_list(self._patch_erf)`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/extract/installation.py#L1984)]
+2. The recovered existence probe confirms that resource lookup is a typed table lookup, not a loose filename search. K1 routes `CExoResMan::Exists` through `GetKeyEntry`; TSL routes the same public probe through a less descriptive helper; Aurora exposes an override-first step by calling `GetOverride` and then `FindKey` on resident tables. `CExoResMan::Exists @ (/K1/k1_win_gog_swkotor.exe @ 0x00408bc0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x0061b830, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14018f590)`
+3. The keyed-archive fallback is maintained as live state. `CExoKeyTable::RebuildTable` is present in all three binaries and rewires entries into lookup structures after table changes or reloads, which is the engine-side reason the KEY/BIF layer behaves like an indexed fallback rather than as ad hoc archive scanning. `CExoKeyTable::RebuildTable @ (/K1/k1_win_gog_swkotor.exe @ 0x00410260, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006304a0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14018ccf0)`
+4. This page therefore treats override, module capsules, and keyed archives as distinct layers, but only the override and keyed-table parts are directly anchored here at function scope. The more detailed prose about module precedence remains on [Concepts](Concepts), where the same distinction is scoped to the evidence currently recovered.
 
 ## ResRef and resource type
 
-**ResRef** is the base resource name. **Resource type** is the numeric discriminator that says whether that name is a creature template, placeable template, compiled script, model, texture metadata file, or something else entirely. KotOR resolves those two pieces together, so the type ID is not optional bookkeeping: it is part of the lookup key [[Concepts — ResRef](Concepts#resref-resource-reference), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209)].
+**ResRef** is the base resource name. **Resource type** is the numeric discriminator that tells the engine what the bytes represent. PyKotor records that distinction directly in each `ResourceTuple`, which stores the numeric `type_id`, extension, broad category, storage family, and declared engine support rather than only a filename extension. [[`ResourceTuple`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L147-L172), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209)]
 
-PyKotor's registry is especially useful because it records more than ID and extension. Each row also carries a broad category, a `contents` family such as `binary`, `plaintext`, `gff`, `erf`, or `lips`, and a `supported_engines` tuple. That makes it possible to distinguish "valid KotOR runtime type", "shared BioWare heritage type", and "tooling-only or unknown-support helper" instead of collapsing them into one giant undifferentiated list [[`ResourceTuple`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L147-L172)].
+The binary GFF decode path reinforces the same model. `CResGFF::ReadFieldCResRef` checks for field type `0xb`, validates the serialized payload length, reads the leading name length byte, and then constructs a `CResRef` from the remaining bytes in K1, TSL, and Aurora. `CResGFF::ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
+
+The discrepancies are implementation-level rather than semantic. K1 reaches a `CResRef` constructor quickly after the field and size checks; TSL performs the same validation inside a larger x86 routine; Aurora exposes the final decode step as `InitFromCharArray`. `CResGFF::ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
 
 Use the tables on this page with the following reading rules:
 
@@ -33,7 +33,9 @@ Use the tables on this page with the following reading rules:
 
 ## Resource Type Identifiers
 
-KotOR uses the inherited Aurora `0x0000-0x0812` range plus an Odyssey-specific extension block beginning at `3000`. Older community tables often stop before that Odyssey block or describe some legacy IDs only as "unknown", even though modern code and tooling can now classify them more precisely [[`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L231-L238), [`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L411-L479)].
+The type-ID catalog below is registry-derived. Its authoritative source is PyKotor's `ResourceType` enum and the attached `supported_engines` metadata, not the current reverse-engineering pass. [[`ResourceType`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L175-L209), [`ResourceType` classic range](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L231-L320), [`ResourceType` Odyssey extension block](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L992-L1052)]
+
+For KotOR specifically, the important structural split is that the inherited classic range and the Odyssey-only `3000+` extension block live in the same registry. That extension block includes several of the format families modders actually touch, including `lyt`, `vis`, `rim`, `pth`, `lip`, `bwm`, `tpc`, `mdx`, and `bip`. [[`LYT` through `MDX`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L992-L1052), [`BIP`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/type.py#L1139-L1145)]
 
 ### Common KotOR resource types
 
@@ -71,7 +73,7 @@ These IDs are the biggest omission in many older KotOR summaries because they si
 | `txb` | `3006` | binary | Texture-related Odyssey helper type retained in the registry |
 | [TPC](Texture-Formats#tpc) | `3007` | binary | Primary Odyssey texture container |
 | [MDX](MDL-MDX-File-Format) | `3008` | binary | Model mesh/geometry sidecar |
-| `rsv` / `sig` | `3009` / `3010` | binary | Reserved or presently-unused Odyssey IDs |
+| `rsv` / `sig` | `3009` / `3010` | binary | Registry placeholder Odyssey IDs with no current documented KotOR usage |
 | `mab` | `3011` | binary | Material-related binary type |
 | `qst2` / `sto` | `3012` / `3013` | GFF | Odyssey quest/store-adjacent data types retained in the registry |
 | `hex` | `3015` | binary | Hex-grid related helper type |
@@ -164,49 +166,49 @@ All entries derive from PyKotor's [`ResourceType` enum in `type.py`](https://git
 | NDB           | 0x0810  | Script debugger file. Generated by the *Aurora* toolset debugger; not used by the game engine. |
 | PTM           | 0x0811  | Plot instance/manager, GFF. |
 | PTT           | 0x0812  | Plot wizard blueprint, GFF. |
-| NCM           | 0x0813  | Reserved/unused type. No known BioWare use. |
-| MFX           | 0x0814  | Reserved/unused type. No known BioWare use. |
+| NCM           | 0x0813  | Registry placeholder type with no current documented BioWare usage. |
+| MFX           | 0x0814  | Registry placeholder type with no current documented BioWare usage. |
 | MAT           | 0x0815  | Material file. Used in later BioWare titles; not present in *KotOR*. |
 | MDB           | 0x0816  | BioWare geometry model (`.mdb`). Used in NWN2 / Dragon Age; not present in *KotOR*. |
-| SAY           | 0x0817  | Reserved/unused type. No known BioWare use. |
+| SAY           | 0x0817  | Registry placeholder type with no current documented BioWare usage. |
 | [TTF](https://en.wikipedia.org/wiki/TrueType)           | 0x0818  | TrueType font (`.ttf`). Used in some BioWare titles; not present in *KotOR*. |
-| TTC           | 0x0819  | Reserved/unused type. No known BioWare use. |
+| TTC           | 0x0819  | Registry placeholder type with no current documented BioWare usage. |
 | CUT           | 0x081A  | Cutscene, GFF. Not present in *KotOR*. |
 | KA            | 0x081B  | Karma data, XML format. Not present in *KotOR*. |
 | [JPG](https://en.wikipedia.org/wiki/JPEG)           | 0x081C  | JPEG image. Eclipse engine only (Dragon Age). |
 | [ICO](https://en.wikipedia.org/wiki/ICO_(file_format))           | 0x081D  | Windows icon format. Eclipse engine only (Dragon Age). |
 | [OGG](https://en.wikipedia.org/wiki/Ogg)           | 0x081E  | Audio, Ogg Vorbis. Eclipse engine only (Dragon Age). |
 | SPT           | 0x081F  | Tree data, SpeedTree format. Not present in *KotOR*. |
-| SPW           | 0x0820  | Reserved/unused type. No known BioWare use. |
+| SPW           | 0x0820  | Registry placeholder type with no current documented BioWare usage. |
 | WFX           | 0x0821  | Woot effect class, XML format. Not present in *KotOR*. |
-| UGM           | 0x0822  | Reserved/unused type. No known BioWare use. |
+| UGM           | 0x0822  | Registry placeholder type with no current documented BioWare usage. |
 | QDB           | 0x0823  | Quest database, GFF. Not present in *KotOR*. |
 | QST           | 0x0824  | Quest, GFF. Not present in *KotOR*. |
-| NPC           | 0x0825  | Reserved/unused type. No known BioWare use. |
-| SPN           | 0x0826  | Reserved/unused type. No known BioWare use. |
-| UTX           | 0x0827  | Reserved/unused type. No known BioWare use. |
-| MMD           | 0x0828  | Reserved/unused type. No known BioWare use. |
-| SMM           | 0x0829  | Reserved/unused type. No known BioWare use. |
-| UTA           | 0x082A  | Reserved/unused type. No known BioWare use. |
-| MDE           | 0x082B  | Reserved/unused type. No known BioWare use. |
-| MDV           | 0x082C  | Reserved/unused type. No known BioWare use. |
-| MDA           | 0x082D  | Reserved/unused type. No known BioWare use. |
-| MBA           | 0x082E  | Reserved/unused type. No known BioWare use. |
-| OCT           | 0x082F  | Reserved/unused type. No known BioWare use. |
-| BFX           | 0x0830  | Reserved/unused type. No known BioWare use. |
-| PDB           | 0x0831  | Reserved/unused type. No known BioWare use. |
+| NPC           | 0x0825  | Registry placeholder type with no current documented BioWare usage. |
+| SPN           | 0x0826  | Registry placeholder type with no current documented BioWare usage. |
+| UTX           | 0x0827  | Registry placeholder type with no current documented BioWare usage. |
+| MMD           | 0x0828  | Registry placeholder type with no current documented BioWare usage. |
+| SMM           | 0x0829  | Registry placeholder type with no current documented BioWare usage. |
+| UTA           | 0x082A  | Registry placeholder type with no current documented BioWare usage. |
+| MDE           | 0x082B  | Registry placeholder type with no current documented BioWare usage. |
+| MDV           | 0x082C  | Registry placeholder type with no current documented BioWare usage. |
+| MDA           | 0x082D  | Registry placeholder type with no current documented BioWare usage. |
+| MBA           | 0x082E  | Registry placeholder type with no current documented BioWare usage. |
+| OCT           | 0x082F  | Registry placeholder type with no current documented BioWare usage. |
+| BFX           | 0x0830  | Registry placeholder type with no current documented BioWare usage. |
+| PDB           | 0x0831  | Registry placeholder type with no current documented BioWare usage. |
 | TheWitcherSave | 0x0832 | The Witcher save file. Non-BioWare game; tracked in xoreos type registry. |
-| PVS           | 0x0833  | Reserved/unused type. No known BioWare use. |
-| CFX           | 0x0834  | Reserved/unused type. No known BioWare use. |
+| PVS           | 0x0833  | Registry placeholder type with no current documented BioWare usage. |
+| CFX           | 0x0834  | Registry placeholder type with no current documented BioWare usage. |
 | LUC           | 0x0835  | Script, LUA bytecode. Eclipse engine only (Dragon Age). |
 | *(reserved)*  | 0x0836  | Type ID 2102 is reserved/skipped in the xoreos registry. |
-| PRB           | 0x0837  | Reserved/unused type. No known BioWare use. |
+| PRB           | 0x0837  | Registry placeholder type with no current documented BioWare usage. |
 | CAM           | 0x0838  | Campaign information, Aurora engine only. Not present in *KotOR*. |
-| VDS           | 0x0839  | Reserved/unused type. No known BioWare use. |
-| BIN           | 0x083A  | Reserved/unused type. No known BioWare use. |
-| WOB           | 0x083B  | Reserved/unused type. No known BioWare use. |
-| API           | 0x083C  | Reserved/unused type. No known BioWare use. |
-| Properties    | 0x083D  | Reserved/unused type (`.properties` extension). No known BioWare use. |
+| VDS           | 0x0839  | Registry placeholder type with no current documented BioWare usage. |
+| BIN           | 0x083A  | Registry placeholder type with no current documented BioWare usage. |
+| WOB           | 0x083B  | Registry placeholder type with no current documented BioWare usage. |
+| API           | 0x083C  | Registry placeholder type with no current documented BioWare usage. |
+| Properties    | 0x083D  | Registry placeholder type for the `.properties` extension, with no current documented BioWare usage. |
 | [PNG](https://en.wikipedia.org/wiki/Portable_Network_Graphics)           | 0x083E  | PNG image. Odyssey and Eclipse engine support. |
 | [ERF](Container-Formats#erf)           | 0x270D  | [Encapsulated Resource File](Container-Formats#erf) (see [ERF File Format](Container-Formats#erf))                      |
 | [BIF](Container-Formats#bif)           | 0x270E  | [Bioware Index File](Container-Formats#bif) (container, see [BIF File Format](Container-Formats#bif))                    |

@@ -1,6 +1,8 @@
 # GFF Types: Module and Area
 
-Every playable location is assembled from three core GFF files: ARE defines the area's static properties (rooms, ambient sound, lighting) [[`ARE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21)], GIT holds all dynamic instance data (creature spawns, placeables, triggers placed in the area) [[`GIT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57)], and IFO ties the module together with entry points, area references, and global module state.
+ARE, GIT, and IFO are not separate binary dialects; they are three typed GFF resources that the Odyssey-family runtime consumes at different scopes. PyKotor models them as distinct generic readers, and the recovered GFF access layer in KotOR I, KotOR II, and Aurora follows the same label-driven pattern: resolve a field label, resolve the referenced field record, then decode typed payloads such as `ResRef` and `CExoLocString`. [[`ARE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21), [`GIT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57), [`IFO`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L16)] `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)` `GetField @ (/K1/k1_win_gog_swkotor.exe @ 0x00410990, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x006238d0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fc20)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
+
+For KotOR specifically, the practical split is narrower and safer to document than older one-file summaries suggest: ARE carries static area metadata, GIT carries per-area placed instances plus root audio integers, and IFO carries module-level entry configuration, area membership, and module script state. That scope split is explicit in the local schemas below; where retail loader visibility differs across binaries, the prose calls that out instead of pretending every label is equally recovered everywhere. [[`are.py` fields](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L31-L123), [`git.py` sections](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L80-L147), [`ifo.py` fields](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L25-L84)]
 
 ## Contents
 
@@ -16,7 +18,11 @@ Every playable location is assembled from three core GFF files: ARE defines the 
 
 Part of the [GFF File Format Documentation](GFF-File-Format).
 
-ARE files define static [area properties](GFF-File-Format#are-area) including lighting, weather, ambient audio, grass rendering, fog settings, script hooks, and minimap data. ARE files contain environmental and atmospheric data for game areas, while dynamic object placement is handled by [GIT](GFF-File-Format#git-game-instance-template) files. When the engine loads an area it reads the ARE for metadata and lighting, then loads the area [walkmesh (WOK)](Level-Layout-Formats#bwm). Associated resources often include:
+ARE is the static-area half of the KotOR area package. PyKotor's schema exposes lighting, fog, grass, weather, map, room, and script-hook fields, and the recovered retail `CSWSArea::LoadAreaHeader` routines in KotOR I and KotOR II visibly read scalar metadata first, then an `Expansion_List`, and then ARE script-hook labels through the shared GFF readers. [[`ARE` field model](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L31-L123), [`construct_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L311-L430)] `LoadAreaHeader @ (/K1/k1_win_gog_swkotor.exe @ 0x00508c50, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00718a20)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
+
+The field-name visibility is not identical across builds. K1 preserves the labels `OnHeartbeat`, `OnUserDefined`, `OnEnter`, and `OnExit` directly in the recovered area loader; the current TSL recovery exposes `OnHeartbeat` and `OnUserDefined` clearly in the same loader block and then continues through additional `ResRef` reads with less helpful symbol text, so the stable engine-level claim here is that retail area loading consumes ARE hook `ResRef`s through the same typed GFF path rather than that every label survives equally in every disassembly. `LoadAreaHeader @ (/K1/k1_win_gog_swkotor.exe @ 0x00508c50, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00718a20)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
+
+That means the safest description is still the obvious one: ARE carries environmental and area-scope metadata, while dynamic placement lives elsewhere. Associated resources often include:
 
 - [GIT](GFF-Module-and-Area#git)
 - [LYT](Level-Layout-Formats#lyt)
@@ -24,14 +30,9 @@ ARE files define static [area properties](GFF-File-Format#are-area) including li
 
 Those resources use the usual [resource resolution order](Concepts#resource-resolution-order).
 
-**Official Bioware Documentation:** For the authoritative Bioware Aurora Engine ARE format specification, see [Bioware Aurora Area File Format](Bioware-Aurora-Module-and-Area#areafile).
+For the original Aurora-facing specification, see [Bioware Aurora Area File Format](Bioware-Aurora-Module-and-Area#areafile). For patching ARE data in installers, see [TSLPatcher GFFList Syntax Guide](TSLPatcher-GFF-Syntax#gfflist-syntax); for general installer-side modding context, see [HoloPatcher README for Mod Developers](HoloPatcher#mod-developers).
 
-**For mod developers:**
-
-- To modify GFF/ARE files in your mods, see the [TSLPatcher GFFList Syntax Guide](TSLPatcher-GFF-Syntax#gfflist-syntax).
-- For general modding information, see [HoloPatcher README for Mod Developers](HoloPatcher#mod-developers).
-
-**Related formats:**
+Related formats:
 
 - [GIT](GFF-File-Format#git-game-instance-template)
 - [BWM](Level-Layout-Formats#bwm)
@@ -42,21 +43,25 @@ Those resources use the usual [resource resolution order](Concepts#resource-reso
 
 Loading uses the same [resource resolution order](Concepts#resource-resolution-order).
 
-PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21), identifies them as [`GFFContent.ARE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L159), and decodes them through the shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) pipeline; Holocron Toolset exposes the same fields in its [`are.py` area editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/are.py). Other implementations keep ARE in the generic GFF path too, including reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora pipeline, while workflow guidance for packing areas and their walkmeshes is best read alongside [Home — Community sources](Home#community-sources-and-archives), [Area Modding and Room Transitions](Area-Modding-and-Room-Transitions), and the normative [BWM section](Level-Layout-Formats#bwm).
+PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L21), identifies them as [`GFFContent.ARE`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L159), and decodes them through the shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) pipeline; Holocron Toolset exposes the same fields in its [`are.py` area editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/are.py). Other implementations keep ARE in the generic GFF path too, including reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora pipeline.
 
 ## Core Identity fields
+
+These root fields are schema-derived from the current local ARE reader. `construct_are` acquires `Version`, `Tag`, `Name`, and `Comments` directly from the ARE root, while `ID`, `Creator_ID`, and `Flags` remain part of the broader optional/deprecated block that the local model preserves but does not treat as the core runtime area state. [[`construct_are` root identity reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L345-L349), [`construct_are` deprecated root reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L379-L396)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Unique area identifier |
 | `Name` | [CExoLocString](GFF-File-Format#gff-data-types) | Area name (localized) |
 | `Comments` | [CExoString](GFF-File-Format#gff-data-types) | Developer notes/documentation |
-| `Creator_ID` | UInt32 | Toolset creator identifier (unused at runtime) |
-| `ID` | UInt32 | Unique area ID (unused at runtime) |
-| `Version` | UInt32 | Area version (unused at runtime) |
-| `Flags` | UInt32 | Area flags (unused in KotOR) |
+| `Creator_ID` | UInt32 | Toolset creator identifier |
+| `ID` | UInt32 | Area ID field |
+| `Version` | UInt32 | Area version field |
+| `Flags` | UInt32 | Area flags field |
 
 ## Lighting & Sun
+
+The local ARE schema stores the main lighting state as RGB integers plus two shadow controls. `construct_are` reads `SunAmbientColor`, `SunDiffuseColor`, and `DynAmbientColor` through `Color.from_rgb_integer`, while `SunShadows` and `ShadowOpacity` are acquired as scalar fields. [[`construct_are` lighting reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L364-L368), [`construct_are` color conversion block](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L401-L405)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -66,15 +71,9 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `ShadowOpacity` | [byte](GFF-File-Format#gff-data-types) | Shadow opacity (0-255) |
 | `DynAmbientColor` | color | Dynamic ambient light RGB |
 
-**Lighting System:**
-
-- **SunAmbientColor**: Base ambient illumination (affects all surfaces)
-- **SunDiffuseColor**: Directional sunlight color
-- **SunShadows**: Enables real-time shadow casting
-- **ShadowOpacity**: Controls shadow darkness
-- **DynAmbientColor**: Secondary ambient for dynamic lighting
-
 ## Fog Settings
+
+Fog is also explicit in the local read path: `SunFogOn` defaults to `0`, `SunFogNear` and `SunFogFar` default to `10000.0` when omitted, and `SunFogColor` is converted from the stored RGB integer payload. [[`construct_are` fog reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L359-L364), [`construct_are` fog color conversion](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L404-L404)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -83,39 +82,24 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `SunFogFar` | float | Fog end distance (default 10000.0) [[`are.py` L381](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L381)] |
 | `SunFogColor` | color | Fog color RGB |
 
-**Fog Rendering:**
+## Moon Lighting and Night Fields
 
-- **SunFogOn=1**: Fog active
-- **SunFogNear**: Distance where fog begins (world units)
-- **SunFogFar**: Distance where fog is opaque
-- **SunFogColor**: Fog tint color (atmosphere)
-
-**Fog Calculation:**
-
-- Linear interpolation from Near to Far
-- Objects beyond Far fully obscured
-- Creates depth perception and atmosphere
-
-## Moon Lighting (Unused)
+The moon-lighting block remains in the schema and is preserved by the local reader, but it is grouped with the legacy/deprecated-style fields rather than the main ARE state. `MoonFogNear` and `MoonFogFar` use the same `10000.0` default pattern as the sun fog fields when absent. [[`construct_are` moon-field reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L383-L391)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `MoonAmbientColor` | color | Moon ambient light (unused) |
-| `MoonDiffuseColor` | color | Moon diffuse light (unused) |
-| `MoonFogOn` | [byte](GFF-File-Format#gff-data-types) | Moon fog toggle (unused) |
-| `MoonFogNear` | float | Moon fog start (unused) |
-| `MoonFogFar` | float | Moon fog end (unused) |
-| `MoonFogColor` | color | Moon fog color (unused) |
-| `MoonShadows` | [byte](GFF-File-Format#gff-data-types) | Moon shadows (unused) |
-| `IsNight` | [byte](GFF-File-Format#gff-data-types) | Night time flag (unused) |
-
-**Moon System:**
-
-- Defined in file format but not used by KotOR engine
-- Intended for day/night cycle (not implemented)
-- Always use Sun settings for lighting
+| `MoonAmbientColor` | color | Moon ambient light color |
+| `MoonDiffuseColor` | color | Moon diffuse light color |
+| `MoonFogOn` | [byte](GFF-File-Format#gff-data-types) | Moon fog toggle |
+| `MoonFogNear` | float | Moon fog start distance |
+| `MoonFogFar` | float | Moon fog end distance |
+| `MoonFogColor` | color | Moon fog color |
+| `MoonShadows` | [byte](GFF-File-Format#gff-data-types) | Moon-shadow toggle |
+| `IsNight` | [byte](GFF-File-Format#gff-data-types) | Night-state flag |
 
 ## Grass Rendering
+
+Grass-related fields are read directly from the ARE root: `Grass_TexName` as a `ResRef`, the density/size/probability controls as scalars, and the ambient/diffuse/emissive colors through RGB conversion. The local reader treats `Grass_Emissive` as optional and KotOR II-specific. [[`construct_are` grass scalar reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L350-L358), [`construct_are` grass color reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L405-L408)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -130,14 +114,9 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `Grass_Prob_UL` | float | Spawn probability upper-left |
 | `Grass_Prob_UR` | float | Spawn probability upper-right |
 
-**Grass System:**
-
-- **Grass_TexName**: [texture](Texture-Formats#tpc) for grass blades (TGA/[TPC](Texture-Formats#tpc))
-- **Grass_Density**: Coverage density [[`are.py` L43](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L43)]
-- **Grass_QuadSize**: Patch size in world units [[`are.py` L44](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L44)]
-- **Probability fields**: Control grass distribution per corner [[`are.py` L45-L48](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L45)]
-
 ## Weather System (KotOR2)
+
+The KotOR II weather block is schema-derived from the local reader: `ChanceRain`, `ChanceSnow`, and `ChanceLightning` are acquired as optional integers with `0` defaults when absent. [[`construct_are` weather reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L373-L375)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -145,13 +124,9 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `ChanceSnow` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Snow probability (0-100) |
 | `ChanceLightning` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Lightning probability (0-100) |
 
-**Weather Effects:**
-
-- Random weather based on probability
-- Particle effects for rain/snow
-- Lightning provides flash and sound
-
 ## Dirty/Dust Settings (KotOR2)
+
+The dirty/dust block is likewise schema-derived from the current reader: each of the three layers stores an ARGB color plus size, formula, and function integers, all defaulting to `0` when missing. [[`construct_are` dirty-field reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L376-L382), [`construct_are` dirty-color reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L408-L410)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -168,13 +143,9 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `DirtyFormulaThre` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Third dust formula type |
 | `DirtyFuncThree` (KotOR2) | [int32](GFF-File-Format#gff-data-types) | Third dust function |
 
-**Dust Particle System:**
-
-- Three independent dust layers
-- Each layer has color, size, and behavior
-- Creates atmospheric dust/smoke effects
-
 ## Environment & Camera
+
+The environment block mixes two different field families in the local schema: `DefaultEnvMap`, `CameraStyle`, `AlphaTest`, and `WindPower` are part of the primary read path, while `LightingScheme` remains in the legacy/deprecated-style group. `AlphaTest` defaults to `0.2` and `WindPower` is normalized into the local `AREWindPower` enum. [[`construct_are` environment reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L349-L350), [`construct_are` alpha/wind reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L364-L367), [`construct_are` lighting scheme read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L391-L392)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -182,19 +153,11 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `CameraStyle` | [int32](GFF-File-Format#gff-data-types) | Camera behavior type |
 | `AlphaTest` | float | Alpha testing threshold (default 0.2) [[`are.py` L368](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L368), [reone `are.cpp` L302](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L302)] |
 | `WindPower` | [int32](GFF-File-Format#gff-data-types) | Wind strength for effects (`AREWindPower`: Still=0, Weak=1, Strong=2) [[`are.py` L298](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L298), [reone `are.cpp` L383](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L383)] |
-| `LightingScheme` | [int32](GFF-File-Format#gff-data-types) | Lighting scheme identifier (unused) |
-
-**Environment Mapping:**
-
-- `DefaultEnvMap`: Cubemap for reflective surfaces
-- Applied to [models](MDL-MDX-File-Format) without specific envmaps
-
-**Camera Behavior:**
-
-- `CameraStyle`: Determines camera constraints
-- Defines zoom, rotation, and collision behavior
+| `LightingScheme` | [int32](GFF-File-Format#gff-data-types) | Lighting-scheme identifier |
 
 ## Area behavior flags
+
+The area-behavior block is mostly scalar flag state in the local schema. `construct_are` reads `Unescapable`, `DisableTransit`, `StealthXPEnabled`, `StealthXPLoss`, and `StealthXPMax` as part of the main path, while `DayNightCycle`, `LoadScreenID`, `NoRest`, `NoHangBack`, `PlayerOnly`, and `PlayerVsPlayer` live in the broader preserved field set. [[`construct_are` flag reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L367-L372), [`construct_are` preserved area flags](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L391-L396)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -203,37 +166,25 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `StealthXPEnabled` | [byte](GFF-File-Format#gff-data-types) | Award stealth XP |
 | `StealthXPLoss` | [int32](GFF-File-Format#gff-data-types) | Stealth detection XP penalty |
 | `StealthXPMax` | [int32](GFF-File-Format#gff-data-types) | Maximum stealth XP per area |
-| `DayNightCycle` | [byte](GFF-File-Format#gff-data-types) | Day/night cycle enabled (unused by engine) [[`are.py` L421](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L421), [reone `are.cpp` L309](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L309)] |
+| `DayNightCycle` | [byte](GFF-File-Format#gff-data-types) | Day/night-cycle toggle [[`are.py` L421](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L421), [reone `are.cpp` L309](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L309)] |
 | `LoadScreenID` | UInt16 | Loading screen to display [[`are.py` L422](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L422), [reone `are.cpp` L339](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L339)] |
-| `NoRest` | [byte](GFF-File-Format#gff-data-types) | Prevent resting in this area (unused by engine) [[`are.py` L423](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L423), [reone `are.cpp` L359](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L359)] |
-| `NoHangBack` | [byte](GFF-File-Format#gff-data-types) | No hang-back behavior (unused by engine) [[`are.py` L424](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L424)] |
-| `PlayerOnly` | [byte](GFF-File-Format#gff-data-types) | Player-only area flag (unused by engine) [[`are.py` L425](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L425)] |
-| `PlayerVsPlayer` | [byte](GFF-File-Format#gff-data-types) | PvP enabled flag (unused by engine) [[`are.py` L426](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L426)] |
-
-**Stealth System:**
-
-- **StealthXPEnabled**: Area rewards stealth gameplay
-- **StealthXPMax**: Cap on XP from stealth
-- **StealthXPLoss**: Penalty when detected
-
-**Area Restrictions:**
-
-- **Unescapable**: Prevents save/load menus (story sequences)
-- **DisableTransit**: Locks player in current location
+| `NoRest` | [byte](GFF-File-Format#gff-data-types) | No-rest area flag [[`are.py` L423](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L423), [reone `are.cpp` L359](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L359)] |
+| `NoHangBack` | [byte](GFF-File-Format#gff-data-types) | Hang-back behavior flag [[`are.py` L424](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L424)] |
+| `PlayerOnly` | [byte](GFF-File-Format#gff-data-types) | Player-only area flag [[`are.py` L425](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L425)] |
+| `PlayerVsPlayer` | [byte](GFF-File-Format#gff-data-types) | Player-versus-player flag [[`are.py` L426](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L426)] |
 
 ## Skill Check Modifiers
 
+`ModSpotCheck` and `ModListenCheck` are preserved by the local reader as optional integer fields with `0` defaults, but they are part of the same deprecated-style group as the other legacy Aurora carryovers rather than the minimal KotOR area state. [[`construct_are` skill-modifier reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L383-L384)]
+
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `ModSpotCheck` | [int32](GFF-File-Format#gff-data-types) | Awareness skill modifier (unused) |
-| `ModListenCheck` | [int32](GFF-File-Format#gff-data-types) | Listen skill modifier (unused) |
-
-**Skill Modifiers:**
-
-- Intended to modify detection checks area-wide
-- Not implemented in KotOR engine
+| `ModSpotCheck` | [int32](GFF-File-Format#gff-data-types) | Area awareness-skill modifier |
+| `ModListenCheck` | [int32](GFF-File-Format#gff-data-types) | Area listen-skill modifier |
 
 ## Script Hooks
+
+The ARE script hooks are explicit in both the local schema and the recovered K1/TSL area loaders. `construct_are` reads `OnEnter`, `OnExit`, `OnHeartbeat`, and `OnUserDefined` as `ResRef`s with blank defaults, and the current retail loader recovery already shows those labels feeding the shared `ReadFieldCResRef` path in the area-header load. [[`construct_are` hook reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L372-L372), [`construct_are` hook reads continuation](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L372-L375)] `LoadAreaHeader @ (/K1/k1_win_gog_swkotor.exe @ 0x00508c50, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00718a20)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -241,13 +192,6 @@ PyKotor models areas through [`ARE`, `construct_are`, `read_are`, and `write_are
 | `OnExit` | *ResRef* | Fires when leaving area |
 | `OnHeartbeat` | *ResRef* | Fires periodically |
 | `OnUserDefined` | *ResRef* | Fires on user-defined events |
-
-**Script Execution:**
-
-- **OnEnter**: Fires when entering area [[`are.py` L59](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L59)]
-- **OnExit**: Fires when leaving area
-- **OnHeartbeat**: Periodic execution [[`are.py` L62](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L62)]
-- **OnUserDefined**: Custom event handling
 
 ## Minimap coordinate system
 
@@ -269,23 +213,11 @@ The ARE file contains a `Map` struct that defines how the minimap texture (`lbl_
 | `MapZoom` | [int32](GFF-File-Format#gff-data-types) | Map zoom level |
 | `MapResX` | [int32](GFF-File-Format#gff-data-types) | Map [texture](Texture-Formats#tpc) resolution X dimension |
 
-**coordinate System:**
+These fields form two calibration pairs: two normalized map-space points and their matching world-space points, plus the `NorthAxis` flag that decides whether the transform is direct or axis-swapped. That is the same data shape PyKotor reads from `construct_are`, reone parses into `ARE_Map`, and reone copies into its live map object before doing coordinate conversion. [[`construct_are` map reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L323-L344), [reone `parseARE_Map`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/are.cpp#L283-L298), [reone `Map::loadProperties`](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L51-L63)]
 
-- **Map Points** (`MapPt1X/Y`, `MapPt2X/Y`): Normalized [texture](Texture-Formats#tpc) coordinates (0.0-1.0) that correspond to specific locations on the minimap [texture](Texture-Formats#tpc)
-- **World Points** (`WorldPt1X/Y`, `WorldPt2X/Y`): World space coordinates (in game units) that correspond to the same locations in the 3D [walkmesh](Level-Layout-Formats#bwm)
-- **NorthAxis**: Determines which axis is "north" and affects coordinate mapping (see below)
+### Coordinate [transformation](Level-Layout-Formats#adjacencies-wok-only)
 
-### coordinate [transformation](Level-Layout-Formats#adjacencies-wok-only)
-
-The game engine uses a linear [transformation](Level-Layout-Formats#adjacencies-wok-only) to convert between world coordinates and map [texture](Texture-Formats#tpc) coordinates. This allows:
-
-1. **Rendering the minimap [texture](Texture-Formats#tpc)** in world space (overlaying it on the [walkmesh](Level-Layout-Formats#bwm))
-2. **Converting player position** to minimap coordinates for the minimap UI
-3. **Placing map notes** at correct positions on the minimap
-
-**Mathematical Formula (World --> Map [texture](Texture-Formats#tpc) coordinates):**
-
-Reference: **[reone](https://github.com/seedhartha/reone)**: [`src/libs/game/gui/map.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/game/gui/map.cpp) - `getMapPosition()`
+reone's `Map::getMapPosition()` is the cleanest published implementation of the ARE map transform. For `NorthAxis` values `0` and `1`, it scales world X and Y directly into map X and Y; for values `2` and `3`, it swaps the axes before applying the same linear interpolation shape. [[reone `Map::getMapPosition` direct case](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L174-L188), [reone `Map::getMapPosition` swapped case](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L188-L198)]
 
 For **NorthAxis 0 or 1** (PositiveY or NegativeY):
 
@@ -305,7 +237,7 @@ mapPos.x = (world.y - WorldPt1Y) * scaleY + MapPt1X
 mapPos.y = (world.x - WorldPt1X) * scaleX + MapPt1Y
 ```
 
-**Inverse Transformation (Map [texture](Texture-Formats#tpc) --> World coordinates):**
+### Inverse transformation
 
 For rendering the minimap [texture](Texture-Formats#tpc) in world space:
 
@@ -332,241 +264,27 @@ originY = WorldPt1Y - MapPt1Y * worldScaleY
 | 2 | PositiveX | +X is north | Swapped: world.x --> map.y, world.y --> map.x |
 | 3 | NegativeX | -X is north | Swapped: world.x --> map.y, world.y --> map.x |
 
-**NorthAxis Usage:**
-
-- Determines which direction is "north" for the minimap
-- Affects how world coordinates map to [texture](Texture-Formats#tpc) coordinates
-- Used for rotating the player arrow on the minimap
-- Cases 0,1 use direct mapping; cases 2,3 swap X/Y axes
-
 ### Map [texture](Texture-Formats#tpc)
 
-The minimap [texture](Texture-Formats#tpc) is loaded from [texture](Texture-Formats#tpc) resource:
-
-- **Resource Name**: `lbl_map<resname>` (e.g., `lbl_maptat001` for area `tat001`)
-- **format**: [TPC](Texture-Formats#tpc) ([texture](Texture-Formats#tpc) Pack Container)
-- **Typical size**: 435x256 pixels (may vary)
-- **Usage**: Displayed in minimap UI and overlaid on [walkmesh](Level-Layout-Formats#bwm) in editor
-
-**Relationship to [walkmesh](Level-Layout-Formats#bwm):**
-
-- The minimap [texture](Texture-Formats#tpc) represents a top-down view of the area's [walkmesh](Level-Layout-Formats#bwm)
-- Map points correspond to specific [vertices](MDL-MDX-File-Format#vertex-structure) and [faces](MDL-MDX-File-Format#face-structure) in the walkmesh ([BWM file](Level-Layout-Formats#bwm))
-- The blue walkable area shown in editors is rendered from the [walkmesh](Level-Layout-Formats#bwm) [faces](MDL-MDX-File-Format#face-structure)
-- For proper gameplay these must align:
-
-  - Minimap [texture](Texture-Formats#tpc)
-  - [walkmesh](Level-Layout-Formats#bwm)
-- Misalignment causes the walkable area to appear rotated/flipped relative to the minimap image
+reone loads the area minimap texture as `lbl_map` plus the area resref and pairs it with the player-arrow texture at render time. Holocron Toolset's walkmesh renderer takes the complementary editor view: it builds 2D paths from walkmesh faces and then draws textures with an explicit translate, rotate, and scale step on top of that projection. [[reone `Map::loadTextures`](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L64-L86), [walkmesh renderer face build](https://github.com/OpenKotOR/PyKotor/blob/master/Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py#L560-L577), [walkmesh renderer image draw](https://github.com/OpenKotOR/PyKotor/blob/master/Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py#L612-L635)]
 
 ### Implementation Notes
 
-**coordinate Precision:**
-
-- Map points are normalized (0.0-1.0) and require high precision (6+ decimal places)
-- Rounding errors can cause misalignment between [walkmesh](Level-Layout-Formats#bwm) and minimap [texture](Texture-Formats#tpc)
-- Always preserve full precision when editing map coordinates
-
-**Common Issues:**
-
-1. **Misaligned Minimap**: Caused by incorrect coordinate [transformation](Level-Layout-Formats#adjacencies-wok-only) or NorthAxis handling
-2. **Inverted Mapping**: Negative scales indicate inverted mapping ([texture](Texture-Formats#tpc) needs mirroring)
-3. **Precision Loss**: Using insufficient decimal precision in UI spinboxes causes drift
-
-**Editor Rendering:**
-
-When rendering the minimap [texture](Texture-Formats#tpc) over the [walkmesh](Level-Layout-Formats#bwm) in editors:
-
-- Calculate linear scale: `worldScale = worldDelta / mapDelta`
-- Calculate origin: `origin = worldPoint1 - mapPoint1 * worldScale`
-- Handle NorthAxis swapping for cases 2,3
-- Mirror [texture](Texture-Formats#tpc) if scale is negative (inverted mapping)
-
-**Reference Implementations:**
-
-- **[reone](https://github.com/seedhartha/reone)**: [`src/libs/game/gui/map.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/game/gui/map.cpp) - `getMapPosition()` function
-- **[reone](https://github.com/seedhartha/reone)**: [`src/libs/resource/parser/gff/are.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp) - are parsing
-- `Libraries/PyKotor/src/pykotor/resource/generics/are.py` - PyKotor are implementation
-- `Tools/HolocronToolset/src/toolset/gui/widgets/renderer/[walkmesh](Level-Layout-Formats#bwm).py` - Minimap rendering
+The evidence-backed implementation point here is simply that these values are float calibration data used to align a texture-space minimap with world-space area geometry. The page intentionally stops at that transform and renderer shape rather than prescribing extra editor heuristics that are not directly anchored in one of the cited code paths. [[`construct_are` map reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L323-L344), [reone `Map::getMapPosition`](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L174-L198), [walkmesh renderer face build](https://github.com/OpenKotOR/PyKotor/blob/master/Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py#L560-L577)]
 
 ## Rooms & Audio Zones
+
+`Rooms` is another straightforward schema-derived list. PyKotor reads each row into `ARERoom` objects with `RoomName`, `EnvAudio`, `AmbientScale`, `DisableWeather`, and `ForceRating`, and reone parses the same members from the ARE GFF. [[`construct_are` rooms read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L412-L419), [reone `parseARE_Rooms`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/are.cpp#L243-L252)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Rooms` | [List](GFF-File-Format#gff-data-types) | Room definitions for audio zones and minimap regions |
 
-**Rooms Struct fields:**
-
-- `RoomName` ([CExoString](GFF-File-Format#gff-data-types)): Room identifier (referenced by [VIS files](Level-Layout-Formats#vis))
-- `EnvAudio` ([int32](GFF-File-Format#gff-data-types)): Environment audio index for room acoustics
-- `AmbientScale` (float): Ambient audio volume scaling factor
-- `DisableWeather` (KotOR2, [byte](GFF-File-Format#gff-data-types)): Disable weather effects in this room
-- `ForceRating` (KotOR2, [int32](GFF-File-Format#gff-data-types)): Force rating modifier for this room
-
-**Room System:**
-
-- Defines minimap regions and audio zones
-- Each room has audio properties (EnvAudio, AmbientScale)
-- Audio transitions smoothly between rooms
-- Minimap reveals room-by-room as player explores
-- Rooms referenced by [VIS](Level-Layout-Formats#vis) (visibility) files for audio occlusion
-- KotOR2: Rooms can disable weather and modify force rating
+Each room row contains `RoomName`, `EnvAudio`, `AmbientScale`, and, in the KotOR II-shaped schema, optional `DisableWeather` and `ForceRating` values. [[`construct_are` rooms read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L412-L419), [reone `parseARE_Rooms`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/are.cpp#L243-L252)]
 
 ## Implementation Notes
 
-PyKotor deserializes ARE fields via `construct_are` [[`are.py` L311](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L311)]. The mathematical formulas and reference implementations for minimap coordinate mapping are cited in the Map coordinate section above.
-
-### Minimap coordinate System Best Practices
-
-**Precision Requirements:**
-
-- Map coordinates (`MapPt1X/Y`, `MapPt2X/Y`) are normalized (0.0-1.0) and require **at least 6 decimal places** of precision
-- Using insufficient precision (e.g., 2 decimals) causes coordinate drift during roundtrip operations
-- Example: `0.6669999957084656` rounded to 2 decimals becomes `0.67`, causing misalignment
-
-**Common Pitfalls:**
-
-1. **Incorrect rotation**: Do NOT rotate map points around (0.5, 0.5) - use direct linear [transformation](Level-Layout-Formats#adjacencies-wok-only)
-2. **Precision Loss**: Always use high-precision spinboxes (6+ decimals) for map coordinate editing
-3. **NorthAxis Handling**: Remember that cases 2,3 swap X/Y coordinates in the [transformation](Level-Layout-Formats#adjacencies-wok-only)
-4. **Negative Scales**: Negative scale values indicate inverted mapping - mirror the [texture](Texture-Formats#tpc) accordingly
-
-**Validation:**
-
-- Always validate map coordinates preserve exactly through save/load roundtrips
-- Test minimap alignment visually in editor after coordinate changes
-- Verify [walkmesh](Level-Layout-Formats#bwm) and minimap [texture](Texture-Formats#tpc) align correctly for all NorthAxis values
-
-### Minimap Rendering Implementation Details
-
-**World Space [texture](Texture-Formats#tpc) Rendering:**
-
-When rendering the minimap [texture](Texture-Formats#tpc) over the [walkmesh](Level-Layout-Formats#bwm) in editors, the following steps are required:
-
-1. **Calculate World scale Factors:**
-
-   ```
-   worldScaleX = (WorldPt1X - WorldPt2X) / (MapPt1X - MapPt2X)
-   worldScaleY = (WorldPt1Y - WorldPt2Y) / (MapPt1Y - MapPt2Y)
-   ```
-
-   These represent world units per [texture](Texture-Formats#tpc) unit (inverse of reone's scale factors).
-
-2. **Calculate [texture](Texture-Formats#tpc) Origin in World Space:**
-
-   ```
-   originX = WorldPt1X - MapPt1X * worldScaleX
-   originY = WorldPt1Y - MapPt1Y * worldScaleY
-   ```
-
-   This finds where [texture](Texture-Formats#tpc) coordinate (0,0) maps to in world space.
-
-3. **Calculate [texture](Texture-Formats#tpc) End in World Space:**
-
-   ```
-   endX = WorldPt1X + (1.0 - MapPt1X) * worldScaleX
-   endY = WorldPt1Y + (1.0 - MapPt1Y) * worldScaleY
-   ```
-
-   This finds where [texture](Texture-Formats#tpc) coordinate (1,1) maps to in world space.
-
-4. **Handle NorthAxis coordinate Swapping:**
-   - For NorthAxis 2 or 3: Swap `originX/originY` and `endX/endY` ([texture](Texture-Formats#tpc) X maps to world Y, [texture](Texture-Formats#tpc) Y maps to world X)
-
-5. **Handle Inverted Mappings:**
-   - If `worldScaleX < 0` or `worldScaleY < 0`: Mirror the [texture](Texture-Formats#tpc) horizontally/vertically respectively
-   - Negative scales indicate the mapping is inverted ([texture](Texture-Formats#tpc) is flipped relative to world space)
-
-6. **Render [texture](Texture-Formats#tpc):**
-   - Draw [texture](Texture-Formats#tpc) in world space rectangle from `(min(originX, endX), min(originY, endY))` to `(max(originX, endX), max(originY, endY))`
-   - Apply mirroring if scales are negative
-
-**Mathematical Derivation:**
-
-The inverse [transformation](Level-Layout-Formats#adjacencies-wok-only) is derived from reone's forward [transformation](Level-Layout-Formats#adjacencies-wok-only):
-
-Forward (World --> Map): `mapPos.x = (world.x - WorldPt1X) * scaleX + MapPt1X`
-
-Solving for world.x:
-
-```
-mapPos.x - MapPt1X = (world.x - WorldPt1X) * scaleX
-(mapPos.x - MapPt1X) / scaleX = world.x - WorldPt1X
-world.x = WorldPt1X + (mapPos.x - MapPt1X) / scaleX
-```
-
-Substituting `scaleX = (MapPt1X - MapPt2X) / (WorldPt1X - WorldPt2X)`:
-
-```
-world.x = WorldPt1X + (mapPos.x - MapPt1X) * (WorldPt1X - WorldPt2X) / (MapPt1X - MapPt2X)
-```
-
-For [texture](Texture-Formats#tpc) origin (mapPos = 0):
-
-```
-world.x = WorldPt1X - MapPt1X * (WorldPt1X - WorldPt2X) / (MapPt1X - MapPt2X)
-world.x = WorldPt1X - MapPt1X * worldScaleX
-```
-
-**Common Rendering Bugs:**
-
-1. **rotation Around Center Bug:**
-   - **Symptom**: Walkable area appears rotated/flipped ~180° relative to minimap [texture](Texture-Formats#tpc)
-   - **Cause**: Incorrectly rotating map points around (0.5, 0.5) before calculating [texture](Texture-Formats#tpc) position
-   - **Fix**: Use direct linear [transformation](Level-Layout-Formats#adjacencies-wok-only) without any rotation of map points
-   - **Pattern**: `map_point = rotate(map_point - 0.5, angle) + 0.5` ❌ (WRONG)
-
-2. **Precision Loss Bug:**
-   - **Symptom**: coordinates drift during save/load (e.g., 0.667 --> 0.67)
-   - **Cause**: UI spinboxes with insufficient decimal precision (default 2 decimals)
-   - **Fix**: Set spinbox decimals to 6+ for normalized coordinates
-   - **Impact**: Causes cumulative misalignment over multiple roundtrips
-
-3. **NorthAxis Swapping Bug:**
-   - **Symptom**: Minimap appears correct for NorthAxis 0,1 but wrong for 2,3
-   - **Cause**: Not handling coordinate axis swapping for NorthAxis 2,3
-   - **Fix**: Swap X/Y coordinates when NorthAxis is 2 or 3
-
-4. **Inverted Mapping Bug:**
-   - **Symptom**: Minimap [texture](Texture-Formats#tpc) appears flipped horizontally or vertically
-   - **Cause**: Not detecting and handling negative scale values
-   - **Fix**: Check scale signs and mirror [texture](Texture-Formats#tpc) accordingly
-
-**[walkmesh](Level-Layout-Formats#bwm) Alignment:**
-
-The blue walkable area rendered in editors comes from the walkmesh ([BWM file](Level-Layout-Formats#bwm)) [faces](MDL-MDX-File-Format#face-structure). The minimap [texture](Texture-Formats#tpc) must align with this [walkmesh](Level-Layout-Formats#bwm):
-
-- **[walkmesh](Level-Layout-Formats#bwm) coordinates**: 3D world space coordinates (X, Y, Z)
-- **Minimap [texture](Texture-Formats#tpc)**: 2D [texture](Texture-Formats#tpc) coordinates (0.0-1.0) mapped to world X/Y plane
-- **Alignment**: Map points correspond to specific [walkmesh](Level-Layout-Formats#bwm) [vertices](MDL-MDX-File-Format#vertex-structure) and [faces](MDL-MDX-File-Format#face-structure)
-- **Verification**: The walkable area outline should match the minimap [texture](Texture-Formats#tpc) boundaries
-
-**Testing & Validation:**
-
-1. **Roundtrip Validation:**
-   - Load are file --> Save without changes --> Load saved file
-   - Verify all map coordinates (`MapPt1X/Y`, `MapPt2X/Y`, `WorldPt1X/Y`, `WorldPt2X/Y`) preserve exactly (tolerance: 0.0001)
-   - Verify NorthAxis, MapZoom, MapResX preserve exactly
-
-2. **Visual Alignment Check:**
-   - Open are in editor with [walkmesh](Level-Layout-Formats#bwm) loaded
-   - Verify blue walkable area aligns with minimap [texture](Texture-Formats#tpc)
-   - Check alignment for all NorthAxis values (0, 1, 2, 3)
-   - Verify [texture](Texture-Formats#tpc) isn't flipped or rotated incorrectly
-
-3. **coordinate [transformation](Level-Layout-Formats#adjacencies-wok-only) Test:**
-   - Pick known world coordinates from [walkmesh](Level-Layout-Formats#bwm)
-   - Convert to map coordinates using forward [transformation](Level-Layout-Formats#adjacencies-wok-only)
-   - Verify map coordinates are within valid range (0.0-1.0)
-   - Convert back to world coordinates using inverse [transformation](Level-Layout-Formats#adjacencies-wok-only)
-   - Verify roundtrip accuracy (tolerance: 0.01 world units)
-
-**Reference Code Locations:**
-
-- **Reone Forward [transformation](Level-Layout-Formats#adjacencies-wok-only)**: **[reone](https://github.com/seedhartha/reone)**: [`src/libs/game/gui/map.cpp:174-199`](https://github.com/seedhartha/reone/blob/master/src/libs/game/gui/map.cpp#L174-L199) - `getMapPosition()`
-- **Reone are Parsing**: **[reone](https://github.com/seedhartha/reone)**: [`src/libs/resource/parser/gff/are.cpp:284-297`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/are.cpp#L284-L297) - Map struct parsing
-- **PyKotor are Class**: `Libraries/PyKotor/src/pykotor/resource/generics/are.py:250-260` - Map coordinate storage
-- **PyKotor Minimap Rendering**: `Tools/HolocronToolset/src/toolset/gui/widgets/renderer/[walkmesh](Level-Layout-Formats#bwm).py:555-603` - [texture](Texture-Formats#tpc) rendering implementation
+PyKotor deserializes ARE fields through `construct_are`, and the evidence-backed part of the minimap discussion is now confined to the map struct shape, the linear transform used by reone, and the corresponding walkmesh-plus-texture renderer shape in Holocron Toolset. The page intentionally avoids extra editor-specific bug taxonomies or workflow advice that are not directly grounded in those cited code paths. [[`construct_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L311-L419), [reone `Map::getMapPosition`](https://github.com/seedhartha/reone/blob/main/src/libs/game/gui/map.cpp#L174-L198), [walkmesh renderer image draw](https://github.com/OpenKotOR/PyKotor/blob/master/Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py#L612-L635)]
 
 ## See also
 
@@ -588,43 +306,31 @@ The blue walkable area rendered in editors comes from the walkmesh ([BWM file](L
 
 Part of the [GFF File Format Documentation](GFF-File-Format).
 
-[GIT files](GFF-File-Format#git-game-instance-template) store dynamic instance data for areas, defining where creatures, doors, placeables, triggers, waypoints, stores, encounters, sounds, and cameras are positioned in the game world. While [ARE](GFF-Module-and-Area#are) files define static environmental properties, [GIT files](GFF-File-Format#git-game-instance-template) hold **instance lists** and **root-level audio/music ints** used when the area loads. GIT files are loaded with the same [resource resolution order](Concepts#resource-resolution-order) as other resources (override, MOD/SAV, KEY/BIF).
+[GIT files](GFF-File-Format#git-game-instance-template) are the dynamic companion to ARE: the local schema stores per-area instance lists for creatures, doors, placeables, triggers, waypoints, stores, encounters, sounds, and cameras, plus an `AreaProperties` struct for ambient-audio and music integers. The exact KotOR retail list-label reads still need a cleaner caller pass than the current ARE loader work, so the object-family split below is intentionally schema-derived, but the underlying consumption path is the same typed GFF machinery used across KotOR I, KotOR II, and Aurora. [[`GIT` class and section layout](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57-L147), [`construct_git` root reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1128-L1334)] `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)` `GetListCount @ (/K1/k1_win_gog_swkotor.exe @ 0x00411940, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624970, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0370)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)`
 
 PyKotor carries area instance state through [`GIT`, its `GITCreature` / `GITDoor` / related subclasses, plus `construct_git`, `read_git`, and `write_git`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57), labels the resource as [`GFFContent.GIT`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L162), and parses it through [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82); Holocron Toolset mirrors that data in its [`git.py` instance editor](https://github.com/OpenKotOR/HolocronToolset/src/toolset/gui/editors/git/git.py) and related module-resource workflows. The same generic-GFF treatment appears in reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader stack.
 
 ## Root properties (ambient audio and music)
 
-These fields are stored inside the **`AreaProperties` nested struct** within the GIT root (see PyKotor [`construct_git` / `dismantle_git` around L1135](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1135): `root.acquire("AreaProperties", GFFStruct())`). All engines confirm this nesting: KotOR.js [`ModuleArea.ts` L1017](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModuleArea.ts#L1017), reone [`git.cpp` L180](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/git.cpp#L180). They overlap conceptually with music/ambient columns on [ARE](GFF-Module-and-Area#are); treat [ARE](GFF-Module-and-Area#are) as the place for **static area metadata** (lighting, fog, minimap, hooks) and this section as **GIT-carried ints** the engine reads with the instance template.
+These integers are schema-derived from the `AreaProperties` nested struct inside the GIT root. PyKotor acquires that struct first and then reads `AmbientSndDayVol`, `AmbientSndDay`, `EnvAudio`, `MusicDay`, `MusicBattle`, and `MusicDelay` with `0` defaults when the struct or individual fields are absent, which is the narrow claim justified here. [[`construct_git` AreaProperties reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1147-L1154)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `AmbientSndDay` | Int | Day ambient sound ID |
 | `AmbientSndDayVol` | Int | Day ambient volume (0-127) |
 | `AmbientSndNight` | Int | Night ambient sound ID |
-| `AmbientSndNitVol` | Int | Night ambient volume [[`git.py` L1329](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1329), [reone `git.cpp` L185](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/git.cpp#L185), [KotOR.js `ModuleArea.ts` L1033](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/module/ModuleArea.ts#L1033)] |
+| `AmbientSndNitVol` | Int | Night ambient volume |
 | `EnvAudio` | Int | Environment audio type |
 | `MusicBattle` | Int | Battle music track ID |
 | `MusicDay` | Int | Standard/exploration music ID |
 | `MusicNight` | Int | Night music track ID |
 | `MusicDelay` | Int | Delay before music starts (seconds) |
 
-**Audio Configuration:**
-
-- **Ambient Sounds**: Looping background ambience
-- **Music Tracks**: From `ambientmusic.2da` and `musicbattle.2da`
-- **EnvAudio**: Reverb/echo type for area
-- **MusicDelay**: Prevents instant music start
-
-**Music System:**
-
-- MusicDay plays during exploration
-- MusicBattle triggers during combat
-- MusicNight unused in KotOR (no day/night cycle)
-- Smooth transitions between tracks
+PyKotor's current retail-oriented reader does not populate `AmbientSndNight`, `AmbientSndNitVol`, or `MusicNight` in `construct_git`, so those fields should be read here as schema members that appear in older format descriptions and sibling implementations, not as fields this specific local reader currently depends on during deserialization. [[`construct_git` AreaProperties reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1147-L1154)]
 
 ## Instance Lists
 
-[GIT](GFF-File-Format#git-game-instance-template) files contain multiple lists defining object instances:
+[GIT](GFF-File-Format#git-game-instance-template) files carry multiple top-level instance lists, and PyKotor deserializes each one independently with blank `ResRef`, zero transform, or empty-list defaults when the list or fields are absent. The table below is therefore schema-derived from the actual list names consumed by `construct_git`, not from a fully recovered retail caller walk yet. [[`construct_git` list iteration](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1156-L1334)]
 
 | List field | Contains | Description |
 | ---------- | -------- | ----------- |
@@ -638,23 +344,11 @@ These fields are stored inside the **`AreaProperties` nested struct** within the
 | `SoundList` | GITSound | Positional audio emitters |
 | `CameraList` | GITCamera | Camera definitions |
 
-**Instance structure:**
-
-Each instance type has common fields plus type-specific data:
-
-**Common Instance fields:**
-
-- Position (X, Y, Z coordinates)
-- Orientation ([quaternion](MDL-MDX-File-Format#node-header) or Euler angles)
-- Template ResRef (examples):
-
-  - [UTC](GFF-File-Format#utc-creature)
-  - [UTD](GFF-File-Format#utd-door)
-  - [UTP](GFF-File-Format#utp-placeable)
-  - Other UT* templates as needed
-- Tag override (optional)
+Across those lists, the repeated pattern is straightforward: most instance structs store a template `ResRef`, placement coordinates, and then a small set of per-instance overrides such as tag strings, bearings, link targets, or local payload structs like trigger geometry. [[`construct_git` creature/door/placeable/store/trigger/waypoint reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1166-L1334)]
 
 ## GITCreature Instances
+
+Creature rows are the simplest placement records in the file. The current reader acquires `TemplateResRef`, `XPosition`, `YPosition`, `ZPosition`, and the planar orientation pair, then derives the stored bearing from those orientation components. [[`construct_git` creature reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1166-L1177)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -662,60 +356,31 @@ Each instance type has common fields plus type-specific data:
 | `XPosition` | Float | World X coordinate |
 | `YPosition` | Float | World Y coordinate |
 | `ZPosition` | Float | World Z coordinate |
-| `XOrientation` | Float | orientation X component |
-| `YOrientation` | Float | orientation Y component |
-
-**Creature Spawning:**
-
-Position and orientation from the [GIT](GFF-File-Format#git-game-instance-template) entry are applied to the spawned creature [[`git.py` GITCreature](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L53)].
 
 ## GITDoor Instances
 
+Door instances extend the same placement pattern with module-link data and an optional tweak-color override. In the local reader, `Door List` rows acquire `LinkedTo`, `LinkedToFlags`, `LinkedToModule`, `TransitionDestin`, `Bearing`, placement coordinates, and an optional `TweakColor` gated by `UseTweakColor`. [[`construct_git` door reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1179-L1197)]
+
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `TemplateResRef` | *ResRef* | [UTD](GFF-File-Format#utd-door) template |
-| `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Instance tag override |
-| `LinkedToModule` | *ResRef* | Destination module |
-| `LinkedTo` | [CExoString](GFF-File-Format#gff-data-types) | Destination waypoint tag |
 | `LinkedToFlags` | Byte | Transition flags |
 | `TransitionDestin` | [CExoLocString](GFF-File-Format#gff-data-types) | Destination label (UI) |
 | `X`, `Y`, `Z` | Float | position coordinates |
-| `Bearing` | Float | Door orientation |
-| `TweakColor` | DWord | Door color tint |
-| `Hitpoints` | Short | Current HP override |
-
-**Door Linking:**
-
-- **LinkedToModule**: Target module *ResRef*
-- **LinkedTo**: Waypoint tag in target module
-- **TransitionDestin**: Loading screen text
-- Doors can teleport between modules
-
-**Door Instances:**
-
-- Inherit properties from [UTD](GFF-File-Format#utd-door) template
-- [GIT](GFF-File-Format#git-game-instance-template) can override HP, tag, linked destination
-- position/orientation instance-specific
 
 ## GITPlaceable Instances
 
+Placeable rows are simpler: the current reader acquires `TemplateResRef`, `X`, `Y`, `Z`, `Bearing`, and the same optional tweak-color pattern used by doors. [[`construct_git` placeable reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1220-L1233)]
+
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `TemplateResRef` | *ResRef* | [UTP](GFF-File-Format#utp-placeable) template |
-| `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Instance tag override |
-| `X`, `Y`, `Z` | Float | position coordinates |
 | `Bearing` | Float | rotation angle |
 | `TweakColor` | DWord | color tint |
 | `Hitpoints` | Short | Current HP override |
 | `Useable` | Byte | Can be used override |
 
-**Placeable Spawning:**
-
-- Template defines behavior, appearance
-- [GIT](GFF-File-Format#git-game-instance-template) defines placement and orientation
-- Can override usability and HP at instance level
-
 ## GITTrigger Instances
+
+Trigger rows add module-transition linkage and local geometry. The current reader acquires `TemplateResRef`, `Tag`, `LinkedTo`, `LinkedToFlags`, `LinkedToModule`, `TransitionDestin`, placement coordinates, and then optionally walks a `Geometry` list whose rows carry `PointX`, `PointY`, and `PointZ`. [[`construct_git` trigger reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1260-L1287)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -730,19 +395,9 @@ Position and orientation from the [GIT](GFF-File-Format#git-game-instance-templa
 | `XOrientation`, `YOrientation`, `ZOrientation` | Float | orientation |
 | `Geometry` | List | Trigger volume [vertices](MDL-MDX-File-Format#vertex-structure) |
 
-**Geometry Struct:**
-
-- List of points, each with fields `PointX`, `PointY`, `PointZ` (Float) [[`git.py` L1283-1286](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1283)]
-- Defines trigger boundary polygon
-- Planar geometry (Z-axis extrusion)
-
-**Trigger types:**
-
-- **Area Transition**: LinkedToModule set
-- **Script Trigger**: Fires scripts from [UTT](GFF-File-Format#utt-trigger)
-- **Generic Trigger**: Custom behavior
-
 ## GITWaypoint Instances
+
+Waypoint rows combine the shared placement fields with waypoint-specific UI state. PyKotor reads `LocalizedName`, `Tag`, `TemplateResRef`, `XPosition`, `YPosition`, `ZPosition`, planar orientation, appearance, map-note flags, and an optional localized `MapNote`. [[`construct_git` waypoint reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1289-L1310)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -756,14 +411,9 @@ Position and orientation from the [GIT](GFF-File-Format#git-game-instance-templa
 | `MapNote` | [CExoLocString](GFF-File-Format#gff-data-types) | Map note text |
 | `MapNoteEnabled` | Byte | Map note visible |
 
-**Waypoint Usage:**
-
-- **Spawn Points**: Character entry locations
-- **Pathfinding**: AI navigation targets
-- **Script Targets**: "Go to waypoint X"
-- **Map Notes**: Player-visible markers
-
 ## GITEncounter Instances
+
+Encounter rows are schema-derived from `Encounter List`: the local reader acquires a template `ResRef`, position, an optional `Geometry` list using `X`, `Y`, `Z` point fields, and an optional `SpawnPointList` with spawn coordinates plus a single `Orientation` float. [[`construct_git` encounter reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1199-L1218)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -772,27 +422,21 @@ Position and orientation from the [GIT](GFF-File-Format#git-game-instance-templa
 | `X`, `Y`, `Z` | Float | Spawn position |
 | `Geometry` | List | Spawn zone boundary |
 
-**Encounter System:**
-
-- [geometry](MDL-MDX-File-Format#geometry-header) defines trigger zone
-- Engine spawns creatures from [UTE](GFF-File-Format#ute-encounter) when entered
-- Respawn behavior from [UTE](GFF-File-Format#ute-encounter) template
-
 ## GITStore Instances
+
+Store rows are one of the clearer examples of GIT-as-instance-data: the local reader acquires a store `ResRef`, position, and the planar orientation pair, then derives the bearing exactly as it does for creature instances. [[`construct_git` store reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1242-L1258)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `TemplateResRef` | *ResRef* | [UTM](GFF-File-Format#utm-merchant) template |
-| `ResRef` | *ResRef* | Store ResRef [[`git.py` L1248](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1248)] |
+| `ResRef` | *ResRef* | Store ResRef |
 | `Tag` | [CExoString](GFF-File-Format#gff-data-types) | Store identifier |
 | `X`, `Y`, `Z` | Float | Position (for UI, not physical) |
 | `XOrientation`, `YOrientation` | Float | orientation |
 
-**Store System:**
-
-Store instances carry a `ResRef` field pointing to a [UTM](GFF-Items-and-Economy#utm) file [[`git.py` L1248](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1248)].
-
 ## GITSound Instances
+
+Sound rows are minimal in the current local reader: PyKotor acquires a `TemplateResRef` plus `XPosition`, `YPosition`, and `ZPosition`, leaving the richer sound-emitter schema to the broader format table and sibling implementations. [[`construct_git` sound reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1234-L1240)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -804,39 +448,23 @@ Store instances carry a `ResRef` field pointing to a [UTM](GFF-Items-and-Economy
 | `RandomRangeX`, `RandomRangeY` | Float | position randomization |
 | `Volume` | Byte | Volume level (0-127) |
 
-**Positional Audio:**
-
-Audio emitters store position and volume parameters read by PyKotor into `GITSound` [[`git.py` GITSound](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L53)].
-
 ## GITCamera Instances
+
+Camera rows are also explicit in the local schema: `CameraList` entries acquire `CameraID`, `FieldOfView`, `Height`, `MicRange`, `Orientation`, `Position`, and `Pitch`, which is enough to justify the table below without leaning on unsourced editor behavior claims. [[`construct_git` camera reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1156-L1164)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `CameraID` | Int | Camera identifier |
-| `FieldOfView` | Float | Field of view (degrees) [[`git.py` L1149](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1149)] |
+| `FieldOfView` | Float | Field of view (degrees) |
 | `Height` | Float | Camera height |
 | `MicRange` | Float | Audio capture range |
 | `Orientation` | Vector4 | Camera rotation ([quaternion](MDL-MDX-File-Format#node-header)) |
 | `Pitch` | Float | Camera pitch angle |
 | `Position` | Vector3 | Camera position |
 
-**Camera System:**
-
-Camera definitions store ID, FOV, position and orientation [[`git.py` GITCamera](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L53)].
-
 ## Implementation Notes
 
-**Instance vs. Template:**
-
-- **Template** (blueprint family such as [UTC](GFF-File-Format#utc-creature), [UTD](GFF-File-Format#utd-door), or [UTP](GFF-File-Format#utp-placeable)): Defines what the object is
-- **Instance ([GIT](GFF-File-Format#git-game-instance-template) entry)**: Defines where the object is
-- [GIT](GFF-File-Format#git-game-instance-template) can override specific template properties [[`git.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L53)]
-- Multiple instances can share one template
-
-**Dynamic vs. Static:**
-
-- **[GIT](GFF-File-Format#git-game-instance-template)**: Dynamic instance data
-- **are**: Static area properties
+At the schema level, GIT is the instance layer that places and selectively overrides blueprint-backed objects, while ARE remains the static area-configuration layer. That division is visible directly in the local model types: `construct_git` builds per-instance rows around template `ResRef`s and placement/orientation data, whereas `construct_are` handles the area's persistent environmental configuration. [[`GIT` model types and `construct_git`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L57-L147), [`construct_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L311-L419)]
 
 ### See also
 
@@ -853,45 +481,29 @@ Camera definitions store ID, FOV, position and orientation [[`git.py` GITCamera]
 
 Part of the [GFF File Format Documentation](GFF-File-Format).
 
-IFO files define module-level metadata including entry configuration, expansion requirements, area lists, and module-wide script hooks. [IFO](GFF-File-Format#ifo-module-info) files are the "main" descriptor for game modules, specifying where the player spawns and what scripts run at module scope. IFO files are loaded with the same [resource resolution order](Concepts#resource-resolution-order) as other resources (override, MOD/SAV, KEY/BIF).
-
-**Official Bioware Documentation:** For the authoritative Bioware Aurora Engine [IFO](GFF-File-Format#ifo-module-info) format specification, see [Bioware Aurora IFO Format](Bioware-Aurora-Module-and-Area#ifo).
-
-**For mod developers:**
-
-- To modify module metadata in your mods, see the [TSLPatcher GFFList Syntax Guide](TSLPatcher-GFF-Syntax#gfflist-syntax).
-- For general modding, see [HoloPatcher README for Mod Developers](HoloPatcher#mod-developers).
-
-**Related formats:**
-
-- [ARE](GFF-Module-and-Area#are)
-- [GIT](GFF-File-Format#git-game-instance-template)
-- [NCS](NCS-File-Format)
-- [KEY](Container-Formats#key)
-- [BIF](Container-Formats#bif)
+IFO is the module-scope companion to ARE and GIT. PyKotor's schema records `Mod_Entry_Area`, entry coordinates and facing, `Mod_Area_list`, and the module-wide `Mod_On*` script hooks as first-class fields, which is the safest level to document until the KotOR retail module-loader names are recovered with the same field-name visibility already available for ARE. [[`IFO` class fields](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L25-L84), [`construct_ifo`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L87-L154)] `GetFieldByLabel @ (/K1/k1_win_gog_swkotor.exe @ 0x00411630, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00623a40, /Other BioWare Engines/Aurora/nwmain.exe @ 0x14019fcc0)` `ReadFieldCResRef @ (/K1/k1_win_gog_swkotor.exe @ 0x00411e10, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00624fa0, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a12d0)` `ReadFieldCExoLocString @ (/K1/k1_win_gog_swkotor.exe @ 0x00411fd0, /TSL/k2_win_gog_aspyr_swkotor2.exe @ 0x00625240, /Other BioWare Engines/Aurora/nwmain.exe @ 0x1401a0f80)`
 
 PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, and `write_ifo`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L18), tags them as [`GFFContent.IFO`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/gff_data.py#L164), and decodes them through the same shared [`GFFBinaryReader.load`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/formats/gff/io_gff.py#L82) path that Holocron Toolset builds on for entry points, area lists, and module scripts in its getting-started, module-editor, and module-resources flows. Reone's [`gff.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/gff.cpp) and [`gffreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/resource/format/gffreader.cpp), KotOR.js's [`GFFObject.ts`](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/resource/GFFObject.ts#L24), Kotor.NET's [`GFF.cs`](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorGFF/GFF.cs#L18), and xoreos's Aurora loader likewise treat IFO as a typed GFF root rather than a separate binary dialect.
 
 ## Core Module Identity
+
+These fields are schema-derived from the IFO root. PyKotor reads `Mod_ID`, `Mod_VO_ID`, `Mod_Name`, `Mod_Tag`, and the module entry configuration directly from the root struct, defaulting missing binary/string fields to empty values and missing localized strings to `LocalizedString.from_invalid()`. [[`construct_ifo` root reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L98-L106), [`IFO` defaults](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L25-L84)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Mod_ID` | Void (16 bytes) | Unique module identifier (GUID) |
 | `Mod_Tag` | [CExoString](GFF-File-Format#gff-data-types) | Module tag identifier |
 | `Mod_Name` | [CExoLocString](GFF-File-Format#gff-data-types) | Module name (localized) |
-| `Mod_Description` | [CExoLocString](GFF-File-Format#gff-data-types) | Module description (localized) [[`ifo.py` L132](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L132), [reone `ifo.cpp` L43](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ifo.cpp#L43)] |
+| `Mod_Description` | [CExoLocString](GFF-File-Format#gff-data-types) | Module description (localized) |
 | `Mod_Creator_ID` | UInt32 | Toolset creator ID |
 | `Mod_Version` | UInt32 | Module version number |
 | `Mod_VO_ID` | [CExoString](GFF-File-Format#gff-data-types) | Voice-over folder name |
 
-**Module Identification:**
-
-- **Mod_ID**: 16-[byte](GFF-File-Format#gff-data-types) GUID generated by toolset
-- **Mod_Tag**: Script-accessible identifier
-- **Mod_Name**: Displayed in load screens
-- **Mod_VO_ID**: Subfolder in StreamVoice for voice files
+`Mod_Description`, `Mod_Creator_ID`, and `Mod_Version` live in the same root schema but are part of the broader optional/deprecated-style block in the current reader rather than the minimum entry-state read path. [[`construct_ifo` optional block](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L118-L139)]
 
 ## Entry Configuration
+
+The module entry block is one of the cleanest parts of the local IFO schema: `Mod_Entry_Area` is read as a `ResRef`, `Mod_Entry_X/Y/Z` are read as floats, and `Mod_Entry_Dir_X/Y` are combined into the stored facing angle. When both direction components are absent or zero, the local reader documents the observed-retail fallback as a forward `(1, 0)` entry vector. [[`construct_ifo` entry reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L102-L145)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -902,82 +514,68 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 | `Mod_Entry_Dir_X` | Float | Entry direction X (facing) |
 | `Mod_Entry_Dir_Y` | Float | Entry direction Y (facing) |
 
-**Player Spawn:**
-
-- **Mod_Entry_Area**: Initial area to load (are/[GIT](GFF-File-Format#git-game-instance-template))
-- **Entry position**: XYZ coordinates in world space
-- **Entry Direction**: Player's initial facing angle
-  - Direction computed as: `atan2(Dir_Y, Dir_X)`
-
 ## Area List
+
+`Mod_Area_list` is also schema-derived but precise in the local reader: PyKotor acquires the list, inspects only the first row during construction, and reads `Area_Name` from that row as the canonical area `ResRef` when present. The writer side always emits at least one `Area_Name` row, so the current local tooling model treats one explicit area reference as the minimum serialized shape. [[`construct_ifo` area list read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L146-L151), [`dismantle_ifo` area list write](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L192-L193)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Mod_Area_list` | [List](GFF-File-Format#gff-data-types) | Areas in this module |
 
-**Mod_Area_list Struct fields:**
-
-- `Area_Name` (*ResRef*): [Area](GFF-File-Format#are-area) *ResRef* (are file)
-
-**Area Management:**
-
-- Lists all areas accessible in module
+The row structure relevant to current tooling is just `Area_Name`, stored as the referenced area `ResRef`. [[`construct_ifo` area list read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L146-L151), [reone `IFO_Mod_Area_list` and `parseIFO_Mod_Area_list`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L27-L32)]
 
 ## Expansion Pack Requirements
 
+This block should stay at the schema level for now. PyKotor reads `Expansion_Pack` into `ifo.expansion_id`, and reone parses the same field into its generated `IFO` struct; that is the strongest claim currently supported here, while `Mod_MinGameVer` still reads as a format-convention field pending a better source-backed pass. [[`construct_ifo` expansion read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L130), [reone `IFO` field layout](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/ifo.h#L32-L49), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L34-L46)]
+
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `Expansion_Pack` | [word](GFF-File-Format#gff-data-types) | Required expansion bitfield |
+| `Expansion_Pack` | [word](GFF-File-Format#gff-data-types) | Expansion-pack field |
 | `Mod_MinGameVer` | [CExoString](GFF-File-Format#gff-data-types) | Minimum game version |
 
-**Expansion Flags (Bitfield):**
-
-- **0x01**: Requires expansion pack 1
-- **0x02**: Requires expansion pack 2
+Older format references often describe `Expansion_Pack` as a bitfield, but that interpretation should remain secondary here until it is tied to stronger runtime evidence. [[`construct_ifo` expansion read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L130), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L34-L46)]
 
 ## Starting Movie & HAK files
+
+These are straightforward root fields in both the local and sibling parsers. PyKotor reads `Mod_Hak` as a string and `Mod_StartMovie` as a `ResRef`, while reone parses the same two members into its generated `IFO` struct. [[`construct_ifo` HAK/movie reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L131-L142), [reone `IFO` field layout](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/ifo.h#L32-L75), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L46-L78)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Mod_StartMovie` | *ResRef* | Starting movie file |
 | `Mod_Hak` | [CExoString](GFF-File-Format#gff-data-types) | Required HAK file list |
 
-**Module Initialization:**
-
-- **Mod_StartMovie**: BIK movie played before module loads [[`ifo.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py)]
-- **Mod_Hak**: Semicolon-separated HAK file names
+The safer wording here is simply that IFO stores a starting-movie resref and a HAK-list string; specific launch semantics are left for a runtime audit. [[`construct_ifo` HAK/movie reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L131-L142)]
 
 ## Cache & XP Settings
+
+This subsection needs one distinction that the older text blurred: PyKotor reads `Mod_XPScale`, but its current `construct_ifo` path does not preserve `Mod_IsSaveGame` on read. reone parses both fields, and PyKotor's writer emits `Mod_IsSaveGame` as `0` when constructing a fresh IFO. [[`construct_ifo` XP read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L141), [`dismantle_ifo` savegame write](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L170-L181), [reone `IFO` field layout](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/ifo.h#L49-L75), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L46-L78)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Mod_IsSaveGame` | [byte](GFF-File-Format#gff-data-types) | Module is from save file |
 | `Mod_XPScale` | [byte](GFF-File-Format#gff-data-types) | Experience point multiplier (0-200%) |
 
-**Module flags:**
+So `Mod_IsSaveGame` belongs here as a schema-visible field, but not as a value the current local reader fully round-trips. [[`construct_ifo` XP read](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L141), [`dismantle_ifo` savegame write](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L170-L181), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L46-L78)]
 
-- **Mod_IsSaveGame**: Internal flag (always 0 in files)
-- **Mod_XPScale**: 100 = normal, 200 = double XP
+## Timekeeping Fields
 
-## DawnStar Property (Unused)
+These timing fields are still part of the active schema in both codebases even though the current module-entry evidence collected for this page does not depend on them. PyKotor reads them into `dawn_hour`, `dusk_hour`, `time_scale`, `start_month`, `start_day`, `start_hour`, and `start_year`, and reone parses the same members into its generated `IFO` struct. [[`construct_ifo` time-field reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L134-L141), [reone `IFO` field layout](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/ifo.h#L32-L75), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L34-L78)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
-| `Mod_StartMonth` | UInt32 | Module start month (unused in KotOR) [[`ifo.py` L137](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L137), [reone `ifo.cpp` L69](https://github.com/seedhartha/reone/blob/master/src/libs/resource/parser/gff/ifo.cpp#L69)] |
-| `Mod_StartDay` | UInt32 | Module start day (unused in KotOR) [[`ifo.py` L138](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L138)] |
-| `Mod_StartHour` | UInt32 | Module start hour (unused in KotOR) [[`ifo.py` L139](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L139)] |
-| `Mod_StartYear` | UInt32 | Module start year (unused in KotOR) [[`ifo.py` L140](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L140)] |
-| `Mod_DawnHour` | [byte](GFF-File-Format#gff-data-types) | Dawn start hour (unused) |
-| `Mod_DuskHour` | [byte](GFF-File-Format#gff-data-types) | Dusk start hour (unused) |
-| `Mod_MinPerHour` | UInt32 | Minutes per hour (unused) |
+| `Mod_StartMonth` | UInt32 | Module start month |
+| `Mod_StartDay` | UInt32 | Module start day |
+| `Mod_StartHour` | UInt32 | Module start hour |
+| `Mod_StartYear` | UInt32 | Module start year |
+| `Mod_DawnHour` | [byte](GFF-File-Format#gff-data-types) | Dawn start hour |
+| `Mod_DuskHour` | [byte](GFF-File-Format#gff-data-types) | Dusk start hour |
+| `Mod_MinPerHour` | UInt32 | Minutes per in-game hour |
 
-**Day/Night Cycle:**
-
-- Defined but unused in KotOR
-- Intended for time-based events
-- No dynamic lighting/NPC schedules
+For now, these remain documented as schema-visible timing fields rather than as proven live day/night controls in KotOR retail. [[`construct_ifo` time-field reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L134-L141), [reone `parseIFO`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/ifo.cpp#L34-L78)]
 
 ## Module Script Hooks
+
+The module-hook block is straightforward in the local reader: `construct_ifo` acquires the `Mod_On*` `ResRef` fields directly from the IFO root and defaults them to blank `ResRef`s when omitted. That is the evidence-backed claim here; anything more specific about exact retail dispatch timing still belongs in a later reverse-engineering pass. [[`construct_ifo` hook reads](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L106-L118)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
@@ -997,17 +595,9 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 | `Mod_OnUnAqreItem` | *ResRef* | Fires when item lost/sold |
 | `Mod_OnUsrDefined` | *ResRef* | Fires on user-defined events |
 
-**Script Execution:**
-
-- Module scripts run in module context [[`construct_ifo` in `ifo.py` L94](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L94)]
-
 ## Implementation Notes
 
-**[IFO](GFF-File-Format#ifo-module-info) vs. are vs. GIT:**
-
-- **[IFO](GFF-File-Format#ifo-module-info)**: Module-level metadata and entry config
-- **are**: Static area properties (lighting, fog, grass)
-- **[GIT](GFF-File-Format#git-game-instance-template)**: Dynamic object instances (creatures, doors, etc.)
+At the code level, IFO still fills the module-metadata and entry-selection role, while ARE and GIT supply the chosen area's static and dynamic data. reone's module loader makes that split explicit by parsing IFO first and then loading the target area's ARE and GIT together. [[`construct_ifo`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/ifo.py#L94-L166), [`construct_are`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/are.py#L311-L419), [`construct_git`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/git.py#L1128-L1334), [reone `Module::load` and `loadArea`](https://github.com/seedhartha/reone/blob/main/src/libs/game/object/module.cpp#L42-L96)]
 
 ### See also
 
@@ -1023,38 +613,37 @@ PyKotor models module descriptors through [`IFO`, `construct_ifo`, `read_ifo`, a
 
 # PTH (Path)
 
-PTH is a GFF-based module file that stores the NPC pathfinding graph for an area. It holds a list of 2D nodes (`Path_Points`) and directed edges (`Path_Connections`) that the AI uses to plan high-level movement routes across the area. Unlike the [BWM walkmesh](Level-Layout-Formats#bwm) (which handles per-step collision and surface types), PTH encodes a coarser connectivity graph for NPC route planning [[1](https://deadlystream.com/files/file/518-modhex)] [[2](https://lucasforumsarchive.com/thread/178681-kotor-i-ii-file-format-docs)] [[`pth.py`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L19)].
+PTH is the area path graph resource. PyKotor models it as a GFF-backed `PTH` object whose `Path_Points` rows store 2D coordinates plus an edge-count window into `Path_Conections`, and reone parses the same two lists before converting them into an adjacency list for runtime pathfinding. [[`PTH` and `construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L16-L169), [reone `PTH` structs](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/pth.h#L19-L50), [reone `parsePTH`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/pth.cpp#L27-L52), [reone `Paths::loadPath`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/provider/paths.cpp#L36-L64)]
 
-PTH is stored as a `.res` resource (resource type `0x0BBB`) inside the module package alongside `.are`, `.git`, and `.ifo` [[3](https://lucasforumsarchive.com/thread/178681-kotor-i-ii-file-format-docs)]. In the Holocron Toolset and KotOR Tool, it can be edited with Bead-V's PTH editor [[4](https://deadlystream.com/files/file/518-modhex)].
+In reone's area loader, that parsed path data is elevated into 3D by sampling walkmesh elevation and then handed to the pathfinder, which makes the narrow runtime claim here defensible: PTH is the coarse graph layer, while the walkmesh still supplies area elevation and collision context. [[reone `Area::loadPTH`](https://github.com/seedhartha/reone/blob/main/src/libs/game/object/area.cpp#L394-L415), [reone `Pathfinder::load`](https://github.com/seedhartha/reone/blob/main/src/libs/game/pathfinder.cpp#L40-L55)]
 
 ## Path points
+
+Each `Path_Points` row stores a 2D waypoint plus the slice of the connection list that belongs to it. PyKotor reconstructs outgoing edges by reading `Conections` and `First_Conection` and then walking the `Path_Conections` list; reone's provider does the same when building `Path::Point::adjPoints`. [[`construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L138-L163), [reone `PTH_Path_Points`](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/pth.h#L25-L33), [reone `Paths::loadPath`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/provider/paths.cpp#L36-L64)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Path_Points` | List | List of 2D navigation nodes for this area |
 
-**Path_Points struct fields:**
-
-- `X` (Float): X world coordinate of the node.
-- `Y` (Float): Y world coordinate of the node.
-- `Connections` (Int): Number of outgoing edges from this node.
-- `First_Conection` (Int): Index into `Path_Connections` of the first edge for this node.
+The row members are `X`, `Y`, `Conections`, and `First_Conection`. The misspelling is part of the on-disk schema and is preserved by both PyKotor and reone. [[`construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L145-L157), [reone `parsePTH_Path_Points`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/pth.cpp#L27-L41)]
 
 ## Path connections
+
+`Path_Conections` is the flat edge table referenced by those point rows. Both PyKotor and reone treat each row as a single destination index. [[`construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L138-L163), [reone `PTH_Path_Conections`](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/pth.h#L34-L40), [reone `parsePTH_Path_Conections`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/pth.cpp#L35-L41)]
 
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `Path_Connections` | List | Directed edges between path nodes |
 
-**Path_Connections struct fields:**
-
-- `Destination` (Int): Index of the destination node in `Path_Points`.
+The only member on each row is `Destination`, which indexes another entry in `Path_Points`. [[`construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L159-L162), [reone `parsePTH_Path_Conections`](https://github.com/seedhartha/reone/blob/main/src/libs/resource/parser/gff/pth.cpp#L35-L41)]
 
 ## Notes
 
-- `Path_Points` and `Path_Connections` may both be absent in retail modules; the game treats absent lists as empty [[`pth.py` L19-27](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L19)].
-- The Z coordinate is not used in path movement; pathfinding is effectively 2D.
-- PTH is **not** the same as the walkmesh. The walkmesh ([BWM](Level-Layout-Formats#bwm)) is a triangle mesh used for per-character collision and step-by-step movement. PTH is a separate high-level graph used for route planning.
+PyKotor explicitly treats missing `Path_Points` and `Path_Conections` lists as empty and defaults per-point coordinates and indices to `0.0` and `0` respectively when fields are absent. [[`PTH` docstring and `construct_pth`](https://github.com/OpenKotOR/PyKotor/blob/master/Libraries/PyKotor/src/pykotor/resource/generics/pth.py#L16-L163)]
+
+The path graph itself is 2D on disk: PTH stores only `X` and `Y`, while reone derives per-node `Z` values later by testing walkmesh elevation before loading the graph into the pathfinder. [[reone `PTH_Path_Points`](https://github.com/seedhartha/reone/blob/main/include/reone/resource/parser/gff/pth.h#L25-L33), [reone `Area::loadPTH`](https://github.com/seedhartha/reone/blob/main/src/libs/game/object/area.cpp#L394-L415)]
+
+That separation is the important distinction from [BWM](Level-Layout-Formats#bwm): PTH supplies graph connectivity, while the walkmesh still supplies the physical surface the game samples against. [[reone `Area::loadPTH`](https://github.com/seedhartha/reone/blob/main/src/libs/game/object/area.cpp#L394-L415), [reone `Pathfinder::load`](https://github.com/seedhartha/reone/blob/main/src/libs/game/pathfinder.cpp#L40-L55)]
 
 ### See also
 

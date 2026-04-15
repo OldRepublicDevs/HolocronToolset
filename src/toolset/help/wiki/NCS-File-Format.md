@@ -23,9 +23,9 @@ All major reverse-engineered engines decode the same structure: [reone](https://
 
 NWScript uses a [stack-based VM](https://en.wikipedia.org/wiki/Stack_machine) where all operations work on a *stack* rather than CPU registers. Stack grows downward with negative offsets, 4-[byte](https://en.wikipedia.org/wiki/Byte) aligned elements.
 
-**Stack Pointer (SP):** `SP = (stackPtr + 1) * -4`. Stack positions are negative multiples of 4 (e.g., *-4*, *-8*, *-12*).
+Stack pointer (SP): `SP = (stackPtr + 1) * -4`. Stack positions are negative multiples of 4 (e.g., *-4*, *-8*, *-12*).
 
-**Stack Layout Example:**
+Stack layout example:
 
 ```mermaid
 graph TD
@@ -41,22 +41,22 @@ graph TD
 - Each node shows the stack offset, variable name, and value.
 */
 
-**Stack Position Calculations:**
+Stack position calculations:
 
 - [Byte](https://en.wikipedia.org/wiki/Byte) offset to position: `-offset / 4` (e.g., *-12* --> position 3)
 - [Byte](https://en.wikipedia.org/wiki/Byte) size to elements: `size / 4` (e.g., *12 bytes* --> 3 elements)
 
-**Global Variables:** Accessed via base pointer (*BP*). The `#globals` routine initializes globals before `main()`, then `SAVEBP` saves current SP as BP. Functions access globals via `CPTOPBP`/`CPDOWNBP`. `RESTOREBP` restores previous BP.
+Global variables: accessed via base pointer (*BP*). The `#globals` routine initializes globals before `main()`, then `SAVEBP` saves current SP as BP. Functions access globals via `CPTOPBP`/`CPDOWNBP`. `RESTOREBP` restores previous BP.
 
-**Stack Entry Types:**
+Stack entry types:
 
 - **Constants**: Immutable values (`CONSTx`) read from instructions -- *int*, [*float*](GFF-File-Format#gff-data-types), *string*, *object*
 - **Variables**: Assignable stack slots created via `RSADDx`, modified via `CPDOWNSP`/`CPDOWNBP`
 - **structures**: Composite types spanning multiple positions (vectors = 3 positions/12 bytes, custom = 4-[*Byte*](https://en.wikipedia.org/wiki/Byte) multiples)
 
-**Lifecycle:** Create (`CONSTx`, `RSADDx`, `CPTOPSP`) --> Modify (`CPDOWNSP`, `INCxSP`) --> Consume (operations, *MOVSP*) --> Destroy (`DESTRUCT`)
+Lifecycle: Create (`CONSTx`, `RSADDx`, `CPTOPSP`) --> Modify (`CPDOWNSP`, `INCxSP`) --> Consume (operations, *MOVSP*) --> Destroy (`DESTRUCT`)
 
-**Decompilation Tracking:**
+Decompilation tracking:
 
 - **Reference Counting**: Track variable usage per stack instance
 - **Assignment Status**: Distinguish initialized vs uninitialized variables
@@ -85,7 +85,7 @@ graph TD
 
 The header is 13 bytes total. The size marker (`0x42`) is not a real instruction but a metadata field. All implementations validate that this byte equals `0x42` before reading the size field. The actual instruction stream begins at offset 13 (0x0D).
 
-**Header Validation:**
+Header validation:
 
 All implementations validate:
 
@@ -124,9 +124,9 @@ PyKotor reuses the NWScript *Opcode* table; each *Opcode* accepts a specific *Qu
 `Qualifier` refines the *Instruction* to specific `Operand` types (e.g., `IntInt`, `FloatFloat`, `VectorVector`).  
 Example: `ADDxx` with `Qualifier` `IntInt` performs integer addition, while the same `Opcode` with `Qualifier` `FloatFloat` adds floats.
 
-**Qualifier Type values:**
+Qualifier type values:
 
-**Unary Types (Single Operand):**
+Unary types (single operand):
 
 - `0x03` - *Integer* (*I*) - 4 bytes
 - `0x04` - *Float* (*F*) - 4 bytes
@@ -138,7 +138,7 @@ Example: `ADDxx` with `Qualifier` `IntInt` performs integer addition, while the 
 - `0x13` - *Talent* (*T*) - 4 bytes
 - `0x10-0x1F` - *Engine Types* (*ET*s) (Reserved range for game-specific types)
 
-**Binary Types (Two Operands):**
+Binary types (two operands):
 
 - `0x20` - *Integer*, *Integer* (*II*) - 4 bytes each
 - `0x21` - *Float*, *Float* (*FF*) - 4 bytes each
@@ -156,19 +156,19 @@ Example: `ADDxx` with `Qualifier` `IntInt` performs integer addition, while the 
 - `0x3B` - *Vector*, *Float* (*VF*) - 12 bytes + 4 bytes
 - `0x3C` - *Float*, *Vector* (*FV*) - 4 bytes + 12 bytes
 
-**Special type values:**
+Special type values:
 
 - `0x00` - *Void* (*V*) (no type, used for return types)
 - `0x01` - *Stack* (*S*) (internal type marker)
 
-**type size Information:**
+Type size information:
 
 - All primitive types (int, float, string pointer, object ID, engine types) are 4 bytes
 - *Vectors* are 12 bytes (3 consecutive floats)
 - *Structures* have variable size but must be 4-[*byte*](https://en.wikipedia.org/wiki/Byte) aligned
 - The *TT* (structure) qualifier type is used for comparing ranges of elements on the stack, specifically for structures and vectors. When used with `EQUALTT` or `NEQUALTT`, it requires a 2-[*byte*](https://en.wikipedia.org/wiki/Byte) size field indicating how many bytes to compare (must be a multiple of 4).
 
-**type System Details:**
+Type system details:
 
 The qualifier [*byte*](https://en.wikipedia.org/wiki/Byte) system allows the same *opcode* to operate on different data types. *Type* qualifiers are organized into ranges:
 
@@ -178,7 +178,7 @@ The qualifier [*byte*](https://en.wikipedia.org/wiki/Byte) system allows the sam
 
 *Vectors* types are special: they occupy 3 stack positions (12 bytes) but are treated as a single composite type. When operations involve *vectors*, all three [*float*](GFF-File-Format#gff-data-types) components are processed together.
 
-**Reference:**
+References:
 
 - [`reone/src/libs/script/format/ncsreader.cpp:42-190`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L42-L190)
 - [`xoreos/src/aurora/nwscript/ncsfile.h:131-177`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.h#L131-L177)
@@ -190,7 +190,7 @@ The qualifier [*byte*](https://en.wikipedia.org/wiki/Byte) system allows the sam
 
 Instruction arguments follow the qualifier [*byte*](https://en.wikipedia.org/wiki/Byte) and vary by *instruction* type. All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values are stored in [**big-endian**](https://en.wikipedia.org/wiki/Endianness) [*byte*](https://en.wikipedia.org/wiki/Byte) order.
 
-**Argument format Patterns:**
+Argument format patterns:
 
 1. **No Arguments** (2 bytes total: opcode + qualifier):
    - `RSADDx`, `LOGANDII`, `LOGORII`, `INCORII`, `EXCORII`, `BOOLANDII`, `EQUALxx` (non-*structure*), `NEQUALxx` (non-*structure*), `GEQxx`, `GTxx`, `LTxx`, `LEQxx`, `SHLEFTII`, `SHRIGHTII`, `USHRIGHTII`, `ADDxx`, `SUBxx`, `MULxx`, `DIVxx`, `MODII`, `NEGx`, `COMPI`, `RETN`, `NOTI`, `SAVEBP`, `RESTOREBP`, `NOP`
@@ -238,10 +238,10 @@ Instruction arguments follow the qualifier [*byte*](https://en.wikipedia.org/wik
   - Both structures must be the same size
   - Only used when qualifier is `0x24` (structure, structure)
 
-**Jump offset Calculation:**
+Jump offset calculation:
 Jump offsets are **relative to the start of the jump instruction itself**, not the next instruction. The offset is a signed 32-bit *integer* allowing both forward and backward jumps.
 
-**Byte Order:**
+Byte order:
 
 All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values in NCS files are stored in **[big-endian](https://en.wikipedia.org/wiki/Endianness)** ([network byte order](https://en.wikipedia.org/wiki/Endianness#Networking)):
 
@@ -257,11 +257,11 @@ All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values in NCS files are s
   - [*float32*](GFF-File-Format#gff-data-types)
 - This applies to: offsets, sizes, constants, jump targets, and all numeric arguments
 
-**Instruction Parsing:**
+Instruction parsing:
 
 Standard process: Read opcode + qualifier --> Determine argument format via lookup --> Read arguments (0 to variable bytes) --> Advance IP by total instruction size --> Repeat until EOF
 
-**Variable-Length Instructions:**
+Variable-length instructions:
 
 - `CONSTx` (0x04): Qualifier determines type: Int (4B), Float (4B [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)), String (2B length + data), Object (4B)
 - `CPDOWNSP`/`CPTOPSP`/`CPDOWNBP`/`CPTOPBP` (0x01/0x03/0x26/0x27): 4B offset + 2B size
@@ -273,20 +273,20 @@ Standard process: Read opcode + qualifier --> Determine argument format via look
 
 All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values: [big-endian](https://en.wikipedia.org/wiki/Endianness)
 
-**Execution State:**
+Execution state:
 
 - **IP**: *Instruction pointer* (starts at 0x0D)
 - **SP**: *Stack pointer* (top of data stack)
 - **BP**: *Base pointer* (globals area, set by `SAVEBP`/`RESTOREBP`)
 - **Return Stack**: *Separate stack* for `JSR`/`RETN` addresses
 
-**Execution Loop:** Parse *instruction* --> Execute (manipulate stack/IP/BP, call functions) --> Advance IP --> Repeat until termination
+Execution loop: Parse *instruction* --> Execute (manipulate stack/IP/BP, call functions) --> Advance IP --> Repeat until termination
 
-**Instruction Sizes:** 2B base + arguments: None (2B), Int/float/Object (6B), String (2+N B), Jump (6B), *Stack copy* (8B), ACTION (5B), DESTRUCT (8B), STORE_STATE (10B), Struct compare (4B)
+Instruction sizes: 2B base + arguments: None (2B), Int/float/Object (6B), String (2+N B), Jump (6B), *Stack copy* (8B), ACTION (5B), DESTRUCT (8B), STORE_STATE (10B), Struct compare (4B)
 
 Static sizing enables: *instruction* list building, jump target resolution, code coverage, static analysis
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:194-1649`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L194-L1649)
 - [`reone/src/libs/script/format/ncsreader.cpp:42-190`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L42-L190)
@@ -394,7 +394,7 @@ Bytes: [0x1F][0x00][0xFF][0xFF][0xFF][0xF0]
 
 ### Detailed Instruction Descriptions
 
-**Stack Manipulation:**
+Stack manipulation:
 
 - `CPDOWNSP` (0x01): Copy bytes from top of stack down to specified offset. format: `[0x01][qualifier][signed32 offset][uint16 size]`. *SP* remains unchanged. Used to write local variables.
 - `CPTOPSP` (0x03): Copy bytes from specified offset to top of stack. format: `[0x03][qualifier][signed32 offset][uint16 size]`. *SP* increases by `size` bytes. Used to read local variables.
@@ -409,7 +409,7 @@ Bytes: [0x1F][0x00][0xFF][0xFF][0xFF][0xF0]
 - `INCxBP` (0x29): Increment global variable at specified *base pointer* offset. format: `[0x29][qualifier][signed32 offset]`.
 - `DECxBP` (0x28): Decrement global variable at specified *base pointer* offset. format: `[0x28][qualifier][signed32 offset]`.
 
-**Stack Operation Details:**
+Stack operation details:
 
 - *offsets*: Always negative (e.g., -4, -8), positive = invalid
 - Copy ops: Signed 32-bit *offset* + unsigned 16-bit *size* (must be 4-[*byte*](https://en.wikipedia.org/wiki/Byte) multiple)
@@ -419,15 +419,15 @@ Bytes: [0x1F][0x00][0xFF][0xFF][0xFF][0xF0]
 - `CPDOWNSP`/`CPDOWNBP`: Store to *stack* (*SP* unchanged, source = *top* of *stack*)
 - `CPTOPSP`/`CPTOPBP`: Load from *stack* (*SP* increases by copied size)
 
-**Position Conversion:**
+Position conversion:
 
 - [*byte*](https://en.wikipedia.org/wiki/Byte) *offset* --> position: `-offset / 4` (e.g., -8 --> 2, -12 --> 3)
 - *size* --> elements: `size / 4` (e.g., 12B --> 3 elements)
 - *position* --> *offset*: `-position * 4`
 
-**Examples:** *offset* -4 = *position* 1 (top), -8 = *position* 2, vector (12B) at -12 = *positions* 1-3
+Examples: *offset* -4 = *position* 1 (top), -8 = *position* 2, vector (12B) at -12 = *positions* 1-3
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:458-545`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L458-L545)
 - [`reone/src/libs/script/format/ncsreader.cpp:52-97`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L52-L97)
@@ -436,7 +436,7 @@ Bytes: [0x1F][0x00][0xFF][0xFF][0xFF][0xF0]
 - [`NorthernLights/Assets/Scripts/ncs/NCSReader.cs`](https://github.com/lachjames/NorthernLights/blob/master/Assets/Scripts/ncs/NCSReader.cs)
 - [`NWScriptInstance.ts` L32+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/nwscript/NWScriptInstance.ts#L32)
 
-**Constants:**
+Constants:
 
 All use opcode `0x04`, *qualifier* determines type:
 
@@ -445,11 +445,11 @@ All use opcode `0x04`, *qualifier* determines type:
 - `CONSTS` (0x05): `[0x04][0x05][uint16 len][ASCII]` (2+N B), *SP*+4 (pointer only, content stored separately), no [null terminator](https://en.cppreference.com/w/c/string/byte)
 - `CONSTO` (0x06): `[0x04][0x06][signed32]` (6B), *SP*+4, special: `0x00000000` = `OBJECT_SELF`, `0x00000001`/`0xFFFFFFFF` = `OBJECT_INVALID`
 
-**Parsing:** Read opcode (0x04) --> *qualifier* --> type-specific args (UInt32/[float32](GFF-File-Format#gff-data-types)/string length+data/signed32)
+Parsing: Read opcode (0x04) --> *qualifier* --> type-specific args (UInt32/[float32](GFF-File-Format#gff-data-types)/string length+data/signed32)
 
-**Behavior:** Read value --> Create immutable constant entry --> Push onto stack (*SP*+4) --> Remains until consumed/removed
+Behavior: Read value --> Create immutable constant entry --> Push onto stack (*SP*+4) --> Remains until consumed/removed
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:500-545`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L500-L545)
 - [`reone/src/libs/script/format/ncsreader.cpp:60-73`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L60-L73)
@@ -458,7 +458,7 @@ All use opcode `0x04`, *qualifier* determines type:
 - [`xoreos-tools/src/nwscript/ncsfile.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/nwscript/ncsfile.cpp)
 - [`NWScriptDef.ts` L12+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/nwscript/NWScriptDef.ts#L12)
 
-**Arithmetic Operations:**
+Arithmetic operations:
 
 All arithmetic operations consume operands from the top of the stack and place the result back on the stack. *SP* increases by result size and decreases by total operand sizes.
 
@@ -469,7 +469,7 @@ All arithmetic operations consume operands from the top of the stack and place t
 - `MODII`: Modulus (integer only)
 - `NEGx`: Negation (supports *I*, *F*)
 
-**Bitwise and Logical Operations:**
+Bitwise and logical operations:
 
 - `LOGANDII` (0x06): **Logical AND** of two integers
 - `LOGORII` (0x07): **Logical OR** of two integers
@@ -482,7 +482,7 @@ All arithmetic operations consume operands from the top of the stack and place t
 - `SHRIGHTII` (0x12): **Shift Integer Right** by specified number of bits (signed)
 - `USHRIGHTII` (0x13): **Unsigned Shift Integer Right** by specified number of bits
 
-**Comparison Operations:**
+Comparison operations:
 
 - `EQUALxx` (0x0B): Test for **EQUAL**ity. format: `[0x0B][qualifier][optional: uint16 size for TT]`. Supports *II*, *FF*, *SS*, *OO*, *TT*, and engine types. For *TT* (struct) qualifier, includes 2-[*byte*](https://en.wikipedia.org/wiki/Byte) size field (must be multiple of 4). Pops two operands from stack, compares them, pushes 1 if equal else 0.
 - `NEQUALxx` (0x0C): Test for i**NEQUAL**ity. Format: `[0x0C][qualifier][optional: uint16 size for TT]`. Same as `EQUALxx` but pushes 1 if not equal else 0.
@@ -491,7 +491,7 @@ All arithmetic operations consume operands from the top of the stack and place t
 - `LTxx` (0x0F): **Less Than**. format: `[0x0F][qualifier]`. Supports *II*, *FF*. Pops two operands, pushes 1 if left < right else 0.
 - `LEQxx` (0x10): **Less Than or Equal**. format: `[0x10][qualifier]`. Supports *II*, *FF*. Pops two operands, pushes 1 if left <= right else 0.
 
-**Comparison Operation Details:**
+Comparison operation details:
 
 - Comparison operations pop two operands from the stack and push a single integer result (1 for true, 0 for false)
 - For binary comparisons (`GT`, `GEQ`, `LT`, `LEQ`), the top of stack is the right operand, and the value below it is the left operand
@@ -499,13 +499,13 @@ All arithmetic operations consume operands from the top of the stack and place t
 - The size field for structure comparisons must be a multiple of 4 to maintain alignment
 - string comparisons compare string pointers (4-[*byte*](https://en.wikipedia.org/wiki/Byte) values), not string contents directly
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:712-768`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L712-L768) (Comparison OPCode Implementation)
 - [`reone/src/libs/script/format/ncsreader.cpp:102-105`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L102-L105) (Comparison Instruction Parsing)
 - [`NCS.cs` L9+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorNCS/NCS.cs#L9) (Comparison Operation Handling)
 
-**Control Flow:**
+Control flow:
 
 - `JMP` (0x1D): Unconditional jump to relative offset. format: `[0x1D][qualifier][signed32 offset]`. *offset* is relative to the start of the *JMP* instruction. Used for loops and unconditional branches.
 - `JSR` (0x1E): Jump to subroutine at relative offset. format: `[0x1E][qualifier][signed32 offset]`. Pushes return address onto *return stack*, then jumps. Used for function calls within the script.
@@ -514,7 +514,7 @@ All arithmetic operations consume operands from the top of the stack and place t
 - `RETN` (0x20): Return from subroutine. format: `[0x20][qualifier]`. Pops return address from *return stack* and jumps to it. Used to exit script subroutines.
 - `DESTRUCT` (0x21): Destroy elements on stack, preserving specified element. format: `[0x21][qualifier][uint16 size][signed16 stackOffset][uint16 sizeNoDestroy]` (8 bytes total). This instruction performs complex stack cleanup by removing `size` bytes from the stack starting at `stackOffset`, but preserves `sizeNoDestroy` bytes within that range. The `stackOffset` is a signed 16-bit value converted to a stack position by dividing by 4. Used for complex stack cleanup operations, particularly when unpacking structures or vectors where only specific elements need to be preserved. The preserved element is moved to the top of the stack after destruction.
 
-**DESTRUCT Operation Details:**
+DESTRUCT operation details:
 
 The *DESTRUCT* instruction is used in scenarios where multiple stack elements need to be removed, but a specific element within that range must be preserved:
 
@@ -528,7 +528,7 @@ The `stackOffset` parameter is a signed 16-bit value that is converted to a stac
 
 Example: If a structure occupies positions 3-5 (12 bytes) and only the middle element (position 4) needs to be preserved, *DESTRUCT* would remove positions 3 and 5 while keeping position 4, then move it to the top.
 
-***DESTRUCT* format:**
+DESTRUCT format:
 
 - *Opcode*: `0x21`
 - *Qualifier*: Typically `0x00` (not used for type determination)
@@ -539,7 +539,7 @@ During decompilation, *DESTRUCT* identifies structure field accesses (preserved 
 
 - `STORE_STATE` (0x2C): Save stack state for delayed execution. format: `[0x2C][qualifier][int32 size][int32 sizeLocals]` (10B). Used with `DelayCommand`. *size* = total stack bytes, *sizeLocals* = local variable bytes. Separates temp values from persistent locals. Decompilers typically emit as-is with comments.
 
-**Control Flow Details:**
+Control flow details:
 
 - Jump offsets: Relative to instruction start (not end), signed 32-bit (±2GB range)
 - `JSR`: Separate return stack (not data stack), *return addr* = after *JSR*
@@ -547,9 +547,9 @@ During decompilation, *DESTRUCT* identifies structure field accesses (preserved 
 - `JZ`/`JNZ`: Consume top *int* (removed regardless of jump)
 - `DESTRUCT`: Atomic multi-element removal with preservation (structure unpacking)
 
-**Examples:** *JMP* @100 +20 --> 120, *JZ* @200 -16 --> 184, *JSR* @300 +50 --> 350 (*return addr* 306)
+Examples: *JMP* @100 +20 --> 120, *JZ* @200 -16 --> 184, *JSR* @300 +50 --> 350 (*return addr* 306)
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:712-768`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L712-L768)
 - [`reone/src/libs/script/format/ncsreader.cpp:81-91`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L81-L91)
@@ -558,21 +558,21 @@ During decompilation, *DESTRUCT* identifies structure field accesses (preserved 
 - [`xoreos-tools/src/nwscript/ncsfile.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/nwscript/ncsfile.cpp)
 - [`KotOR.js/src/nwscript/NWScript.ts` L39+](https://github.com/KobaltBlu/KotOR.js/blob/ea9491d5c783364cf285f178434b84405bee3608/src/nwscript/NWScript.ts#L39)
 
-**Engine Function Calls:**
+Engine function calls:
 
 - `ACTION` (0x05): format: `[0x05][0x00][uint16 routine][uint8 argCount]` (5B). *Routine* = index into engine function table (K1/K2 differ). *Args* in reverse order (last on top). Engine removes args, pushes return value. vectors = 3 floats (x, y, z). Synchronous execution.
 
-**Function Table:**
+Function table:
 
 Engine-specific mapping: *routine number* --> function (name, params, return type). Used for decompilation (routine 1 --> `GetFirstObject`). Invalid *routine* = error.
 
-**Actions data file:** Lists engine functions, format: `return_type function_name(param_type param, ...)`. Example: `int GetFirstObject(int nObjectFilter, object oArea);`
+Actions data file: Lists engine functions, format: `return_type function_name(param_type param, ...)`. Example: `int GetFirstObject(int nObjectFilter, object oArea);`
 
 The decompiler parses this file to build a lookup table mapping *routine numbers* (indices in the file) to function signatures. This allows the decompiler to generate readable function calls instead of raw `ACTION` instructions with numeric *routine* IDs.
 
-**See [NSS File Format](NSS-File-Format) for complete documentation of nwscript.nss, function definitions, and KotOR-specific functions/constants.**
+See [NSS File Format](NSS-File-Format) for complete documentation of nwscript.nss, function definitions, and KotOR-specific functions/constants.
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:643-660`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L643-L660) (ACTION opcode implementation)
 - [`reone/src/libs/script/format/ncsreader.cpp:74-77`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L74-L77) (ACTION instruction parsing)
@@ -580,19 +580,19 @@ The decompiler parses this file to build a lookup table mapping *routine numbers
 - [`NorthernLights/Assets/Scripts/ncs/NCSReader.cs`](https://github.com/lachjames/NorthernLights/blob/master/Assets/Scripts/ncs/NCSReader.cs) (engine function call processing)
 - [`xoreos-tools/src/nwscript/ncsfile.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/nwscript/ncsfile.cpp) (actions data parsing for decompilation)
 
-**Special Instructions:**
+Special instructions:
 
 - `NOP` (0x2D): No-operation, used as placeholder for debugger. format: `[0x2D][qualifier]`. Does nothing, SP remains unchanged.
 - Program size marker (0x42): Always found at offset 8 in NCS file header. format: `[0x42][uint32 fileSize]`. This is not a real instruction and is never executed. It contains the total file size in bytes ([*big-endian*](https://en.wikipedia.org/wiki/Endianness)). All implementations validate this marker before parsing instructions.
 
-**Note:** All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values in NCS files are stored in **[*big-endian*](https://en.wikipedia.org/wiki/Endianness)** [*byte*](https://en.wikipedia.org/wiki/Byte) order. This includes all integers, floats, offsets, and size fields.
+Note: All multi-[*byte*](https://en.wikipedia.org/wiki/Byte) values in NCS files are stored in **[*big-endian*](https://en.wikipedia.org/wiki/Endianness)** [*byte*](https://en.wikipedia.org/wiki/Byte) order. This includes all integers, floats, offsets, and size fields.
 
-**Special Instruction Details:**
+Special instruction details:
 
 - `NOP` (0x2D) is a no-operation instruction that does nothing. It is typically used as a placeholder by debuggers or during script compilation. The *qualifier* is typically `0x00`.
 - The program size marker (0x42) at offset 8 is never executed as an instruction. It is a metadata field that all implementations check before parsing the instruction stream. If this byte is not `0x42`, implementations should reject the file as invalid.
 
-**Reference:**
+References:
 
 - [`xoreos/src/aurora/nwscript/ncsfile.cpp:342-350`](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L342-L350) (header validation including 0x42 check)
 - [`xoreos-docs/specs/torlack/ncs.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/ncs.html) (Torlack's original NCS specification)
@@ -611,18 +611,18 @@ The decompiler parses this file to build a lookup table mapping *routine numbers
 
 ### Subroutine Calls
 
-**Calling Conventions:**
+Calling conventions:
 
-**Script Subroutines:** Reserve Return Space --> Push args (reverse) --> `JSR` --> Subroutine removes args --> Return value at reserved location
+Script subroutines: Reserve Return Space --> Push args (reverse) --> `JSR` --> Subroutine removes args --> Return value at reserved location
 
-**Engine Routines:** Push args (reverse) --> `ACTION` (routine #, *arg count*) --> Engine removes args --> Engine pushes return
+Engine routines: Push args (reverse) --> `ACTION` (routine #, *arg count*) --> Engine removes args --> Engine pushes return
 
-**Example:** `int j = DoSomeScriptSubroutine(12, 14);`
+Example: `int j = DoSomeScriptSubroutine(12, 14);`
 
 Before: `SP --> -4: Arg1(12), -8: Arg2(14), -12: Return(??), -16: j(??)`  
 After: `SP --> -4: Return(??), -8: j(??)`
 
-**Example Stack Layout for Engine Routine Call:**
+Example stack layout for engine routine call:
 
 Before call to `int j = DoSomeEngineRoutine(12, 14);`:
 
@@ -650,7 +650,7 @@ All jump instructions use ***relative offsets*** from the start of the jump inst
 
 The *offset* is a signed 32-bit integer stored in [*big-endian*](https://en.wikipedia.org/wiki/Endianness) format, allowing forward and backward jumps within the script. The *offset* is calculated as: `target_address - instruction_address`.
 
-**Jump Resolution:** offsets resolved to absolute instruction pointers during parsing. PyKotor's `NCS` class stores direct instruction references in `jump` attribute for control-flow graph traversal. format: Signed 32-bit [big-endian](https://en.wikipedia.org/wiki/Endianness), `target = instruction_addr + offset`, forward (+) or backward (-).
+Jump resolution: offsets resolved to absolute instruction pointers during parsing. PyKotor's `NCS` class stores direct instruction references in `jump` attribute for control-flow graph traversal. Format: Signed 32-bit [big-endian](https://en.wikipedia.org/wiki/Endianness), `target = instruction_addr + offset`, forward (+) or backward (-).
 Jump offsets and resolution behavior are implemented in PyKotor's instruction model ([`ncs_data.py` L244-L421](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ncs/ncs_data.py#L244-L421)) and reader ([`io_ncs.py` L262-L269](https://github.com/OpenKotOR/PyKotor/blob/a8daa4091b067e8424ae537793224e6b178ee9d8/Libraries/PyKotor/src/pykotor/resource/formats/ncs/io_ncs.py#L262-L269)), with matching parser/execution behavior visible in [reone `ncsreader.cpp` L81-L85](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp#L81-L85), [xoreos `ncsfile.cpp` L712-L768](https://github.com/xoreos/xoreos/blob/f36b681b2a38799ddd6fce0f252b6d7fa781dfc2/src/aurora/nwscript/ncsfile.cpp#L712-L768), and [Kotor.NET `NCS.cs` L9+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorNCS/NCS.cs#L9).
 
 ---
@@ -659,15 +659,15 @@ Jump offsets and resolution behavior are implemented in PyKotor's instruction mo
 
 Reference implementations include [reone `ncsreader.cpp`](https://github.com/seedhartha/reone/blob/master/src/libs/script/format/ncsreader.cpp), [xoreos `ncsfile.cpp`](https://github.com/xoreos/xoreos/blob/master/src/aurora/nwscript/ncsfile.cpp), [xoreos-tools `ncsfile.cpp`](https://github.com/xoreos/xoreos-tools/blob/master/src/nwscript/ncsfile.cpp), [Kotor.NET `NCS.cs` L9+](https://github.com/NickHugi/Kotor.NET/blob/6dca4a6a1af2fee6e36befb9a6f127c8ba04d3e2/Kotor.NET/Formats/KotorNCS/NCS.cs#L9), [NorthernLights `NCSReader.cs`](https://github.com/lachjames/NorthernLights/blob/master/Assets/Scripts/ncs/NCSReader.cs), [KotOR.js `NCSResource.ts`](https://github.com/KobaltBlu/KotOR.js/blob/master/src/resource/NCSResource.ts), [kotor-savegame-editor `ncs.ts`](https://github.com/nadrino/kotor-savegame-editor/blob/master/src/formats/ncs.ts), and [xoreos-docs `ncs.html`](https://github.com/xoreos/xoreos-docs/blob/master/specs/torlack/ncs.html). These implementations use the same opcode space (`0x01-0x2D`, marker `0x42`), qualifier range (`0x03-0x3C`), and [big-endian](https://en.wikipedia.org/wiki/Endianness) encoding.
 
-**Instruction Sizes:** Base *2B* + args: None (*0B*), Int/Float (*4B*), String (2+N B), *Stack copy* (6B), *ACTION* (3B), *DESTRUCT* (6B), `STORE_STATE` (8B), Struct compare (2B)
+Instruction sizes: Base *2B* + args: None (*0B*), Int/Float (*4B*), String (2+N B), *Stack copy* (6B), *ACTION* (3B), *DESTRUCT* (6B), `STORE_STATE` (8B), Struct compare (2B)
 
-**Compatibility:** All implementations use identical opcodes (0x01-0x2D, 0x42), qualifiers (0x03-0x3C), and [*big-endian*](https://en.wikipedia.org/wiki/Endianness) encoding, ensuring cross-engine compatibility (same *ACTION* routine table required).
+Compatibility: All implementations use identical opcodes (0x01-0x2D, 0x42), qualifiers (0x03-0x3C), and [*big-endian*](https://en.wikipedia.org/wiki/Endianness) encoding, ensuring cross-engine compatibility when paired with the appropriate *ACTION* routine table.
 
-**Decompilation Overview:**
+Decompilation overview:
 
 Core analyses: Stack tracking (variable assignments/reads via copy ops), Control flow (jumps --> if/loops/switches), Subroutine analysis (*JSR* --> function calls, infer params/returns), Variable naming (type + position or usage patterns), Dead code elimination
 
-**Analysis Passes:**
+Analysis passes:
 
 1. **Parse**: Bytecode --> instructions + control flow graph (jumps as [edges](Level-Layout-Formats#edges-wok-only))
 2. **Subroutines**: Identify boundaries via `JSR`/`RETN`, analyze separately
@@ -679,7 +679,7 @@ Core analyses: Stack tracking (variable assignments/reads via copy ops), Control
 8. **Code Gen**: Emit source with named variables, typed declarations, high-level constructs
 9. **Cleanup**: Remove dead code, optimize names, format
 
-**Stack Analysis Details:**
+Stack analysis details:
 
 - **Variables**: `CPDOWNSP`/`CPDOWNBP` = writes, `CPTOPSP`/`CPTOPBP` = reads, *offset* identifies variable, size determines primitive vs composite
 - **Scope**: `MOVSP` = function entry/exit (negative = allocate, positive = deallocate)
