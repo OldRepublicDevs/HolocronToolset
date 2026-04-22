@@ -2453,7 +2453,7 @@ class NSSEditor(Editor):
             except UnicodeDecodeError:
                 return local_path.read_text(encoding="latin-1", errors="replace")
 
-    def build(self) -> tuple[bytes | bytearray, bytes]:
+    def build(self) -> tuple[bytes | bytearray | None, bytes]:
         if self._restype is not ResourceType.NCS:
             # Encode with proper error handling
             text = self.ui.codeEdit.toPlainText()
@@ -2478,7 +2478,7 @@ class NSSEditor(Editor):
             self._logger.debug(
                 f"User cancelled the compilation of '{self._resname}.{self._restype.extension}'."
             )
-            return bytearray(), b""
+            return None, b""
         return compiled_bytes, b""
 
     def new(self):

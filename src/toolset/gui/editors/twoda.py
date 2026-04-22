@@ -311,7 +311,9 @@ class _RemoveRowsCommand(QUndoCommand):
             row_data = []
             for col in range(self._model.columnCount()):
                 it = self._model.item(row_idx, col)
-                row_data.append(it.clone() if it is not None else self._create_empty_item())
+                row_data.append(
+                    it.clone() if it is not None else self._editor._create_empty_item()
+                )
             self._saved_rows.append(row_data)
             self._model.removeRow(row_idx)
         self._editor.reset_vertical_headers()
@@ -337,7 +339,10 @@ class _InsertColumnCommand(QUndoCommand):
         self._editor._reconstruct_menu(self._editor._get_headers_list())
 
     def redo(self):
-        self._model.insertColumn(self._col, self._create_empty_items(self._model.rowCount()))
+        self._model.insertColumn(
+            self._col,
+            self._editor._create_empty_items(self._model.rowCount()),
+        )
         self._model.setHorizontalHeaderItem(self._col, QStandardItem(self._header))
         self._editor._reconstruct_menu(self._editor._get_headers_list())
 

@@ -62,16 +62,15 @@ from toolset.gui.widgets.installation_toolbar import (
 )
 from toolset.gui.widgets.settings.installations import GlobalSettings
 from toolset.utils.window import TOOLSET_WINDOWS
-from ui import stylesheet_resources  # noqa: PLC0415, F401, I001  # pylint: disable=C0415
 from utility.error_handling import assert_with_variable_trace, format_exception_with_variables
 from utility.system.os_helper import remove_any
 
 if qtpy.API_NAME == "PySide2":
-    from toolset.rcc import resources_rc_pyside2  # noqa: PLC0415, F401  # pylint: disable=C0415
+    from toolset.rcc import resources_rc_pyside2  # pyright: ignore[reportMissingImports]  # noqa: PLC0415, F401  # pylint: disable=C0415
 elif qtpy.API_NAME == "PySide6":
-    from toolset.rcc import resources_rc_pyside6  # noqa: PLC0415, F401  # pylint: disable=C0415
+    from toolset.rcc import resources_rc_pyside6  # pyright: ignore[reportMissingImports]  # noqa: PLC0415, F401  # pylint: disable=C0415
 elif qtpy.API_NAME == "PyQt5":
-    from toolset.rcc import resources_rc_pyqt5  # noqa: PLC0415, F401  # pylint: disable=C0415
+    from toolset.rcc import resources_rc_pyqt5  # pyright: ignore[reportMissingImports]  # noqa: PLC0415, F401  # pylint: disable=C0415
 elif qtpy.API_NAME == "PyQt6":
     from toolset.rcc import resources_rc_pyqt6  # noqa: PLC0415, F401  # pylint: disable=C0415
 else:
@@ -83,10 +82,10 @@ if TYPE_CHECKING:
     from pathlib import PurePath
 
     from PyQt6.QtMultimedia import QMediaPlayer as PyQt6MediaPlayer
-    from PySide6.QtMultimedia import QMediaPlayer as PySide6MediaPlayer
+    from PySide6.QtMultimedia import QMediaPlayer as PySide6MediaPlayer  # pyright: ignore[reportMissingImports]
     from qtpy.QtGui import QFocusEvent, QMouseEvent, QShowEvent
     from qtpy.QtWidgets import (  # pyright: ignore[reportPrivateImportUsage]
-        QAction,
+        QAction,  # pyright: ignore[reportPrivateImportUsage]
         QLineEdit,
         QMenuBar,
     )
@@ -186,12 +185,12 @@ class MediaPlayerWidget(QWidget):
         stateGetter = self.player.state if qtpy.QT5 else self.player.playbackState  # pyright: ignore[reportAttributeAccessIssue]
         if stateGetter() == stateEnum.PlayingState:
             self.playPauseButton.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)
+                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPlay)  # pyright: ignore[reportOptionalMemberAccess]
             )  # pyright: ignore[reportOptionalMemberAccess]
             self.player.pause()
         else:
             self.playPauseButton.setIcon(
-                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
+                self.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)  # pyright: ignore[reportOptionalMemberAccess]
             )  # pyright: ignore[reportOptionalMemberAccess]
             self.player.play()
 
@@ -725,7 +724,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                 self._filepath = Path(filepath_str)
         else:
             self._filepath = Path(filepath_str)
-            self._resname, self._restype = identifier.unpack()
+            self._resname, self._restype = identifier.unpack()  # pyright: ignore[reportAttributeAccessIssue]
         self.save()
 
         self.refreshWindowTitle()
@@ -830,7 +829,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             - Call save method.
         """
         dialog = BifSaveDialog(self)
-        dialog.exec_()
+        dialog.exec()
         if dialog.option == BifSaveOption.MOD:
             str_filepath, filter = QFileDialog.getSaveFileName(
                 self, "Save As", "", ".MOD File (*.mod)", ""
@@ -845,11 +844,12 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             assert self._restype is not None
             r_filepath = Path(str_filepath)
             dialog2 = SaveToModuleDialog(self._resname, self._restype, self._writeSupported)
-            if dialog2.exec_():
+            if dialog2.exec():
                 self._resname = dialog2.resname()
                 self._restype = dialog2.restype()
                 self._filepath = r_filepath
-                self.save()
+                self.refreshWindowTitle()
+                self._saveEndsWithErf(data, data_ext)
         elif dialog.option == BifSaveOption.Override:
             assert self._resname is not None
             assert self._restype is not None
@@ -857,7 +857,8 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             self._filepath = (
                 self._installation.override_path() / f"{self._resname}.{self._restype.extension}"
             )
-            self.save()
+            self.refreshWindowTitle()
+            self._saveEndsWithOther(data, data_ext)
         else:
             print(
                 f"User closed out of BifSaveDialog in _saveEndsWithBif (({self._resname}.{self._restype}))"
@@ -884,20 +885,21 @@ class Editor(QMainWindow, StandaloneWindowMixin):
 
         if self._global_settings.disableRIMSaving:
             dialog = RimSaveDialog(self)
-            dialog.exec_()
+            dialog.exec()
             if dialog.option == RimSaveOption.MOD:
                 folderpath: Path = self._filepath.parent
-                filename: str = f"{Module.find_root(self._filepath)}.mod"
+                filename: str = f"{Module.filepath_to_root(self._filepath)}.mod"
                 self._filepath = folderpath / filename
-                # Re-save with the updated filepath
-                self.save()
+                self.refreshWindowTitle()
+                self._saveEndsWithErf(data, data_ext)
             elif dialog.option == RimSaveOption.Override:
                 assert self._installation is not None
                 self._filepath = (
                     self._installation.override_path()
                     / f"{self._resname}.{self._restype.extension}"
                 )
-                self.save()
+                self.refreshWindowTitle()
+                self._saveEndsWithOther(data, data_ext)
             return
 
         rim: RIM = read_rim(self._filepath)
@@ -915,7 +917,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         if self._installation is not None:
             self._installation.reload_module(self._filepath.name)
 
-    def _saveNestedCapsule(self, data: bytes, data_ext: bytes):
+    def _saveNestedCapsule(self, data: bytes | bytearray, data_ext: bytes | bytearray):
         assert self._filepath is not None, assert_with_variable_trace(self._filepath is not None)
         assert self._resname is not None, assert_with_variable_trace(self._resname is not None)
         assert self._restype is not None, assert_with_variable_trace(self._restype is not None)
@@ -945,7 +947,8 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         nested_capsules: list[tuple[PurePath, ERF | RIM]] = [(c_filepath, erf_or_rim)]
         for capsule_path in reversed(nested_paths[:-1]):
             nested_erf_or_rim_data = erf_or_rim.get(
-                capsule_path.stem, ResourceType.from_extension(capsule_path.suffix)
+                capsule_path.stem,
+                ResourceType.from_extension(capsule_path.suffix),
             )
             if nested_erf_or_rim_data is None:
                 # Save all open editors to ensure nested resources are available
@@ -953,10 +956,10 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                     if (
                         hasattr(window, "save")
                         and hasattr(window, "_filepath")
-                        and window._filepath is not None
+                        and window._filepath is not None  # pyright: ignore[reportAttributeAccessIssue]
                     ):
                         try:
-                            window.save()
+                            window.save()  # pyright: ignore[reportAttributeAccessIssue]
                         except Exception as e:
                             self._logger.warning(
                                 f"Failed to save editor {window.__class__.__name__}: {e}"
@@ -968,13 +971,14 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                     else read_erf(c_filepath)
                 )
                 nested_erf_or_rim_data = erf_or_rim.get(
-                    capsule_path.stem, ResourceType.from_extension(capsule_path.suffix)
+                    capsule_path.stem,
+                    ResourceType.from_extension(capsule_path.suffix),
                 )
                 if nested_erf_or_rim_data is None:
                     msg = f"You must save the ERFEditor for '{capsule_path.relative_to(c_parent_filepath)}' before modifying its nested resources. Do so and try again."
                     raise ValueError(msg)
 
-            erf_or_rim = (
+            erf_or_rim: ERF | RIM = (
                 read_rim(nested_erf_or_rim_data)
                 if ResourceType.from_extension(capsule_path.suffix) == ResourceType.RIM
                 else read_erf(nested_erf_or_rim_data)
@@ -983,15 +987,13 @@ class Editor(QMainWindow, StandaloneWindowMixin):
 
         # Let's now save each erf/rim to its parent.
         for index, (capsule_path, this_erf_or_rim) in enumerate(reversed(nested_capsules)):
-            rel_capsule_path = capsule_path.relative_to(c_parent_filepath)
+            rel_capsule_path: PurePath = capsule_path.relative_to(c_parent_filepath)
             if index == 0:
                 if not self._is_capsule_editor:
-                    print(
-                        f"Saving non ERF/RIM '{self._resname}.{self._restype.extension}' to '{rel_capsule_path}'"
-                    )
+                    print(f"Saving non ERF/RIM '{self._resname}.{self._restype.extension}' to '{rel_capsule_path}'")
                     this_erf_or_rim.set_data(self._resname, self._restype, data)
                 continue
-            child_index = len(nested_capsules) - index
+            child_index: int = len(nested_capsules) - index
             child_capsule_path, child_erf_or_rim = nested_capsules[child_index]
             if self._filepath != child_capsule_path or not self._is_capsule_editor:
                 data = bytearray()
@@ -1098,7 +1100,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
             and f"Load from module ({self.CAPSULE_FILTER})" in self._openFilter
         ):
             dialog = LoadFromModuleDialog(Capsule(r_filepath), self._readSupported)  # type: ignore[arg-type]
-            if dialog.exec_():
+            if dialog.exec():
                 self._load_module_from_dialog_info(dialog, r_filepath)
         else:
             data: bytes = BinaryReader.load_file(r_filepath)
@@ -1116,7 +1118,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self.load(c_filepath, resname, restype, data)
 
     @abstractmethod
-    def build(self) -> tuple[bytes, bytes]: ...
+    def build(self) -> tuple[bytes | bytearray | None, bytes | bytearray]: ...
 
     def centerAndAdjustWindow(self):
         # Get the screen geometry

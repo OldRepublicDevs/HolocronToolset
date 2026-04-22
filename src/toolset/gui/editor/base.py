@@ -326,7 +326,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self.load(res.filepath(), res.resname(), res.restype(), data)
 
     @abstractmethod
-    def build(self) -> tuple[bytes | bytearray, bytes | bytearray]: ...
+    def build(self) -> tuple[bytes | bytearray | None, bytes | bytearray]: ...
 
     def _setup_menus(self):
         menubar: QMenuBar | None = self.menuBar()
@@ -731,13 +731,15 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                 self._resname = dialog2.resname()
                 self._restype = dialog2.restype()
                 self._filepath = r_filepath
-                self.save()
+                self.refresh_window_title()
+                self._save_ends_with_erf(data, data_ext)
         elif dialog.option == BifSaveOption.Override:
             assert self._installation is not None
             self._filepath = (
                 self._installation.override_path() / f"{self._resname}.{self._restype.extension}"
             )
-            self.save()
+            self.refresh_window_title()
+            self._save_ends_with_other(data, data_ext)
 
     def _save_ends_with_rim(
         self,
@@ -751,14 +753,16 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                 self._filepath = (
                     self._filepath.parent / f"{Module.filepath_to_root(self._filepath)}.mod"
                 )
-                self.save()
+                self.refresh_window_title()
+                self._save_ends_with_erf(data, data_ext)
             elif dialog.option == RimSaveOption.Override:
                 assert self._installation is not None
                 self._filepath = (
                     self._installation.override_path()
                     / f"{self._resname}.{self._restype.extension}"
                 )
-                self.save()
+                self.refresh_window_title()
+                self._save_ends_with_other(data, data_ext)
             return
 
         rim: RIM = read_rim(self._filepath)

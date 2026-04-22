@@ -1823,6 +1823,11 @@ def test_undo_redo_with_plus_buttons(qtbot: QtBot, installation: HTInstallation)
     qtbot.wait(50)
     assert editor.source_model.columnCount() == initial_cols
 
+    # Redo
+    editor._undo_stack.redo()
+    qtbot.wait(50)
+    assert editor.source_model.columnCount() == initial_cols + 1
+
 
 def test_new_then_add_rows_then_save(qtbot: QtBot, installation: HTInstallation):
     """Verify new file, add rows via '+', save, and roundtrip."""
