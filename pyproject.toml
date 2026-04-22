@@ -36,7 +36,13 @@ dependencies = [
   "numpy>=1.25; python_version >= \"3.9\"",
   "Pillow>=10.0.0,<11; python_version < \"3.10\"",
   "Pillow>=12.1.1; python_version >= \"3.10\"",
-  "pykotor[encodings,extra,font,gl,updater] @ https://github.com/OpenKotOR/PyKotor/archive/refs/heads/master.zip#subdirectory=Libraries/PyKotor",
+  # Plain version spec (NOT a direct-URL/@-spec). A direct URL here would lock
+  # `pykotor` to one source and fight any `--with-editable Libraries/PyKotor`,
+  # `[tool.uv.sources] pykotor = { workspace = true }`, or sibling checkout.
+  # The workspace resolves `pykotor` from `Libraries/PyKotor`; wheel users get
+  # the package from PyPI; `uvx --from git+...#subdirectory=Libraries/PyKotor`
+  # still works because uv unifies same-named editable/path requirements.
+  "pykotor[encodings,extra,font,gl,updater]>=2.3.11",
   "PyQt5>=5.15,<6; python_version < \"3.9\"",
   "PyQt5-sip>=12.10,<13; python_version < \"3.9\"",
   "PyQt6-Qt6>=6.10.1; python_version >= \"3.9\"",
