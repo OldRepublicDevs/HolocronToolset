@@ -15,119 +15,102 @@
   </property>
   <layout class="QVBoxLayout" name="mainLayout">
    <property name="spacing">
-    <number>10</number>
+    <number>16</number>
    </property>
    <property name="leftMargin">
-    <number>10</number>
+    <number>20</number>
    </property>
    <property name="topMargin">
-    <number>10</number>
+    <number>20</number>
    </property>
    <property name="rightMargin">
-    <number>10</number>
+    <number>20</number>
    </property>
    <property name="bottomMargin">
-    <number>10</number>
+    <number>20</number>
    </property>
    <item>
-    <widget class="QPushButton" name="fetchReleasesButton">
-     <property name="text">
-      <string>Fetch Releases</string>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>780</width>
-       <height>50</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>780</width>
-       <height>50</height>
-      </size>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <layout class="QFormLayout" name="formLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="forkLabel">
+    <layout class="QHBoxLayout" name="headerLayout">
+     <item>
+      <widget class="QLabel" name="headerIconLabel">
        <property name="text">
-        <string>Select Fork:</string>
+        <string>ⓘ</string>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font-size: 14px;</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QComboBox" name="forkComboBox">
-       <property name="minimumSize">
-        <size>
-         <width>300</width>
-         <height>0</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>300</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="releaseLabel">
+     <item>
+      <widget class="QLabel" name="updateReadyLabel">
        <property name="text">
-        <string>Select Release:</string>
+        <string>Update Ready</string>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">font-size: 12px; color: palette(mid);</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="releaseComboBox">
-       <property name="minimumSize">
+     <item>
+      <spacer name="headerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
         <size>
-         <width>300</width>
-         <height>0</height>
+         <width>40</width>
+         <height>20</height>
         </size>
        </property>
-       <property name="maximumSize">
-        <size>
-         <width>300</width>
-         <height>16777215</height>
-        </size>
-       </property>
-      </widget>
+      </spacer>
      </item>
     </layout>
    </item>
    <item>
-    <widget class="QCheckBox" name="preReleaseCheckbox">
+    <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>Include Pre-releases</string>
+      <string>What is new in version </string>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>14</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
      </property>
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="installSelectedButton">
-     <property name="text">
-      <string>Install Selected</string>
+    <widget class="QTextBrowser" name="changeLogEdit">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+       <horstretch>0</horstretch>
+       <verstretch>1</verstretch>
+      </sizepolicy>
      </property>
      <property name="minimumSize">
       <size>
-       <width>150</width>
-       <height>30</height>
+       <width>0</width>
+       <height>280</height>
       </size>
      </property>
-     <property name="maximumSize">
-      <size>
-       <width>150</width>
-       <height>30</height>
-      </size>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QTextEdit" name="changeLogEdit">
      <property name="readOnly">
       <bool>true</bool>
+     </property>
+     <property name="undoRedoEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="openExternalLinks">
+      <bool>true</bool>
+     </property>
+     <property name="lineWrapMode">
+      <enum>QTextEdit::WidgetWidth</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="verticalScrollBarPolicy">
+      <enum>Qt::ScrollBarAsNeeded</enum>
      </property>
      <property name="font">
       <font>
@@ -138,23 +121,81 @@
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="updateLatestButton">
-     <property name="text">
-      <string>Update to Latest</string>
-     </property>
-     <property name="minimumSize">
-      <size>
-       <width>780</width>
-       <height>50</height>
-      </size>
-     </property>
-     <property name="maximumSize">
-      <size>
-       <width>780</width>
-       <height>50</height>
-      </size>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="advancedControlsLayout">
+     <item>
+      <widget class="QLabel" name="forkLabel">
+       <property name="text">
+        <string>Fork:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="forkComboBox">
+       <property name="minimumSize">
+        <size>
+         <width>180</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>220</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="releaseLabel">
+       <property name="text">
+        <string>Release:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="releaseComboBox">
+       <property name="minimumSize">
+        <size>
+         <width>140</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>220</width>
+         <height>16777215</height>
+        </size>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="preReleaseCheckbox">
+       <property name="text">
+        <string>Pre-releases</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="advancedSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="refreshButton">
+       <property name="text">
+        <string>Refresh</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <layout class="QHBoxLayout" name="currentVersionLayout">
@@ -199,8 +240,52 @@
      </item>
     </layout>
    </item>
+   <item>
+    <layout class="QHBoxLayout" name="footerLayout">
+     <item>
+      <spacer name="footerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="ignoreButton">
+       <property name="text">
+        <string>Ignore</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="checkoutButton">
+       <property name="text">
+        <string>Check out update</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="installSelectedButton">
+       <property name="text">
+        <string>Install...</string>
+       </property>
+       <property name="default">
+        <bool>true</bool>
+       </property>
+       <property name="autoDefault">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
   </layout>
  </widget>
- <resources/>
- <connections/>
+ <resources />
+ <connections />
 </ui>

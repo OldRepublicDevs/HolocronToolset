@@ -10,6 +10,7 @@ import platform
 import sys
 
 from contextlib import suppress
+from datetime import datetime
 from multiprocessing import Queue
 from typing import TYPE_CHECKING, Any, NoReturn
 
@@ -21,8 +22,8 @@ try:
 except ImportError:
     requests = None  # type: ignore[assignment, unused-ignore]
 
-from qtpy.QtCore import QThread, Qt
-from qtpy.QtGui import QColor, QFont, QPalette
+from qtpy.QtCore import QThread, Qt, QUrl
+from qtpy.QtGui import QColor, QDesktopServices, QFont, QPalette
 from qtpy.QtWidgets import QApplication, QDialog, QMessageBox, QStyle
 
 from loggerplus import RobustLogger
@@ -143,11 +144,20 @@ class UpdateDialog(QDialog):
 
         # Connect signals
         self.ui.preReleaseCheckbox.stateChanged.connect(self.on_pre_release_changed)
-        self.ui.fetchReleasesButton.clicked.connect(self.init_config)
+        self.ui.refreshButton.clicked.connect(self.init_config)
         self.ui.forkComboBox.currentIndexChanged.connect(self.on_fork_changed)
         self.ui.releaseComboBox.currentIndexChanged.connect(self.on_release_changed)
+        self.ui.ignoreButton.clicked.connect(self.reject)
+        self.ui.checkoutButton.clicked.connect(self.on_checkout_clicked)
         self.ui.installSelectedButton.clicked.connect(self.on_install_selected)
-        self.ui.updateLatestButton.clicked.connect(self.on_update_latest_clicked)
+
+        self.setMinimumSize(720, 520)
+        self.ui.titleLabel.setWordWrap(True)
+        self.ui.titleLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.ui.changeLogEdit.setOpenExternalLinks(True)
+        self.ui.changeLogEdit.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.ui.changeLogEdit.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.ui.changeLogEdit.document().setDocumentMargin(12)
 
         # Populate the releaseComboBox with releases (if any exist)
         for release in self.releases:
@@ -274,13 +284,58 @@ class UpdateDialog(QDialog):
         index: int,  # noqa: FBT001
     ):
         if index < 0 or index >= len(self.releases):
+            self.ui.titleLabel.setText("What is new in version ")
             return
         release: GithubRelease = self.ui.releaseComboBox.itemData(index)
         if not release:
             return
-        changelog_html: str = convert_markdown_to_html(release.body, self)
+        changelog_html: str = convert_markdown_to_html(release.body or "", self)
         self.ui.changeLogEdit.setHtml(changelog_html)
+        self._update_title_label(release)
         self._update_current_version_display()
+
+    def _update_title_label(self, release: GithubRelease) -> None:
+        app = QApplication.instance()
+        if app is None or not isinstance(app, QApplication):
+            palette = QPalette()
+        else:
+            palette = app.palette()
+
+        highlight_color = palette.color(QPalette.ColorRole.Highlight)
+        if not highlight_color.isValid():
+            highlight_color = palette.color(QPalette.ColorRole.Link)
+
+        color_hex = highlight_color.name()
+        tag = release.tag_name
+        date_str = ""
+        if release.published_at:
+            try:
+                dt = datetime.fromisoformat(release.published_at.replace("Z", "+00:00"))
+                date_str = f"{dt.year}/{dt.month}/{dt.day}"
+            except (TypeError, ValueError):
+                date_str = (
+                    release.published_at[:10]
+                    if len(release.published_at) >= 10
+                    else release.published_at
+                )
+
+        if date_str:
+            title = (
+                f'What is new in version <span style="color:{color_hex}; '
+                f'font-weight:bold;">{tag}</span> ({date_str})'
+            )
+        else:
+            title = (
+                f'What is new in version <span style="color:{color_hex}; '
+                f'font-weight:bold;">{tag}</span>'
+            )
+        self.ui.titleLabel.setText(title)
+
+    def on_checkout_clicked(self) -> None:
+        release = self.ui.releaseComboBox.currentData()
+        if not release or not getattr(release, "html_url", None):
+            return
+        QDesktopServices.openUrl(QUrl(release.html_url))
 
     def _update_current_version_display(self):
         """Update the current version label with color coding."""
