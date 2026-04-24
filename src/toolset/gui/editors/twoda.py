@@ -27,7 +27,7 @@ from qtpy.QtWidgets import (
 )
 
 from pykotor.resource.formats.twoda import TwoDA, read_2da, write_2da
-from pykotor.resource.type import ResourceType, ToolsetFormat
+from toolset.utils.resource_type_compat import ResourceType, ToolsetFormat
 from toolset.gui.common.filters import NoScrollEventFilter
 from toolset.gui.common.localization import translate
 from toolset.gui.editor import Editor

@@ -46,7 +46,7 @@ from pykotor.resource.formats.erf import ERF, ERFType, read_erf, write_erf
 from pykotor.resource.formats.mdl import read_mdl, write_mdl
 from pykotor.resource.formats.rim import RIM, read_rim, write_rim
 from pykotor.resource.formats.tpc import read_tpc, write_tpc
-from pykotor.resource.type import ResourceType, ToolsetFormat
+from toolset.utils.resource_type_compat import ResourceType, ToolsetFormat
 from pykotor.tools import module
 from pykotor.tools.misc import (
     is_any_erf_type_file,

@@ -23,7 +23,7 @@ from qtpy.QtWidgets import (
 
 from loggerplus import RobustLogger
 from pykotor.resource.formats.lip import LIP, LIPKeyFrame, LIPShape, bytes_lip, read_lip
-from pykotor.resource.type import ResourceType, ToolsetFormat
+from toolset.utils.resource_type_compat import ResourceType, ToolsetFormat
 from toolset.gui.editor import Editor
 
 if TYPE_CHECKING:

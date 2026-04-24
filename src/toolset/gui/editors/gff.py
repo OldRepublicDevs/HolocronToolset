@@ -32,7 +32,7 @@ from pykotor.resource.formats.gff import (
     read_gff,
     write_gff,
 )
-from pykotor.resource.type import RESOURCE_FORMAT, ResourceType, ToolsetFormat
+from toolset.utils.resource_type_compat import RESOURCE_FORMAT, ResourceType, ToolsetFormat
 from toolset.gui.common.localization import translate as tr
 from toolset.gui.editor import Editor
 from utility.common.geometry import Vector3, Vector4
