@@ -15,4 +15,16 @@ try:
 except ImportError:
     RESOURCE_FORMAT = Union[ResourceType, ToolsetFormat]
 
-__all__ = ["RESOURCE_FORMAT", "ResourceType", "ToolsetFormat"]
+try:
+    from pykotor.resource.type import get_toolset_formats_for_type
+except ImportError:
+    def get_toolset_formats_for_type(restype: ResourceType) -> tuple[ToolsetFormat, ...]:
+        _ = restype
+        return ()
+
+__all__ = [
+    "RESOURCE_FORMAT",
+    "ResourceType",
+    "ToolsetFormat",
+    "get_toolset_formats_for_type",
+]

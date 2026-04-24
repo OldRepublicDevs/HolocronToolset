@@ -47,7 +47,11 @@ from pykotor.resource.formats.bif import read_bif
 from pykotor.resource.formats.erf import ERF, ERFType, read_erf, write_erf
 from pykotor.resource.formats.gff import GFFStruct, bytes_gff, read_gff
 from pykotor.resource.formats.rim import RIM, read_rim, write_rim
-from pykotor.resource.type import RESOURCE_FORMAT, ResourceType, get_toolset_formats_for_type
+from toolset.utils.resource_type_compat import (
+    RESOURCE_FORMAT,
+    ResourceType,
+    get_toolset_formats_for_type,
+)
 from pykotor.tools.misc import (
     is_any_erf_type_file,
     is_bif_file,
