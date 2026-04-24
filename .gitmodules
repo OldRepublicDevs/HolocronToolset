@@ -1,3 +1,6 @@
 [submodule "kits"]
 	path = kits
 	url = https://github.com/th3w1zard1/ToolsetData
+[submodule "src/toolset/help/wiki"]
+	path = src/toolset/help/wiki
+	url = https://github.com/OpenKotOR/PyKotor.wiki.git
