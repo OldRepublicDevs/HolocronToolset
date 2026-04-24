@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 from pykotor.resource.type import ResourceType
 
@@ -8,7 +8,8 @@ try:
     from pykotor.resource.type import ToolsetFormat
 except ImportError:
     # Older PyKotor releases exposed toolset serialization variants on ResourceType.
-    ToolsetFormat = ResourceType  # type: ignore[misc,assignment]
+    if not TYPE_CHECKING:
+        ToolsetFormat = ResourceType  # type: ignore[misc,assignment]
 
 try:
     from pykotor.resource.type import RESOURCE_FORMAT
