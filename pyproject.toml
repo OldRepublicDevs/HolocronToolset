@@ -27,6 +27,7 @@ description = "A PyQt-backed program with a collection of tools and editors that
 version = "4.0.0b31"
 requires-python = ">=3.8"
 dependencies = [
+  "bioware-kaitai-formats>=0.1.0",
   "certifi>=2021.10.8",
   "comtypes>=1.4.0; sys_platform == \"win32\"",
   "idna>=3.11",
@@ -191,6 +192,7 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.14"
+bioware-kaitai-formats = ">=0.1.0"
 pykotor = { git = "https://github.com/OpenKotOR/PyKotor", branch = "master", subdirectory = "Libraries/PyKotor", extras = ["encodings", "extra", "font", "gl", "updater"] }
 certifi = ">=2021.10.8"
 comtypes = { version = ">=1.4.0", markers = "sys_platform == 'win32'" }

@@ -12,6 +12,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "bioware-kaitai-formats"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "kaitaistruct" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/11/f3e784ab4f30f5925c832420d4f39fddbc35e935e113bc3e98ad57eb793a/bioware_kaitai_formats-0.1.0.tar.gz", hash = "sha256:62a34a82cee045ae28de8b89a97e1af6241e3cd974baac3ae5b9779055d391e2", size = 58066, upload-time = "2026-03-31T17:07:49.629Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/df/01/89b36660e05a9b35274f8b46780e62b8c6b12c19100e68f387931ac213ce/bioware_kaitai_formats-0.1.0-py3-none-any.whl", hash = "sha256:ae3516c608b43a6211c881530af1ce9c1e58fa7c5e77829670a8ddf131ba1d33", size = 85180, upload-time = "2026-03-31T17:07:48.343Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.4.22"
 source = { registry = "https://pypi.org/simple" }
@@ -309,6 +321,7 @@ name = "holocrontoolset"
 version = "4.0.0b31"
 source = { editable = "." }
 dependencies = [
+    { name = "bioware-kaitai-formats" },
     { name = "certifi" },
     { name = "comtypes", version = "1.4.12", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9' and sys_platform == 'win32'" },
     { name = "comtypes", version = "1.4.16", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and sys_platform == 'win32'" },
@@ -350,6 +363,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "bioware-kaitai-formats", specifier = ">=0.1.0" },
     { name = "certifi", specifier = ">=2021.10.8" },
     { name = "comtypes", marker = "sys_platform == 'win32'", specifier = ">=1.4.0" },
     { name = "idna", specifier = ">=3.11" },
