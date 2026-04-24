@@ -194,7 +194,7 @@ keywords = [
 python = ">=3.8,<3.14"
 bioware-kaitai-formats = ">=0.1.0"
 pykotor = { git = "https://github.com/OpenKotOR/PyKotor", branch = "master", subdirectory = "Libraries/PyKotor", extras = ["encodings", "extra", "font", "gl", "updater"] }
-certifi = ">=2021.10.8"
+certifi = ">=2026.4.22"
 comtypes = { version = ">=1.4.0", markers = "sys_platform == 'win32'" }
 idna = ">=3.11"
 jsonpickle = ">=4.1.1"
