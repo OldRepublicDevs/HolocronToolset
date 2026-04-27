@@ -293,6 +293,12 @@ Changelog = "https://github.com/OpenKotOR/PyKotor/releases"
 ## sources via [tool.uv.sources]; standalone installs use PyPI.
 ########################################################
 
+[tool.uv.sources]
+# Standalone git installs should resolve pykotor from the monorepo archive when
+# the requested version has not been published to PyPI yet. Using the GitHub
+# archive avoids recursive submodule initialization in the monorepo checkout.
+pykotor = { url = "https://github.com/OpenKotOR/PyKotor/archive/refs/heads/master.zip", subdirectory = "Libraries/PyKotor" }
+
 [dependency-groups]
 dev = []
 
