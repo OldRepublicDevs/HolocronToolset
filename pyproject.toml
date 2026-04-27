@@ -287,11 +287,11 @@ Changelog = "https://github.com/OpenKotOR/PyKotor/releases"
 
 ########################################################
 ## UV workspace configuration                         ##
+## Path-based uv.sources are omitted: when installing holocrontoolset from
+## git (e.g. uvx --from git+...), uv would serialize them as invalid
+## git+#subdirectory URLs on Windows. The PyKotor monorepo root overrides
+## sources via [tool.uv.sources]; standalone installs use PyPI.
 ########################################################
-
-[tool.uv.sources]
-pykotor = { path = "../../Libraries/PyKotor", editable = true }
-bioware-kaitai-formats = { path = "../../Libraries/bioware-kaitai-formats", editable = true }
 
 [dependency-groups]
 dev = []
@@ -334,7 +334,9 @@ PYSIDE6 = false
 
 
 [tool.ruff]
-extend = "../../pyproject.toml"
+# No extend: standalone HolocronToolset clone has no monorepo root pyproject.
+line-length = 100
+target-version = "py38"
 
 [tool.ruff.lint]
 ignore = [
