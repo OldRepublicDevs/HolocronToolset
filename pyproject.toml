@@ -294,10 +294,11 @@ Changelog = "https://github.com/OpenKotOR/PyKotor/releases"
 ########################################################
 
 [tool.uv.sources]
-# Standalone git installs should resolve pykotor from the monorepo archive when
-# the requested version has not been published to PyPI yet. Using the GitHub
-# archive avoids recursive submodule initialization in the monorepo checkout.
-pykotor = { url = "https://github.com/OpenKotOR/PyKotor/archive/refs/heads/master.zip", subdirectory = "Libraries/PyKotor" }
+# Standalone git installs should resolve pykotor from the monorepo checkout when
+# the requested version has not been published to PyPI yet. Keep this aligned
+# with the root workspace source so uv does not see conflicting direct URLs when
+# holocrontoolset is installed through git+https://github.com/OpenKotOR/PyKotor.
+pykotor = { git = "https://github.com/OpenKotOR/PyKotor", subdirectory = "Libraries/PyKotor" }
 
 [dependency-groups]
 dev = []
