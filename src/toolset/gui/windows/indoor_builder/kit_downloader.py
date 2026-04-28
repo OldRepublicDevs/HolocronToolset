@@ -1,4 +1,10 @@
-"""Indoor kit download: fetch and install kit archives for the builder."""
+"""Indoor kit download: fetch and install kit archives for the builder.
+
+Remote `kits.zip` entries use legacy Holocron ``version`` fields. Local v2 tile kits
+(``format_version: 2``) also accept a top-level ``version`` string for update checks; when
+only ``format_version`` is set, the updater treats the kit as version ``2.0.0`` for
+comparison with remote metadata.
+"""
 
 from __future__ import annotations
 
@@ -73,7 +79,14 @@ class KitDownloader(QDialog):
                         button.setText("Missing JSON - click to redownload.")
                         button.setEnabled(True)
                     else:
-                        local_kit_version = str(local_kit_dict["version"])
+                        local_kit_version = str(
+                            local_kit_dict.get("version")
+                            or (
+                                "2.0.0"
+                                if local_kit_dict.get("format_version") == 2
+                                else "0.0.0"
+                            )
+                        )
                         retrieved_kit_version = str(kit_dict["version"])
                         if (
                             is_remote_version_newer(local_kit_version, retrieved_kit_version)

@@ -24,9 +24,7 @@ from qtpy.QtCore import (
 from qtpy.QtGui import QAction, QIcon, QPixmap
 from qtpy.QtWidgets import (
     QApplication,
-    QComboBox,
     QFileDialog,
-    QLabel,
     QMainWindow,
     QMenu,
     QMessageBox,
@@ -69,6 +67,7 @@ from toolset.gui.dialogs.save.to_rim import RimSaveDialog, RimSaveOption
 from toolset.gui.widgets.edit.locstring import LocalizedStringLineEdit
 from toolset.gui.widgets.installation_toolbar import InstallationToolbar, StandaloneWindowMixin
 from toolset.gui.widgets.media_player_widget import MediaPlayerWidget
+from toolset.gui.widgets.resource_navigation import ResourceNavigationWidget
 from toolset.gui.widgets.settings.installations import GlobalSettings
 from utility.error_handling import format_exception_with_variables
 
@@ -146,12 +145,11 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._installation_toolbar.folder_paths_changed.connect(self._handle_folder_paths_changed)
         self._editor_toolbar.addWidget(self._installation_toolbar)
 
-        # Resource navigation bar (opt-in by subclasses via _nav_resource_types).
+        # Resource navigation bar, shared across editor subclasses.
         # Must be initialised before setCurrentIndex() below, which fires installation_changed.
         self._nav_toolbar: QToolBar | None = None
-        self._nav_combo: QComboBox | None = None
+        self._nav_widget: ResourceNavigationWidget | None = None
         self._nav_populating: bool = False
-        self._nav_prev_index: int = -1
         self._setup_nav_bar()
 
         if self._installation is not None:
@@ -191,12 +189,12 @@ class Editor(QMainWindow, StandaloneWindowMixin):
     # ------------------------------------------------------------------
 
     def _nav_resource_types(self) -> list[ResourceType]:
-        """Override to enable the resource-navigation row below the toolbar.
+        """Return the resource types exposed by the shared navigation row.
 
-        Return the ResourceType(s) whose chitin+override entries should populate
-        the nav combobox.  Return [] (default) to disable the nav bar entirely.
+        The default exposes this editor's canonical readable resource types. Override to
+        narrow, expand, or disable navigation for a specific editor.
         """
-        return []
+        return list(getattr(self, "_module_read_supported", []))
 
     def _setup_nav_bar(self) -> None:
         """Create the nav toolbar + combobox when _nav_resource_types() is non-empty."""
@@ -209,83 +207,53 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._nav_toolbar.setMovable(False)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._nav_toolbar)
 
-        self._nav_toolbar.addWidget(QLabel("  Navigate:  "))
-
-        self._nav_combo = QComboBox()
-        self._nav_combo.setMinimumWidth(320)
-        self._nav_combo.setMaxVisibleItems(30)
-        self._nav_toolbar.addWidget(self._nav_combo)
-
-        self._nav_combo.currentIndexChanged.connect(self._on_nav_selection_changed)
+        self._nav_widget = ResourceNavigationWidget(self)
+        self._nav_widget.resource_selected.connect(self._on_nav_selection_changed)
+        self._nav_widget.containerCombo.currentIndexChanged.connect(lambda _index: self._nav_sync_combo())
+        self._nav_toolbar.addWidget(self._nav_widget)
 
         if self._installation is not None:
             self._refresh_nav_bar(self._installation)
 
     def _refresh_nav_bar(self, installation: HTInstallation | None) -> None:
-        """Repopulate the nav combobox from chitin + override for the configured types."""
-        combo = self._nav_combo
-        if combo is None:
+        """Repopulate the nav controls for the configured resource types."""
+        nav_widget = self._nav_widget
+        if nav_widget is None:
             return
         nav_types = self._nav_resource_types()
-        if not nav_types or installation is None:
+        if not nav_types:
             return
-
-        self._nav_populating = True
-        try:
-            combo.clear()
-            resources: list[FileResource] = []
-            nav_type_set = set(nav_types)
-            for res in installation.chitin_resources():
-                if res.restype() in nav_type_set:
-                    resources.append(res)
-            for res in installation.override_resources():
-                if res.restype() in nav_type_set:
-                    resources.append(res)
-            resources.sort(key=lambda r: r.resname().lower())
-            for res in resources:
-                combo.addItem(res.resname(), res)
-            self._nav_sync_combo_internal(combo)
-        finally:
-            self._nav_populating = False
+        nav_widget.set_navigation_context(installation, nav_types)
+        self._nav_sync_combo()
 
     def _nav_sync_combo(self) -> None:
         """Sync the nav combobox selection to the currently-loaded resname."""
-        combo = self._nav_combo
-        if combo is None:
+        nav_widget = self._nav_widget
+        if nav_widget is None:
             return
         self._nav_populating = True
         try:
-            self._nav_sync_combo_internal(combo)
+            self._nav_sync_combo_internal(nav_widget)
         finally:
             self._nav_populating = False
 
-    def _nav_sync_combo_internal(self, combo: QComboBox) -> None:
-        resname_lower = (self._resname or "").lower()
-        for i in range(combo.count()):
-            res: FileResource | None = combo.itemData(i)
-            if res is not None and res.resname().lower() == resname_lower:
-                combo.setCurrentIndex(i)
-                self._nav_prev_index = i
-                return
-        combo.setCurrentIndex(-1)
-        self._nav_prev_index = -1
+    def _nav_sync_combo_internal(self, nav_widget: ResourceNavigationWidget) -> None:
+        canonical_restype = self._restype.target_type()
+        nav_widget.sync_to_resource(self._filepath, self._resname, canonical_restype)
 
-    def _on_nav_selection_changed(self, index: int) -> None:
+    def _on_nav_selection_changed(self, res: FileResource | None) -> None:
         """Handle user picking a different resource in the nav combobox."""
-        if self._nav_populating or index < 0:
+        if self._nav_populating:
             return
-        combo = self._nav_combo
-        if combo is None:
-            return
-        res: FileResource | None = combo.itemData(index)
         if res is None:
             return
         # No-op when the selection matches what is already loaded.
-        if res.resname().lower() == (self._resname or "").lower():
-            self._nav_prev_index = index
+        if (
+            res.resname().lower() == (self._resname or "").lower()
+            and Path(res.filepath()) == self._filepath
+            and res.restype() == self._restype.target_type()
+        ):
             return
-
-        prev_index = self._nav_prev_index
 
         if self.isWindowModified():
             result = QMessageBox.question(
@@ -302,16 +270,11 @@ class Editor(QMainWindow, StandaloneWindowMixin):
                 QMessageBox.StandardButton.Cancel,
             )
             if result == QMessageBox.StandardButton.Cancel:
-                self._nav_populating = True
-                try:
-                    combo.setCurrentIndex(prev_index)
-                finally:
-                    self._nav_populating = False
+                self._nav_sync_combo()
                 return
             if result == QMessageBox.StandardButton.Save:
                 self.save()
 
-        self._nav_prev_index = index
         try:
             data = res.data()
         except Exception as exc:  # noqa: BLE001
