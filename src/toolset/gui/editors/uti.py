@@ -117,9 +117,6 @@ class UTIEditor(Editor):
         self.update3dPreview()
         self.new()
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.UTI]
-
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         if installation is None:
             return

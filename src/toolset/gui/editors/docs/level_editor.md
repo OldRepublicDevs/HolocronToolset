@@ -2,7 +2,7 @@
 # KotOR Level Editor
 
 The LYT class (in lyt_data.py) represents the structure of a LYT file, containing rooms, tracks, obstacles, and doorhooks. The ModuleRenderer class (in module.py) is responsible for rendering the module in 3D, which could be extended to visualize LYT data.
-The IndoorMapBuilder class (in indoor_builder.py) already provides functionality for building new levels using pre-constructed kits.
+The `IndoorMapBuilder` class (`toolset/gui/windows/indoor_builder/builder.py`) implements Layout mode: building new levels from kits—the same workflow embedded in `ModuleDesigner` Layout mode.
 
 Use this information to create an editor for LYTs and integrate it with the Module Designer. This is our main goal: the ability to create custom maps and piece together teztures like solving a 3d puzzle.
 
@@ -64,7 +64,7 @@ Relevant files:
 @Libraries/PyKotor/src/pykotor/resource/formats/lyt/lyt_data.py
 @Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py
 @Tools/HolocronToolset/src/toolset/gui/windows/designer_controls.py
-@Tools/HolocronToolset/src/toolset/gui/windows/indoor_builder.py
+@Tools/HolocronToolset/src/toolset/gui/windows/indoor_builder/builder.py
 @Tools/HolocronToolset/src/toolset/gui/widgets/renderer/walkmesh.py
 @Tools/HolocronToolset/src/toolset/gui/widgets/renderer/lyt_editor.py
 @Tools/HolocronToolset/src/toolset/gui/widgets/renderer/lyt_editor.py
@@ -83,7 +83,7 @@ Relevant files:
 
 NOTE:
 
-- IndoorMapBuilder/blackvulkar.json are provided as reference points only as a legacy/deprecated way of modifying the lyt. They are not part of ModuleDesigner.
+- `kits/blackvulkar.json` (HolocronToolset tree) is a sample/reference layout dataset; Module Designer Layout mode and `IndoorMapBuilder` are the supported editors for kit-based indoor workflows.
 
 vendor/Kotor.NET/Kotor.NET/Formats/KotorLYT/LYT.cs
 vendor/Kotor.NET/Kotor.NET/Formats/KotorLYT/LYTReader.cs

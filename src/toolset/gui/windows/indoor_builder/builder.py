@@ -1,4 +1,14 @@
-"""Indoor map builder: kit loading, room editing, and save/export."""
+"""Indoor map builder: kit loading, room editing, and save/export.
+
+:class:`IndoorMapBuilder` **is** the Layout editor—the same indoor map, tile, and
+Area Designer workflow as :class:`~toolset.gui.windows.module_designer.ModuleDesigner`
+when it is in Layout mode (Tools → Layout Editor, Level Builder, or
+``uv run pykotor indoor-builder``). Module Designer hosts that workflow inside one
+window with GIT / walkmesh / resource tabs; this class is the same editor surfaced
+as its own top-level window when constructed directly (including GUI tests).
+Both paths share :mod:`toolset.gui.common.indoor_builder_ops` and the same renderer
+pipeline.
+"""
 
 from __future__ import annotations
 
@@ -125,8 +135,10 @@ from toolset.gui.windows.indoor_builder.constants import (
     ZOOM_WHEEL_SENSITIVITY,
     DragMode,
 )
+from pykotor.tools.area_designer_io import load_area_designer, save_area_designer_v01
 from toolset.gui.windows.indoor_builder.undo_commands import (
     AddRoomCommand,
+    AreaDesignerPayloadChangedCommand,
     MapSettingsChangedCommand,
     PaintWalkmeshCommand,
     ResetWalkmeshCommand,
@@ -188,6 +200,8 @@ class SnapResult:
 
 
 class IndoorMapBuilder(Editor, BlenderEditorMixin):
+    """Layout editor (indoor map + Area Designer)—same product as Module Designer Layout mode."""
+
     def __init__(
         self,
         parent: QWidget | None,
@@ -199,8 +213,8 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         # IndoorMapBuilder manages the installation combo in its own settings toolbar.
         self._editor_toolbar.hide()
 
-        # Initialize Blender integration
-        self._init_blender_integration(BlenderEditorMode.INDOOR_BUILDER)
+        # Same Blender session kind as Module Designer Layout (one integration surface).
+        self._init_blender_integration(BlenderEditorMode.MODULE_DESIGNER)
         self._use_blender_mode: bool = use_blender
         self._blender_choice_made: bool = False
         self._view_stack: QStackedWidget | None = None
@@ -218,6 +232,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self._installation: HTInstallation | None = installation
         self._kits: list[Kit] = []
         self._tile_kits: list[TileKit] = []
+        self._tile_gl: Any = None  # IndoorTileGridRenderer | None — optional 3D preview
         self._map: IndoorMap = IndoorMap()
         # Synthetic components (e.g. merged rooms) are stored in an embedded kit so they
         # can be serialized into `.indoor` and restored on load.
@@ -244,15 +259,20 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
         from toolset.gui.windows.indoor_builder.tile_editor_3d import (  # noqa: PLC0415
+            IndoorTileGridRenderer,
             setup_indoor_builder_tile_3d,
         )
 
-        setup_indoor_builder_tile_3d(
+        self._tile_gl = setup_indoor_builder_tile_3d(
             main_splitter=self.ui.mainViewSplitter,
             host=self.ui.tileGrid3DHost,
             host_layout=self.ui.tileGrid3DHostLayout,
             fallback_label=self.ui.tileGrid3DFallbackLabel,
+            installation=self._installation,
         )
+        if isinstance(self._tile_gl, IndoorTileGridRenderer):
+            self._undo_stack.cleanChanged.connect(self._refresh_tile_gl_view)
+            self._undo_stack.indexChanged.connect(self._refresh_tile_gl_view)
 
         # Add a missing "Open .mod" action at runtime (UI code is generated; do not edit it).
         self._action_open_mod: QAction = QAction(tr("Open .mod..."), self)
@@ -263,6 +283,28 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         # Put it right after "Open" in File menu and toolbar.
         try:
             self.ui.menuFile.insertAction(self.ui.actionSave, self._action_open_mod)
+        except Exception:
+            pass
+
+        self._action_import_area_designer: QAction = QAction(
+            tr("Import Area Designer JSON..."),
+            self,
+        )
+        self._action_import_area_designer.setStatusTip(
+            tr("Load Kotor.NET Area Designer area JSON (format 0.1) into this map"),
+        )
+        self._action_import_area_designer.triggered.connect(self._import_area_designer_json)
+        self._action_export_area_designer: QAction = QAction(
+            tr("Export Area Designer JSON..."),
+            self,
+        )
+        self._action_export_area_designer.setStatusTip(
+            tr("Save embedded Area Designer data (format 0.1) to a JSON file"),
+        )
+        self._action_export_area_designer.triggered.connect(self._export_area_designer_json)
+        try:
+            self.ui.menuFile.insertAction(self.ui.actionSave, self._action_export_area_designer)
+            self.ui.menuFile.insertAction(self.ui.actionSave, self._action_import_area_designer)
         except Exception:
             pass
 
@@ -316,6 +358,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self.ui.mapRenderer.set_map(self._map)
         self.ui.mapRenderer.set_undo_stack(self._undo_stack)
         self.ui.mapRenderer.set_status_callback(self._refresh_status_bar)
+        self._refresh_tile_gl_view()
         self._nav_helper = Viewport2DNavigationHelper(
             self.ui.mapRenderer,
             get_content_bounds=self._content_bounds,
@@ -328,6 +371,8 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
         # Sync settings toolbar from current map
         self._update_settings_ui()
+
+        self._setup_tile_3d_preview_menu()
 
         # Setup Blender integration UI (deferred to avoid layout issues)
         QTimer.singleShot(0, self._install_view_stack)
@@ -343,6 +388,9 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         # self._installation is already set by Editor._handle_installation_changed before this call.
         self._module_kit_manager = None if installation is None else ModuleKitManager(installation)
+        gl = getattr(self, "_tile_gl", None)
+        if gl is not None and hasattr(gl, "set_installation"):
+            gl.set_installation(installation)
         try:
             self._setup_settings_toolbar()
             self._setup_modules()
@@ -810,6 +858,119 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self.ui.mapRenderer.invalidate_rooms(rooms)
         self._refresh_status_bar()
 
+    def _refresh_tile_gl_view(self, *_args: object) -> None:
+        """Sync optional 3D preview with map + tile kits (Area Designer JSON / tile_layout)."""
+        gl = getattr(self, "_tile_gl", None)
+        if gl is None or not hasattr(gl, "refresh_from_map"):
+            return
+        gl.refresh_from_map(self._map, self._tile_kits)
+
+    def _after_area_designer_payload_undo(self) -> None:
+        self._refresh_tile_gl_view()
+        self._refresh_window_title()
+
+    def _setup_tile_3d_preview_menu(self) -> None:
+        """Menu entries matching Kotor.NET AreaDesigner visibility / mesh categories for the GL preview."""
+        gl = getattr(self, "_tile_gl", None)
+        if gl is None or not hasattr(gl, "set_preview_layers"):
+            return
+        preview_menu = self.menuBar().addMenu(tr("Tile 3D preview"))
+        specs: list[tuple[str, str, bool]] = [
+            ("show_walls", tr("Show walls"), True),
+            ("show_doors", tr("Show doorframes"), True),
+            ("show_corners", tr("Show corners"), True),
+            ("show_ceilings", tr("Show ceilings"), False),
+            ("show_objects", tr("Show room objects"), True),
+        ]
+        for attr, label, default in specs:
+
+            def _make_toggle(layer: str):
+                def _on(checked: bool) -> None:
+                    gl.set_preview_layers(**{layer: checked})
+
+                return _on
+
+            act = QAction(label, self)
+            act.setCheckable(True)
+            act.setChecked(default)
+            act.toggled.connect(_make_toggle(attr))
+            preview_menu.addAction(act)
+
+        preview_menu.addSeparator()
+        adj_act = QAction(tr("Hide shared interior walls / corners (Kotor.NET FixWalls)"), self)
+        adj_act.setCheckable(True)
+        adj_act.setChecked(True)
+        adj_act.setStatusTip(
+            tr(
+                "When on, walls between adjacent tiles and corner pieces follow "
+                "Kotor.NET visibility (Room.FixWalls). When off, draw all kit hooks."
+            ),
+        )
+
+        def _on_adj(checked: bool) -> None:
+            if hasattr(gl, "set_respect_adjacency_visibility"):
+                gl.set_respect_adjacency_visibility(checked)
+
+        adj_act.toggled.connect(_on_adj)
+        preview_menu.addAction(adj_act)
+
+    def _import_area_designer_json(self) -> None:
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Import Area Designer JSON"),
+            "",
+            tr("JSON (*.json);;All Files (*)"),
+        )
+        if not path_str or not str(path_str).strip():
+            return
+        try:
+            data = load_area_designer(Path(path_str))
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(
+                self,
+                tr("Import failed"),
+                trf("{err}", err=str(e)),
+            )
+            return
+        old = deepcopy(self._map.area_designer_v01)
+        new_payload: dict[str, Any] = dict(data)
+        cmd = AreaDesignerPayloadChangedCommand(
+            self._map,
+            old,
+            new_payload,
+            self._after_area_designer_payload_undo,
+        )
+        self._undo_stack.push(cmd)
+
+    def _export_area_designer_json(self) -> None:
+        payload = self._map.area_designer_v01
+        if not isinstance(payload, dict) or payload.get("format") != "0.1":
+            QMessageBox.information(
+                self,
+                tr("Nothing to export"),
+                tr("No Kotor.NET Area Designer data (format 0.1) is embedded in this map."),
+            )
+            return
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            tr("Export Area Designer JSON"),
+            "",
+            tr("JSON (*.json)"),
+        )
+        if not path_str or not str(path_str).strip():
+            return
+        out_path = Path(path_str)
+        if out_path.suffix.lower() != ".json":
+            out_path = out_path.with_suffix(".json")
+        try:
+            save_area_designer_v01(out_path, payload)
+        except OSError as e:
+            QMessageBox.warning(
+                self,
+                tr("Export failed"),
+                trf("{err}", err=str(e)),
+            )
+
     def _kits_for_build(self) -> list[Kit]:
         """K1 room kits plus v2 tile kit shells (textures/skyboxes) for `IndoorMap.build`."""
         out: list[Kit] = list(self._kits)
@@ -832,6 +993,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
             self.ui.kitSelect.addItem(kit.name, kit)
         # v2 tile kits are loaded into `_tile_kits` for tile-layout / 3D workflows; the v1
         # component listbox remains for classic room components only.
+        self._refresh_tile_gl_view()
 
     def _show_no_kits_dialog(self):
         """Show dialog asking if user wants to open kit downloader.
@@ -1631,6 +1793,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self._undo_stack.setClean()  # Mark as clean for new file
         self._update_settings_ui()
         self._refresh_window_title()
+        self._refresh_tile_gl_view()
 
     def open(self):
         if not self._undo_stack.isClean():
@@ -1663,6 +1826,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
                 self._update_settings_ui()
                 self._sync_module_combo_to_current_map()
                 self._refresh_window_title()
+                self._refresh_tile_gl_view()
 
                 if missing_rooms:
                     self._show_missing_rooms_dialog(missing_rooms)
@@ -1921,6 +2085,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
             self._update_settings_ui()
             self._sync_module_combo_to_current_map()
             self._refresh_window_title()
+            self._refresh_tile_gl_view()
 
             return True
 

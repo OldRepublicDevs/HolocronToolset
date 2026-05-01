@@ -1540,6 +1540,38 @@
             <bool>false</bool>
            </property>
           </widget>
+          <widget class="QWidget" name="tileGrid3DHost">
+           <property name="visible">
+            <bool>false</bool>
+           </property>
+           <layout class="QVBoxLayout" name="tileGrid3DHostLayout">
+            <property name="spacing">
+             <number>0</number>
+            </property>
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QLabel" name="tileGrid3DFallbackLabel">
+              <property name="text">
+               <string>3D tile / Area Designer preview</string>
+              </property>
+              <property name="alignment">
+               <set>Qt::AlignCenter</set>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
          </widget>
         </item>
        </layout>
@@ -1756,6 +1788,112 @@
            <number>2</number>
           </property>
           <item>
+           <widget class="QGroupBox" name="indoorMapSettingsGroupBox">
+            <property name="title">
+             <string>Map / build</string>
+            </property>
+            <layout class="QGridLayout" name="indoorMapSettingsGrid">
+             <property name="horizontalSpacing">
+              <number>6</number>
+             </property>
+             <property name="verticalSpacing">
+              <number>4</number>
+             </property>
+             <item row="0" column="0">
+              <widget class="QLabel" name="indoorMapNameLabel">
+               <property name="text">
+                <string>Name:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="LocalizedStringLineEdit" name="indoorMapNameEdit" native="true">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>23</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="indoorMapLightingLabel">
+               <property name="text">
+                <string>Lighting:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="ColorEdit" name="indoorMapLightingEdit" native="true">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>23</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>120</width>
+                 <height>16777215</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="indoorMapWarpLabel">
+               <property name="text">
+                <string>Module ID (warp):</string>
+               </property>
+               <property name="toolTip">
+                <string>Resource prefix / warp code for this module (e.g. test01)</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="indoorMapWarpEdit">
+               <property name="maxLength">
+                <number>16</number>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="indoorMapSkyboxLabel">
+               <property name="text">
+                <string>Skybox:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QComboBox" name="indoorMapSkyboxSelect">
+               <property name="minimumSize">
+                <size>
+                 <width>120</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="indoorMapGameLabel">
+               <property name="text">
+                <string>Game:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QComboBox" name="indoorMapGameSelect">
+               <property name="minimumSize">
+                <size>
+                 <width>120</width>
+                 <height>0</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
            <widget class="QGroupBox" name="indoorPreviewBox">
             <property name="title">
              <string>Preview</string>
@@ -1789,6 +1927,16 @@
              <property name="spacing">
               <number>4</number>
              </property>
+             <item>
+              <widget class="QPushButton" name="kitDownloadUpdateButton">
+               <property name="text">
+                <string>Download/Update Kits...</string>
+               </property>
+               <property name="toolTip">
+                <string>Open the kit downloader to install or update indoor kits</string>
+               </property>
+              </widget>
+             </item>
              <item>
               <widget class="QComboBox" name="kitSelect" />
              </item>
@@ -1858,6 +2006,16 @@
               <widget class="QCheckBox" name="showHooksCheck">
                <property name="text">
                 <string>Show Hooks</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QCheckBox" name="showRoomLabelsCheck">
+               <property name="text">
+                <string>Show Room Labels</string>
                </property>
                <property name="checked">
                 <bool>true</bool>
@@ -1975,6 +2133,44 @@
     <addaction name="separator" />
     <addaction name="actionExit" />
    </widget>
+   <widget class="QMenu" name="menuIndoor">
+    <property name="title">
+     <string>Indoor</string>
+    </property>
+    <addaction name="actionIndoorNew" />
+    <addaction name="actionIndoorOpen" />
+    <addaction name="actionIndoorSave" />
+    <addaction name="actionIndoorSaveAs" />
+    <addaction name="separator" />
+    <addaction name="actionIndoorBuild" />
+    <addaction name="actionIndoorOpenMod" />
+    <addaction name="separator" />
+    <addaction name="actionIndoorDownloadKits" />
+   </widget>
+   <widget class="QMenu" name="menuRoom">
+    <property name="title">
+     <string>Room</string>
+    </property>
+    <addaction name="actionRoomCut" />
+    <addaction name="actionRoomCopy" />
+    <addaction name="actionRoomPaste" />
+    <addaction name="separator" />
+    <addaction name="actionRoomDuplicate" />
+    <addaction name="actionRoomDelete" />
+    <addaction name="separator" />
+    <addaction name="actionRoomSelectAll" />
+    <addaction name="actionRoomDeselectAll" />
+   </widget>
+   <widget class="QMenu" name="menuIndoorView">
+    <property name="title">
+     <string>Layout view</string>
+    </property>
+    <addaction name="actionIndoorViewZoomIn" />
+    <addaction name="actionIndoorViewZoomOut" />
+    <addaction name="separator" />
+    <addaction name="actionIndoorViewReset" />
+    <addaction name="actionIndoorViewCenter" />
+   </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
      <string>Help</string>
@@ -1982,9 +2178,49 @@
     <addaction name="actionInstructions" />
    </widget>
    <addaction name="menuFile" />
+   <addaction name="menuIndoor" />
+   <addaction name="menuRoom" />
+   <addaction name="menuIndoorView" />
    <addaction name="menuHelp" />
   </widget>
   <widget class="QStatusBar" name="statusbar" />
+  <widget class="QDockWidget" name="layoutLogDockWidget">
+   <property name="windowTitle">
+    <string>Log</string>
+   </property>
+   <property name="allowedAreas">
+    <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea|Qt::TopDockWidgetArea|Qt::BottomDockWidgetArea</set>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>8</number>
+   </attribute>
+   <widget class="QWidget" name="layoutLogContainer">
+    <layout class="QVBoxLayout" name="layoutLogContainerLayout">
+     <property name="leftMargin">
+      <number>0</number>
+     </property>
+     <property name="topMargin">
+      <number>0</number>
+     </property>
+     <property name="rightMargin">
+      <number>0</number>
+     </property>
+     <property name="bottomMargin">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QTextEdit" name="layoutLogPlainTextEdit">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="acceptRichText">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </widget>
+  </widget>
   <action name="actionSave">
    <property name="text">
     <string>Save GIT</string>
@@ -2071,6 +2307,105 @@
     <string>Hide 2D View</string>
    </property>
   </action>
+  <action name="actionIndoorNew">
+   <property name="text">
+    <string>New Indoor Map</string>
+   </property>
+   <property name="toolTip">
+    <string>Create a new indoor map (clears placed rooms)</string>
+   </property>
+  </action>
+  <action name="actionIndoorOpen">
+   <property name="text">
+    <string>Open Indoor Map...</string>
+   </property>
+  </action>
+  <action name="actionIndoorSave">
+   <property name="text">
+    <string>Save Indoor Map</string>
+   </property>
+  </action>
+  <action name="actionIndoorSaveAs">
+   <property name="text">
+    <string>Save Indoor Map As...</string>
+   </property>
+  </action>
+  <action name="actionIndoorBuild">
+   <property name="text">
+    <string>Build Module...</string>
+   </property>
+   <property name="toolTip">
+    <string>Build placed rooms into a .mod file</string>
+   </property>
+  </action>
+  <action name="actionIndoorOpenMod">
+   <property name="text">
+    <string>Open Module (.mod)...</string>
+   </property>
+   <property name="toolTip">
+    <string>Open a .mod from disk (must lie in an installation Modules folder)</string>
+   </property>
+  </action>
+  <action name="actionIndoorDownloadKits">
+   <property name="text">
+    <string>Download Kits...</string>
+   </property>
+  </action>
+  <action name="actionRoomCut">
+   <property name="text">
+    <string>Cut</string>
+   </property>
+  </action>
+  <action name="actionRoomCopy">
+   <property name="text">
+    <string>Copy</string>
+   </property>
+  </action>
+  <action name="actionRoomPaste">
+   <property name="text">
+    <string>Paste</string>
+   </property>
+  </action>
+  <action name="actionRoomDuplicate">
+   <property name="text">
+    <string>Duplicate</string>
+   </property>
+  </action>
+  <action name="actionRoomDelete">
+   <property name="text">
+    <string>Delete</string>
+   </property>
+  </action>
+  <action name="actionRoomSelectAll">
+   <property name="text">
+    <string>Select All Rooms</string>
+   </property>
+  </action>
+  <action name="actionRoomDeselectAll">
+   <property name="text">
+    <string>Deselect All</string>
+   </property>
+  </action>
+  <action name="actionIndoorViewZoomIn">
+   <property name="text">
+    <string>Zoom In</string>
+   </property>
+  </action>
+  <action name="actionIndoorViewZoomOut">
+   <property name="text">
+    <string>Zoom Out</string>
+   </property>
+  </action>
+  <action name="actionIndoorViewReset">
+   <property name="text">
+    <string>Reset View</string>
+   </property>
+  </action>
+  <action name="actionIndoorViewCenter">
+   <property name="text">
+    <string>Center on Selection</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -2088,6 +2423,18 @@
    <class>IndoorMapRenderer</class>
    <extends>QWidget</extends>
    <header location="global">toolset.gui.windows.indoor_builder.renderer</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>LocalizedStringLineEdit</class>
+   <extends>QWidget</extends>
+   <header location="global">toolset.gui.widgets.edit.locstring</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ColorEdit</class>
+   <extends>QWidget</extends>
+   <header location="global">toolset.gui.widgets.edit.color</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

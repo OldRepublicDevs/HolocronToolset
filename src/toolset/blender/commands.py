@@ -80,7 +80,11 @@ def requires_connection(
 
 
 class BlenderEditorMode(Enum):
-    """Mode for Blender editor integration."""
+    """Mode for Blender editor integration.
+
+    Layout / indoor editing uses ``MODULE_DESIGNER``; ``INDOOR_BUILDER`` is the same
+    bridge keyed for layout-only callers that want an explicit session label.
+    """
 
     MODULE_DESIGNER = "module_designer"
     GIT_EDITOR = "git_editor"

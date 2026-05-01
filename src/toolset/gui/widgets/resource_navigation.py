@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Iterable, Sequence
 from qtpy.QtCore import Signal  # pyright: ignore[reportPrivateImportUsage]
 from qtpy.QtWidgets import QComboBox, QHBoxLayout, QLabel, QSizePolicy, QWidget
 
+from pykotor.extract.capsule import Capsule
 from pykotor.extract.file import FileResource
 from toolset.utils.resource_type_compat import ResourceType
 
@@ -193,6 +194,16 @@ class ResourceNavigationWidget(QWidget):
             ResourceContainerSpec("override_all", "Override (all)", "override_all"),
         ]
 
+        for core_path in self._core_resource_paths(installation):
+            specs.append(
+                ResourceContainerSpec(
+                    f"core_file:{core_path.as_posix()}",
+                    f"{core_path.suffix[1:].upper() or 'data'}: {self._relative_installation_path(installation, core_path)}",
+                    "core_file",
+                    core_path.as_posix(),
+                )
+            )
+
         for directory in sorted(installation.override_list(), key=str.lower):
             label = "Override: root" if directory in {"", "."} else f"Override: {directory}"
             specs.append(
@@ -245,6 +256,19 @@ class ResourceNavigationWidget(QWidget):
                     )
                 )
 
+        rim_paths = self._capsule_file_paths(installation.rims_path(), {ResourceType.RIM})
+        if rim_paths:
+            specs.append(ResourceContainerSpec("rims_all", "RIMs (all)", "rims_all"))
+            for rim_path in rim_paths:
+                specs.append(
+                    ResourceContainerSpec(
+                        f"rim:{rim_path.as_posix()}",
+                        f"RIM: {self._relative_installation_path(installation, rim_path)}",
+                        "rim",
+                        rim_path.as_posix(),
+                    )
+                )
+
         specs.extend(
             [
                 ResourceContainerSpec("streammusic", "StreamMusic", "streammusic"),
@@ -265,6 +289,8 @@ class ResourceNavigationWidget(QWidget):
             resources.extend(installation.override_resources())
         elif spec.kind == "core":
             resources.extend(self._core_entry_resources(installation))
+        elif spec.kind == "core_file" and spec.value is not None:
+            resources.extend(self._core_file_resources(installation, Path(spec.value)))
         elif spec.kind == "override_all":
             resources.extend(installation.override_resources())
         elif spec.kind == "override_dir":
@@ -283,6 +309,11 @@ class ResourceNavigationWidget(QWidget):
             resources.extend(self._lip_entry_resources(installation, installation.lips_list()))
         elif spec.kind == "lip" and spec.value is not None:
             resources.extend(self._lip_entry_resources(installation, [spec.value]))
+        elif spec.kind == "rims_all":
+            for rim_path in self._capsule_file_paths(installation.rims_path(), {ResourceType.RIM}):
+                resources.extend(self._capsule_entry_resources(rim_path))
+        elif spec.kind == "rim" and spec.value is not None:
+            resources.extend(self._capsule_entry_resources(Path(spec.value)))
         elif spec.kind == "streammusic":
             resources.extend(installation._streammusic)  # noqa: SLF001
         elif spec.kind == "streamsounds":
@@ -297,6 +328,31 @@ class ResourceNavigationWidget(QWidget):
             self._container_file_resources(resource.filepath() for resource in resources)
         )
         return resources
+
+    def _core_file_resources(
+        self,
+        installation: HTInstallation,
+        core_path: Path,
+    ) -> list[FileResource]:
+        resources = [
+            resource
+            for resource in installation.core_resources()
+            if Path(resource.filepath()) == core_path
+        ]
+        resources.extend(self._container_file_resources([core_path]))
+        return resources
+
+    def _core_resource_paths(self, installation: HTInstallation) -> list[Path]:
+        paths: list[Path] = []
+        seen_paths: set[str] = set()
+        for resource in installation.core_resources():
+            path = Path(resource.filepath())
+            path_key = str(path).lower()
+            if path_key in seen_paths:
+                continue
+            seen_paths.add(path_key)
+            paths.append(path)
+        return sorted(paths, key=lambda path: path.as_posix().lower())
 
     def _module_entry_resources(
         self,
@@ -350,6 +406,39 @@ class ResourceNavigationWidget(QWidget):
             except Exception:
                 continue
         return resources
+
+    def _capsule_entry_resources(self, path: Path) -> list[FileResource]:
+        resources = self._container_file_resources([path])
+        if not path.is_file():
+            return resources
+        try:
+            resources.extend(list(Capsule(path)))
+        except Exception:
+            pass
+        return resources
+
+    def _capsule_file_paths(
+        self,
+        directory: Path,
+        resource_types: set[ResourceType] | None = None,
+    ) -> list[Path]:
+        if not directory.exists() or not directory.is_dir():
+            return []
+        allowed_types = resource_types or _CAPSULE_TYPES
+        paths: list[Path] = []
+        for restype in allowed_types:
+            paths.extend(directory.glob(f"*.{restype.extension}"))
+        return sorted((path for path in paths if path.is_file()), key=lambda path: path.name.lower())
+
+    def _relative_installation_path(
+        self,
+        installation: HTInstallation,
+        path: Path,
+    ) -> str:
+        try:
+            return path.relative_to(installation.path()).as_posix()
+        except ValueError:
+            return path.as_posix()
 
     def _filter_supported_resources(self, resources: Sequence[FileResource]) -> list[FileResource]:
         allowed = set(self._resource_types)

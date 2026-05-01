@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, cast
 from qtpy.QtWidgets import QCheckBox, QDoubleSpinBox, QSizePolicy, QSpinBox
 
 from pykotor.common.misc import ResRef
+from pykotor.extract.file import RESOURCE_FORMAT
 from pykotor.resource.formats.gff import write_gff
 from pykotor.resource.generics.ute import UTE, UTECreature, dismantle_ute, read_ute
 from pykotor.resource.type import ResourceType
@@ -46,7 +47,7 @@ class UTEEditor(Editor):
             - Initialize UTE object
             - Call new() to start with a blank trigger.
         """
-        supported: list[ResourceType] = [ResourceType.UTE, ResourceType.BTE]
+        supported: list[RESOURCE_FORMAT] = [ResourceType.UTE, ResourceType.BTE]
         super().__init__(parent, "Trigger Editor", "trigger", supported, supported, installation)
 
         from toolset.uic.qtpy.editors.ute import Ui_MainWindow
@@ -62,9 +63,6 @@ class UTEEditor(Editor):
         self._ute: UTE = UTE()
 
         self.new()
-
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.UTE]
 
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         if installation is None:

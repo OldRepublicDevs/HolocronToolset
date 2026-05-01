@@ -758,7 +758,10 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Indoor Map Builder</string>
+    <string>Layout Editor...</string>
+   </property>
+   <property name="statusTip">
+    <string>Open Module Designer in Layout mode: indoor kits, VIS, Area Designer JSON, and .mod build.</string>
    </property>
   </action>
   <action name="actionEditModule">

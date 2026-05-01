@@ -1,8 +1,8 @@
 """Blender integration for toolset editors.
 
 This module provides mixin classes and utilities for integrating
-Blender as an alternative editor in Module Designer, GIT Editor,
-and Indoor Map Builder.
+Blender as an alternative editor in Module Designer (including Layout / IndoorMapBuilder
+workflows), and in the GIT Editor.
 """
 
 from __future__ import annotations

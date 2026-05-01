@@ -145,9 +145,8 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._installation_toolbar.folder_paths_changed.connect(self._handle_folder_paths_changed)
         self._editor_toolbar.addWidget(self._installation_toolbar)
 
-        # Resource navigation bar, shared across editor subclasses.
+        # Resource navigation controls, shared across editor subclasses.
         # Must be initialised before setCurrentIndex() below, which fires installation_changed.
-        self._nav_toolbar: QToolBar | None = None
         self._nav_widget: ResourceNavigationWidget | None = None
         self._nav_populating: bool = False
         self._setup_nav_bar()
@@ -185,7 +184,7 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         return
 
     # ------------------------------------------------------------------
-    # Resource navigation bar (opt-in)
+    # Resource navigation controls
     # ------------------------------------------------------------------
 
     def _nav_resource_types(self) -> list[ResourceType]:
@@ -197,20 +196,16 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         return list(getattr(self, "_module_read_supported", []))
 
     def _setup_nav_bar(self) -> None:
-        """Create the nav toolbar + combobox when _nav_resource_types() is non-empty."""
+        """Create the shared location/resource selectors in the main editor toolbar."""
         if not self._nav_resource_types():
             return
-        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
-        self._nav_toolbar = QToolBar(self)
-        self._nav_toolbar.setObjectName("navToolbar")
-        self._nav_toolbar.setWindowTitle("Navigate")
-        self._nav_toolbar.setMovable(False)
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._nav_toolbar)
-
+        self._editor_toolbar.addSeparator()
         self._nav_widget = ResourceNavigationWidget(self)
         self._nav_widget.resource_selected.connect(self._on_nav_selection_changed)
-        self._nav_widget.containerCombo.currentIndexChanged.connect(lambda _index: self._nav_sync_combo())
-        self._nav_toolbar.addWidget(self._nav_widget)
+        self._nav_widget.containerCombo.currentIndexChanged.connect(
+            lambda _index: self._nav_sync_combo()
+        )
+        self._editor_toolbar.addWidget(self._nav_widget)
 
         if self._installation is not None:
             self._refresh_nav_bar(self._installation)

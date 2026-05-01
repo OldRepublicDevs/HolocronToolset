@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import qtpy
 
@@ -89,6 +89,35 @@ class MapSettingsChangedCommand(QUndoCommand):
 
     def redo(self) -> None:
         _apply_map_settings(self.indoor_map, self.new_snapshot)
+        self._update_ui_cb()
+
+
+class AreaDesignerPayloadChangedCommand(QUndoCommand):
+    """Undo/redo for embedded Kotor.NET Area Designer JSON (`IndoorMap.area_designer_v01`)."""
+
+    def __init__(
+        self,
+        indoor_map: IndoorMap,
+        old_payload: dict[str, Any] | None,
+        new_payload: dict[str, Any] | None,
+        update_ui_cb: Callable[[], None],
+    ) -> None:
+        super().__init__("Area Designer Data")
+        self.indoor_map = indoor_map
+        self.old_payload = deepcopy(old_payload) if old_payload is not None else None
+        self.new_payload = deepcopy(new_payload) if new_payload is not None else None
+        self._update_ui_cb = update_ui_cb
+
+    def undo(self) -> None:
+        self.indoor_map.area_designer_v01 = (
+            deepcopy(self.old_payload) if self.old_payload is not None else None
+        )
+        self._update_ui_cb()
+
+    def redo(self) -> None:
+        self.indoor_map.area_designer_v01 = (
+            deepcopy(self.new_payload) if self.new_payload is not None else None
+        )
         self._update_ui_cb()
 
 

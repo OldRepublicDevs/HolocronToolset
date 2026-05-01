@@ -110,9 +110,6 @@ class AREEditor(Editor):
                 return path.read_bytes()
         return None
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.ARE]
-
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         if installation is not None:
             self._setup_installation(installation)

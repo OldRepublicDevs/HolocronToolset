@@ -222,9 +222,6 @@ class DLGEditor(Editor):
         self.setup_extra_tooltip_mode()
         self.new()
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.DLG]
-
     def _scan_audio_folder(self, folder: Path | None) -> list[str]:
         if folder is None or not folder.exists() or not folder.is_dir():
             return []

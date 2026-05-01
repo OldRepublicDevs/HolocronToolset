@@ -69,9 +69,6 @@ class UTSEditor(Editor):
 
         self.new()
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.UTS]
-
     def _setup_signals(self):
         """Sets up signal connections for UI buttons and radio buttons.
 

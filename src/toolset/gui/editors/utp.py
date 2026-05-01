@@ -91,9 +91,6 @@ class UTPEditor(Editor):
         self.new()
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.UTP]
-
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         # InstallationToolbar can emit during base-class init before self.ui exists.
         if installation is None or not self._ui_ready:

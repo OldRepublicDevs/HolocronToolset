@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html as html_module
 import json
+import logging
 import math
 import os
 import tempfile
@@ -27,7 +29,7 @@ from typing import TYPE_CHECKING, Any, Callable, Sequence, TextIO, Union, cast
 import qtpy
 
 from qtpy.QtCore import QBuffer, QEvent, QIODevice, QPoint, QTimer, QUrl, Qt
-from qtpy.QtGui import QBrush, QColor, QCursor, QFont, QIcon, QPixmap
+from qtpy.QtGui import QBrush, QColor, QCursor, QFont, QIcon, QImage, QKeySequence, QPixmap, QTextCursor
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QAction,  # pyright: ignore[reportPrivateImportUsage]
@@ -55,11 +57,12 @@ from qtpy.QtWidgets import (
 )
 
 from loggerplus import RobustLogger  # pyright: ignore[reportMissingTypeStubs]
-from pykotor.common.indoorkit import KitComponent
-from pykotor.common.indoormap import EmbeddedKit, IndoorMap, IndoorMapRoom
+from pykotor.common.indoorkit import Kit, KitComponent
+from pykotor.common.indoormap import EmbeddedKit, IndoorMap, IndoorMapRoom, MissingRoomInfo
 from pykotor.common.misc import Color, ResRef
 from pykotor.common.module import Module, ModuleResource
 from pykotor.common.modulekit import ModuleKitManager
+from pykotor.common.tilekit import TileKit
 from pykotor.extract.file import ResourceIdentifier
 from pykotor.resource.formats.bwm import BWM
 from pykotor.resource.formats.erf import read_erf, write_erf
@@ -85,6 +88,7 @@ from pykotor.resource.generics.utt import read_utt
 from pykotor.resource.generics.utw import read_utw
 from pykotor.resource.type import ResourceType
 from pykotor.tools import indoorkit as indoorkit_tools, module
+from pykotor.tools.area_designer_io import load_area_designer, save_area_designer_v01
 from pykotor.tools.misc import is_mod_file
 from toolset.blender import (
     BlenderEditorMode,
@@ -102,6 +106,8 @@ from toolset.gui.common.editor_pipelines import (
     set_exclusive_checkbox_selection,
     set_preview_source_image,
 )
+from toolset.gui.common.log_bridge import LEVEL_COLORS, LogRecordEmitter, QtLogHandler
+from toolset.gui.common.viewport_2d_nav import Viewport2DNavigationHelper, aabb_from_points
 from toolset.gui.common.indoor_builder_ops import (
     add_connected_indoor_rooms_to_selection,
     apply_flip_selected_rooms,
@@ -180,14 +186,19 @@ from toolset.gui.windows.indoor_builder.constants import (
     DUPLICATE_OFFSET_X,
     DUPLICATE_OFFSET_Y,
     DUPLICATE_OFFSET_Z,
+    DragMode,
     POSITION_CHANGE_EPSILON,
     ROTATION_CHANGE_EPSILON,
+    ZOOM_STEP_FACTOR,
     ZOOM_WHEEL_SENSITIVITY,
 )
 from toolset.gui.windows.indoor_builder.undo_commands import (
     AddRoomCommand,
+    AreaDesignerPayloadChangedCommand,
+    MapSettingsChangedCommand,
     PaintWalkmeshCommand,
     ResetWalkmeshCommand,
+    _snapshot_map_settings,
 )
 from toolset.utils.window import open_resource_editor
 from utility.common.geometry import Polygon3, SurfaceMaterial, Vector2, Vector3, Vector4
@@ -198,7 +209,6 @@ if TYPE_CHECKING:
     from qtpy.QtWidgets import QListWidget, QTabWidget
     from typing_extensions import TypeGuard
 
-    from pykotor.common.indoorkit import Kit
     from pykotor.common.module import UTT, UTW
     from pykotor.common.modulekit import ModuleKit
     from pykotor.gl.scene import Camera
@@ -211,10 +221,6 @@ if TYPE_CHECKING:
     from toolset.gui.common.indoor_builder_ops import RoomClipboardData
     from toolset.gui.widgets.renderer.view_compass import ViewCompassWidget
     from toolset.gui.widgets.renderer.walkmesh import WalkmeshRenderer
-    from toolset.gui.windows.indoor_builder.constants import (  # noqa: F401  # Phase 2
-        ZOOM_STEP_FACTOR,
-        DragMode,
-    )
     from toolset.gui.windows.indoor_builder.renderer import IndoorMapRenderer
 
 if qtpy.QT5:
@@ -600,6 +606,10 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self._indoor_vis_matrix: dict[int, set[int]] = {}
         self._indoor_vis_hover_row: int = -1
         self._indoor_vis_hover_col: int = -1
+        self._indoor_tile_kits: list[TileKit] = []
+        self._tile_gl: Any = None
+        self._menu_tile_3d_preview: QMenu | None = None
+        self._walkmesh_material_indoor_status_connected: bool = False
 
         # Module Kit Manager — provides implicit kits from existing game modules
         self._module_kit_manager: ModuleKitManager | None = None
@@ -658,6 +668,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.indoorRenderer.set_undo_stack(self.undo_stack)
         self.ui.indoorRenderer.set_material_colors(self.material_colors)
         self.ui.indoorRenderer.set_colorize_materials(self._indoor_colorize_materials)
+        self.ui.indoorRenderer.set_status_callback(self._indoor_renderer_status_callback)
 
         # Setup indoor kit/module selectors
         self._setup_indoor_kits()
@@ -667,6 +678,18 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self._populate_walkmesh_material_list()
         self._setup_walkmesh_face_panel()
         self._initialize_indoor_options()
+        self._setup_indoor_tile_grid_gl_preview()
+
+        self._indoor_nav_helper = Viewport2DNavigationHelper(
+            self.ui.indoorRenderer,
+            get_content_bounds=self._indoor_content_bounds,
+            get_selection_bounds=self._indoor_selection_bounds,
+            settings=self.settings,
+        )
+
+        self._layout_log_emitter: LogRecordEmitter | None = None
+        self._layout_log_handler: logging.Handler | None = None
+        self._setup_layout_log_pane()
 
         self._controls3d: ModuleDesignerControls3d | ModuleDesignerControlsFreeCam = (
             ModuleDesignerControls3d(self, self.ui.mainRenderer)
@@ -711,11 +734,17 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             )
             self._module_kit_manager = None
         try:
+            self._setup_indoor_kits()
+            self._bind_indoor_map_name_edit_installation()
+            self._update_indoor_map_settings_ui()
             self._populate_module_combo()
             self._setup_indoor_modules()
             self._refresh_window_title()
         except Exception:
             self.log.exception("Failed to refresh after installation switch")
+        gl = getattr(self, "_tile_gl", None)
+        if gl is not None and hasattr(gl, "set_installation"):
+            gl.set_installation(installation)
 
     def showEvent(self, a0: QShowEvent) -> None:
         if self.ui.mainRenderer.scene is None:
@@ -742,6 +771,34 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         # Stop Blender mode if active
         if self.is_blender_mode():
             self.stop_blender_mode()
+        gl = getattr(self, "_tile_gl", None)
+        if gl is not None and hasattr(gl, "shutdown_renderer"):
+            gl.shutdown_renderer()
+        if getattr(self, "_layout_log_handler", None) is not None:
+            try:
+                logging.getLogger().removeHandler(self._layout_log_handler)
+            except Exception:  # noqa: BLE001
+                pass
+            self._layout_log_handler = None
+
+        try:
+            ir = self.ui.indoorRenderer
+            ir.set_status_callback(None)
+            if hasattr(ir, "_render_timer"):
+                ir._render_timer.stop()  # noqa: SLF001
+            ir.sig_mouse_moved.disconnect()
+            ir.sig_mouse_pressed.disconnect()
+            ir.sig_mouse_released.disconnect()
+            ir.sig_mouse_scrolled.disconnect()
+            ir.sig_mouse_double_clicked.disconnect()
+            ir.sig_rooms_moved.disconnect()
+            ir.sig_rooms_rotated.disconnect()
+            ir.sig_warp_moved.disconnect()
+            ir.sig_marquee_select.disconnect()
+            ir.customContextMenuRequested.disconnect()
+        except Exception:
+            pass
+
         event.accept()  # Let the window close
 
     def _setup_signals(self) -> None:
@@ -849,6 +906,48 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         # Door hook signals
         self.ui.roomNameCombo.currentTextChanged.connect(self.on_doorhook_room_changed)
         self.ui.doorNameEdit.textChanged.connect(self.on_doorhook_name_changed)
+
+        self._setup_indoor_menu_actions()
+
+    def _setup_indoor_menu_actions(self) -> None:
+        """Wire Indoor menu actions for Layout mode (same commands as IndoorMapBuilder)."""
+        from toolset.gui.common.localization import translate as tr  # noqa: PLC0415
+
+        ui = self.ui
+        ui.actionIndoorNew.triggered.connect(self._indoor_new)
+        ui.actionIndoorOpen.triggered.connect(self._indoor_open)
+        ui.actionIndoorSave.triggered.connect(self._indoor_save)
+        ui.actionIndoorSaveAs.triggered.connect(self._indoor_save_as)
+        ui.actionIndoorBuild.triggered.connect(self._build_indoor_module)
+        ui.actionIndoorOpenMod.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        ui.actionIndoorOpenMod.setStatusTip(tr("Open a .mod from disk (must lie in an installation Modules folder)"))
+        ui.actionIndoorOpenMod.triggered.connect(self._indoor_open_mod)
+        ui.actionIndoorDownloadKits.triggered.connect(self._open_indoor_kit_downloader)
+        ui.kitDownloadUpdateButton.clicked.connect(self._open_indoor_kit_downloader)
+
+        self._action_refresh_module_kits = QAction(tr("Refresh module kits"), self)
+        self._action_refresh_module_kits.setStatusTip(
+            tr("Reload module roots from the active installation for the module kit picker."),
+        )
+        self._action_refresh_module_kits.triggered.connect(self._setup_indoor_modules)
+        ui.menuIndoor.addAction(self._action_refresh_module_kits)
+
+        ui.actionRoomCut.triggered.connect(self._indoor_cut_selected)
+        ui.actionRoomCopy.triggered.connect(self._indoor_copy_selected)
+        ui.actionRoomPaste.triggered.connect(self._indoor_paste)
+        ui.actionRoomDuplicate.triggered.connect(self._indoor_duplicate_selected)
+        ui.actionRoomDelete.triggered.connect(self._indoor_delete_selected)
+        ui.actionRoomSelectAll.triggered.connect(
+            lambda: select_all_indoor_rooms(
+                self.ui.indoorRenderer, self._indoor_map.rooms, refresh=True
+            )
+        )
+        ui.actionRoomDeselectAll.triggered.connect(self._indoor_deselect_all)
+
+        ui.actionIndoorViewZoomIn.triggered.connect(self._indoor_zoom_in)
+        ui.actionIndoorViewZoomOut.triggered.connect(self._indoor_zoom_out)
+        ui.actionIndoorViewReset.triggered.connect(self._indoor_reset_view)
+        ui.actionIndoorViewCenter.triggered.connect(self._indoor_center_on_selection)
 
     # =========================================================================
     # Tool Palette
@@ -1520,10 +1619,12 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
 
         # --- Renderer visibility ---
         # Keep 3D/2D renderers available in all modes so Layout mode doesn't blank out.
-        # Indoor renderer is additive in Layout mode (legacy indoor builder canvas).
+        # Indoor renderer is additive in Layout mode (IndoorMapBuilder canvas stack).
         self.ui.mainRenderer.setVisible(True)
         self.ui.flatRenderer.setVisible(True)
         self.ui.indoorRenderer.setVisible(is_layout)
+        if hasattr(self.ui, "tileGrid3DHost"):
+            self.ui.tileGrid3DHost.setVisible(is_layout)
         lyt_renderer = self._lyt_renderer
         if lyt_renderer is not None:
             lyt_renderer.setVisible(is_layout)
@@ -1553,6 +1654,24 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.snapSeparator.setVisible(tool_visible)
         self.ui.walkmeshEdgesCheck.setVisible(tool_visible)
 
+        # Indoor / Room / View menus — same scope as indoor map editing (Layout mode)
+        self.ui.menuIndoor.menuAction().setVisible(is_layout)
+        self.ui.menuRoom.menuAction().setVisible(is_layout)
+        self.ui.menuIndoorView.menuAction().setVisible(is_layout)
+
+        if hasattr(self.ui, "layoutLogDockWidget"):
+            self.ui.layoutLogDockWidget.setVisible(is_layout)
+
+        if self._menu_tile_3d_preview is not None:
+            self._menu_tile_3d_preview.menuAction().setVisible(is_layout)
+
+        imp = getattr(self, "_action_import_area_designer", None)
+        exp = getattr(self, "_action_export_area_designer", None)
+        if imp is not None:
+            imp.setVisible(is_layout)
+        if exp is not None:
+            exp.setVisible(is_layout)
+
     def _switch_left_panel_to(self, tab_object_name: str):
         """Switch left panel to a specific tab by its objectName."""
         left = self.ui.leftPanel
@@ -1575,24 +1694,287 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
     def editor_mode(self) -> int:
         return self._editor_mode
 
+    def enter_layout_mode(self) -> None:
+        """Activate Layout mode (indoor map assembly + Area Designer preview). Used when opening from Main Window."""
+        self.ui.modeSelector.setCurrentIndex(EditorMode.LAYOUT)
+
     # =========================================================================
     # Indoor Builder Setup (Layout Mode)
     # =========================================================================
 
     def _setup_indoor_kits(self):
-        """Load indoor kits from disk into the kit selector combo."""
+        """Load indoor kits from disk into the kit selector combo.
+
+        Also loads v2 ``TileKit`` entries into ``_indoor_tile_kits`` for Area Designer / tile-layout 3D preview.
+        """
         from toolset.gui.windows.indoor_builder.builder import get_kits_path
 
         kits_path = get_kits_path()
         try:
-            self._indoor_kits = indoorkit_tools.load_kits(str(kits_path))
+            self._indoor_kits, self._indoor_tile_kits, _missing = (
+                indoorkit_tools.load_kits_unified_with_missing(str(kits_path))
+            )
         except Exception:
             self.log.warning("Failed to load indoor kits from %s", kits_path)
             self._indoor_kits = []
+            self._indoor_tile_kits = []
 
         self.ui.kitSelect.clear()
         for kit in self._indoor_kits:
             self.ui.kitSelect.addItem(kit.name, kit)
+
+        self._populate_indoor_skybox_combo()
+
+    def _setup_indoor_map_settings_combos(self) -> None:
+        """Fill static combos for indoor map metadata (game override); skybox is kit-dependent."""
+        from toolset.gui.common.localization import translate as tr
+
+        game = self.ui.indoorMapGameSelect
+        if game.count() > 0:
+            return
+        game.clear()
+        game.addItem(tr("Use Installation Default"), None)
+        game.addItem("Knights of the Old Republic (K1)", False)
+        game.addItem("The Sith Lords (TSL/K2)", True)
+
+    def _populate_indoor_skybox_combo(self) -> None:
+        """Rebuild skybox dropdown from loaded kits (same as IndoorMapBuilder)."""
+        from toolset.gui.common.localization import translate as tr
+
+        combo = self.ui.indoorMapSkyboxSelect
+        combo.blockSignals(True)
+        combo.clear()
+        combo.addItem(tr("[None]"), "")
+        for kit in self._indoor_kits:
+            for skybox in kit.skyboxes:
+                combo.addItem(skybox, skybox)
+        combo.blockSignals(False)
+
+    def _bind_indoor_map_name_edit_installation(self) -> None:
+        """TLS resource picker for localized module name needs the active installation."""
+        if isinstance(self._installation, HTInstallation):
+            self.ui.indoorMapNameEdit.set_installation(self._installation)
+
+    def _update_indoor_map_settings_ui(self) -> None:
+        """Sync Map / build widgets from ``_indoor_map`` (undo/redo and load paths)."""
+        m = self._indoor_map
+        self.ui.indoorMapNameEdit.set_locstring(m.name)
+        self.ui.indoorMapLightingEdit.blockSignals(True)
+        self.ui.indoorMapLightingEdit.set_color(m.lighting)
+        self.ui.indoorMapLightingEdit.blockSignals(False)
+        self.ui.indoorMapWarpEdit.blockSignals(True)
+        self.ui.indoorMapWarpEdit.setText(m.module_id)
+        self.ui.indoorMapWarpEdit.blockSignals(False)
+
+        self.ui.indoorMapSkyboxSelect.blockSignals(True)
+        if m.skybox:
+            idx = self.ui.indoorMapSkyboxSelect.findText(m.skybox)
+            if idx == -1:
+                idx = self.ui.indoorMapSkyboxSelect.findData(m.skybox)
+            self.ui.indoorMapSkyboxSelect.setCurrentIndex(idx if idx != -1 else 0)
+        else:
+            self.ui.indoorMapSkyboxSelect.setCurrentIndex(0)
+        self.ui.indoorMapSkyboxSelect.blockSignals(False)
+
+        self.ui.indoorMapGameSelect.blockSignals(True)
+        if m.target_game_type is None:
+            self.ui.indoorMapGameSelect.setCurrentIndex(0)
+        elif m.target_game_type:
+            self.ui.indoorMapGameSelect.setCurrentIndex(2)
+        else:
+            self.ui.indoorMapGameSelect.setCurrentIndex(1)
+        self.ui.indoorMapGameSelect.blockSignals(False)
+
+    def _setup_indoor_map_settings_signals(self) -> None:
+        """Undo-aware edits for module name, lighting, warp id, skybox, and target game."""
+        self.ui.indoorMapNameEdit.sig_editing_finished.connect(self._on_indoor_map_settings_changed)
+        self.ui.indoorMapLightingEdit.sig_color_changed.connect(self._on_indoor_map_settings_changed)
+        self.ui.indoorMapWarpEdit.textChanged.connect(self._on_indoor_map_settings_changed)
+        self.ui.indoorMapSkyboxSelect.currentIndexChanged.connect(self._on_indoor_map_settings_changed)
+        self.ui.indoorMapGameSelect.currentIndexChanged.connect(self._on_indoor_map_settings_changed)
+
+    def _on_indoor_map_settings_changed(self) -> None:
+        old_snapshot = _snapshot_map_settings(self._indoor_map)
+        self._indoor_map.name = self.ui.indoorMapNameEdit.locstring()
+        self._indoor_map.lighting = self.ui.indoorMapLightingEdit.color()
+        self._indoor_map.module_id = self.ui.indoorMapWarpEdit.text()
+        self._indoor_map.skybox = self.ui.indoorMapSkyboxSelect.currentData()
+        self._indoor_map.target_game_type = self.ui.indoorMapGameSelect.currentData()
+        new_snapshot = _snapshot_map_settings(self._indoor_map)
+        self.undo_stack.push(
+            MapSettingsChangedCommand(
+                self._indoor_map,
+                old_snapshot,
+                new_snapshot,
+                self._update_indoor_map_settings_ui,
+            ),
+        )
+        self._refresh_window_title()
+
+    def _setup_indoor_tile_grid_gl_preview(self) -> None:
+        """Optional 3D preview: Kotor.NET Area Designer JSON (0.1) and ``tile_layout`` (same pipeline as IndoorMapBuilder)."""
+        from toolset.gui.windows.indoor_builder.tile_editor_3d import setup_indoor_builder_tile_3d
+
+        self._tile_gl = setup_indoor_builder_tile_3d(
+            main_splitter=self.ui.splitter,
+            host=self.ui.tileGrid3DHost,
+            host_layout=self.ui.tileGrid3DHostLayout,
+            fallback_label=self.ui.tileGrid3DFallbackLabel,
+            installation=self._installation,
+        )
+        if self._tile_gl is not None:
+            self.undo_stack.cleanChanged.connect(self._refresh_tile_gl_view)
+            self.undo_stack.indexChanged.connect(self._refresh_tile_gl_view)
+        self._setup_tile_3d_preview_menu()
+        self._setup_area_designer_file_actions()
+        self._refresh_tile_gl_view()
+        if self._menu_tile_3d_preview is not None:
+            self._menu_tile_3d_preview.menuAction().setVisible(self._editor_mode == EditorMode.LAYOUT)
+
+    def _refresh_tile_gl_view(self, *_args: object) -> None:
+        gl = getattr(self, "_tile_gl", None)
+        if gl is None or not hasattr(gl, "refresh_from_map"):
+            return
+        gl.refresh_from_map(self._indoor_map, self._indoor_tile_kits)
+
+    def _after_area_designer_payload_undo(self) -> None:
+        self._refresh_tile_gl_view()
+        self._refresh_window_title()
+
+    def _setup_tile_3d_preview_menu(self) -> None:
+        from toolset.gui.common.localization import translate as tr
+
+        gl = getattr(self, "_tile_gl", None)
+        if gl is None or not hasattr(gl, "set_preview_layers"):
+            self._menu_tile_3d_preview = None
+            return
+        layout_view_menu = self.ui.menuIndoorView
+        preview_menu = QMenu(tr("Tile 3D preview"), self)
+        existing = layout_view_menu.actions()
+        before = existing[0] if existing else None
+        if before is not None:
+            layout_view_menu.insertMenu(before, preview_menu)
+        else:
+            layout_view_menu.addMenu(preview_menu)
+        self._menu_tile_3d_preview = preview_menu
+        specs: list[tuple[str, str, bool]] = [
+            ("show_walls", tr("Show walls"), True),
+            ("show_doors", tr("Show doorframes"), True),
+            ("show_corners", tr("Show corners"), True),
+            ("show_ceilings", tr("Show ceilings"), False),
+            ("show_objects", tr("Show room objects"), True),
+        ]
+        for attr, label, default in specs:
+
+            def _make_toggle(layer: str):
+                def _on(checked: bool) -> None:
+                    gl.set_preview_layers(**{layer: checked})
+
+                return _on
+
+            act = QAction(label, self)
+            act.setCheckable(True)
+            act.setChecked(default)
+            act.toggled.connect(_make_toggle(attr))
+            preview_menu.addAction(act)
+
+        preview_menu.addSeparator()
+        adj_act = QAction(tr("Hide shared interior walls / corners (Kotor.NET FixWalls)"), self)
+        adj_act.setCheckable(True)
+        adj_act.setChecked(True)
+        adj_act.setStatusTip(
+            tr(
+                "When on, walls between adjacent tiles and corner pieces follow "
+                "Kotor.NET visibility (Room.FixWalls). When off, draw all kit hooks."
+            ),
+        )
+
+        def _on_adj(checked: bool) -> None:
+            if hasattr(gl, "set_respect_adjacency_visibility"):
+                gl.set_respect_adjacency_visibility(checked)
+
+        adj_act.toggled.connect(_on_adj)
+        preview_menu.addAction(adj_act)
+
+    def _setup_area_designer_file_actions(self) -> None:
+        from toolset.gui.common.localization import translate as tr
+
+        self._action_import_area_designer = QAction(tr("Import Area Designer JSON..."), self)
+        self._action_import_area_designer.setStatusTip(
+            tr("Load Kotor.NET Area Designer area JSON (format 0.1) into this map"),
+        )
+        self._action_import_area_designer.triggered.connect(self._import_area_designer_json)
+        self._action_export_area_designer = QAction(tr("Export Area Designer JSON..."), self)
+        self._action_export_area_designer.setStatusTip(
+            tr("Save embedded Area Designer data (format 0.1) to a JSON file"),
+        )
+        self._action_export_area_designer.triggered.connect(self._export_area_designer_json)
+        self.ui.menuIndoor.addSeparator()
+        self.ui.menuIndoor.addAction(self._action_import_area_designer)
+        self.ui.menuIndoor.addAction(self._action_export_area_designer)
+        self._action_import_area_designer.setVisible(self._editor_mode == EditorMode.LAYOUT)
+        self._action_export_area_designer.setVisible(self._editor_mode == EditorMode.LAYOUT)
+
+    def _import_area_designer_json(self) -> None:
+        from toolset.gui.common.localization import translate as tr, translate_format as trf
+
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Import Area Designer JSON"),
+            "",
+            tr("JSON (*.json);;All Files (*)"),
+        )
+        if not path_str or not str(path_str).strip():
+            return
+        try:
+            data = load_area_designer(Path(path_str))
+        except (OSError, ValueError) as e:
+            QMessageBox.warning(
+                self,
+                tr("Import failed"),
+                trf("{err}", err=str(e)),
+            )
+            return
+        old = deepcopy(self._indoor_map.area_designer_v01)
+        new_payload: dict[str, Any] = dict(data)
+        cmd = AreaDesignerPayloadChangedCommand(
+            self._indoor_map,
+            old,
+            new_payload,
+            self._after_area_designer_payload_undo,
+        )
+        self.undo_stack.push(cmd)
+
+    def _export_area_designer_json(self) -> None:
+        from toolset.gui.common.localization import translate as tr
+
+        payload = self._indoor_map.area_designer_v01
+        if not isinstance(payload, dict) or payload.get("format") != "0.1":
+            QMessageBox.information(
+                self,
+                tr("Nothing to export"),
+                tr("No Kotor.NET Area Designer data (format 0.1) is embedded in this map."),
+            )
+            return
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            tr("Export Area Designer JSON"),
+            "",
+            tr("JSON (*.json)"),
+        )
+        if not path_str or not str(path_str).strip():
+            return
+        out_path = Path(path_str)
+        if out_path.suffix.lower() != ".json":
+            out_path = out_path.with_suffix(".json")
+        try:
+            save_area_designer_v01(out_path, payload)
+        except OSError as e:
+            QMessageBox.warning(
+                self,
+                tr("Export failed"),
+                str(e),
+            )
 
     def _setup_indoor_modules(self):
         """Populate the module kit selector with available game modules."""
@@ -1641,6 +2023,12 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         # Build button
         self.ui.buildIndoorButton.clicked.connect(self._build_indoor_module)
 
+        self._setup_indoor_map_settings_combos()
+        self._setup_indoor_map_settings_signals()
+        self.ui.showRoomLabelsCheck.toggled.connect(self.ui.indoorRenderer.set_show_room_labels)
+        self._bind_indoor_map_name_edit_installation()
+        self._update_indoor_map_settings_ui()
+
         connect_indoor_renderer_signals(
             self.ui.indoorRenderer,
             on_context_menu=self._on_indoor_context_menu,
@@ -1652,6 +2040,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             on_rooms_moved=self._on_indoor_rooms_moved,
             on_rooms_rotated=self._on_indoor_rooms_rotated,
             on_warp_moved=self._on_indoor_warp_moved,
+            on_marquee_select=self._on_indoor_marquee_select,
         )
         self.ui.indoorRenderer.setToolTip(
             "Right-click for room actions. Arrow keys nudge selected rooms, Ctrl+Arrow is fine movement, Shift+Arrow is coarse movement, and the context menu exposes precise move, rotate, align, and distribute actions. G toggles grid snap and H toggles hook snap."
@@ -1869,6 +2258,26 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         populate_material_list_widget(self.ui.materialList, self.material_colors)
         if self.ui.materialList.count():
             self.ui.materialList.setCurrentRow(0)
+        if not self._walkmesh_material_indoor_status_connected:
+            self.ui.materialList.currentItemChanged.connect(self._on_walkmesh_material_item_changed)
+            self._walkmesh_material_indoor_status_connected = True
+
+    def _on_walkmesh_material_item_changed(
+        self,
+        _current: QListWidgetItem | None,
+        _previous: QListWidgetItem | None,
+    ) -> None:
+        """Refresh layout status when the paint material selection changes (IndoorMapBuilder behavior)."""
+        if self._editor_mode != EditorMode.LAYOUT:
+            return
+        renderer = self.ui.indoorRenderer
+        prev = getattr(renderer, "_mouse_prev", None)
+        if isinstance(prev, Vector2):
+            self._update_indoor_status_bar(prev)
+        else:
+            self._update_indoor_status_bar(
+                Vector2(max(1.0, float(renderer.width())) * 0.5, max(1.0, float(renderer.height())) * 0.5)
+            )
 
     def _setup_walkmesh_face_panel(self):
         """Initialize selected-face controls for Walkmesh mode."""
@@ -2562,6 +2971,28 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             return
         self.undo_stack.push(ResetWalkmeshCommand(rooms, self.ui.indoorRenderer.mark_dirty))
 
+    def _indoor_kits_for_build(self) -> list[Kit]:
+        """K1 room kits plus v2 tile kit shells (textures/skyboxes for ``IndoorMap.build``).
+
+        Matches :meth:`IndoorMapBuilder._kits_for_build` so module builds include
+        tile-kit resources used by Area Designer / tile-layout workflows.
+        """
+        out: list[Kit] = list(self._indoor_kits)
+        for tk in self._indoor_tile_kits:
+            out.append(tk.as_runtime_kit())
+        return out
+
+    def _run_indoor_build_to_path(self, filepath: os.PathLike | str) -> None:
+        """Write indoor layout to a ``.mod`` at ``filepath`` (caller ensures rooms + installation)."""
+        game = self._installation.game() if self._installation else None
+        self._indoor_map.build(
+            self._installation,
+            self._indoor_kits_for_build(),
+            filepath,
+            game_override=game,
+        )
+        self._apply_indoor_vis_overrides_to_build(filepath)
+
     def _build_indoor_module(self):
         """Build the indoor layout into a .mod file."""
         from qtpy.QtWidgets import QFileDialog
@@ -2569,16 +3000,15 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         if not self._indoor_map.rooms:
             self._show_warning_message("Build", "No rooms have been placed. Add rooms first.")
             return
+        if self._installation is None:
+            self._show_warning_message("Build", "Select an installation first.")
+            return
 
         filepath, _ = QFileDialog.getSaveFileName(self, "Save Module", "", "Module Files (*.mod)")
         if not filepath:
             return
         try:
-            game = self._installation.game() if self._installation else None
-            self._indoor_map.build(
-                self._installation, self._indoor_kits, filepath, game_override=game
-            )
-            self._apply_indoor_vis_overrides_to_build(filepath)
+            self._run_indoor_build_to_path(filepath)
             self._show_info_message("Build Complete", f"Module saved to:\n{filepath}")
         except Exception as e:
             self._show_error_message("Build Failed", f"Failed to build module:\n{e}")
@@ -2635,6 +3065,8 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.undo_stack.clear()
         self.undo_stack.setClean()
         self._refresh_window_title()
+        self._update_indoor_map_settings_ui()
+        self._refresh_tile_gl_view()
 
     def _indoor_save(self):
         """Save the current indoor map to its existing filepath, or prompt for one."""
@@ -2648,7 +3080,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self._refresh_window_title()
 
     def _indoor_save_as(self):
-        """Save the current indoor map to a new filepath."""
+        """Save the current indoor map to a new filepath (.indoor or .mod; same as IndoorMapBuilder)."""
         from qtpy.QtWidgets import QFileDialog
 
         from pykotor.common.stream import BinaryWriter
@@ -2656,15 +3088,116 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         default_name = (
             Path(self._indoor_filepath).name if self._indoor_filepath else "untitled.indoor"
         )
-        filepath, _ = QFileDialog.getSaveFileName(
-            self, "Save Indoor Map", default_name, "Indoor Map File (*.indoor)"
+        filepath, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Save Indoor Map",
+            default_name,
+            "Indoor Map File (*.indoor);;Module (*.mod)",
         )
         if not filepath or not str(filepath).strip():
             return
-        BinaryWriter.dump(Path(filepath), self._indoor_map.write())
-        self._indoor_filepath = str(Path(filepath))
+        path = Path(filepath)
+        saving_as_mod: bool = (
+            selected_filter is not None and (".mod" in selected_filter)
+        ) or path.suffix.lower() == ".mod"
+        if saving_as_mod:
+            path = path.with_suffix(".mod") if path.suffix.lower() != ".mod" else path
+            if self._installation is None:
+                self._show_warning_message("Save Module", "Select an installation first.")
+                return
+            if not self._indoor_map.rooms:
+                self._show_warning_message("Save Module", "No rooms have been placed. Add rooms first.")
+                return
+            try:
+                self._run_indoor_build_to_path(path)
+                self.undo_stack.setClean()
+                self._show_info_message("Module saved", f"Module saved to:\n{path}")
+            except Exception as e:
+                self._show_error_message("Save Module", f"Failed to build module:\n{e}")
+            return
+
+        path = path.with_suffix(".indoor") if path.suffix.lower() != ".indoor" else path
+        BinaryWriter.dump(path, self._indoor_map.write())
+        self._indoor_filepath = str(path)
         self.undo_stack.setClean()
         self._refresh_window_title()
+
+    def _show_indoor_missing_rooms_dialog(self, missing_rooms: list[MissingRoomInfo]) -> None:
+        """Structured missing-kit / missing-component dialog (same as IndoorMapBuilder)."""
+        from toolset.gui.common.localization import translate as tr, translate_format as trf
+        from toolset.gui.windows.indoor_builder.builder import get_kits_path
+
+        missing_kits = [r for r in missing_rooms if r.reason == "kit_missing"]
+        missing_components = [r for r in missing_rooms if r.reason == "component_missing"]
+
+        room_count = len(missing_rooms)
+        missing_kit_names: set[str] = {r.kit_name for r in missing_rooms if r.reason == "kit_missing"}
+        missing_component_pairs: set[tuple[str, str]] = {
+            (r.kit_name, r.component_name)
+            for r in missing_rooms
+            if r.reason == "component_missing" and r.component_name
+        }
+
+        main_parts: list[str] = []
+        if missing_kit_names:
+            kit_list = ", ".join(f"'{name}'" for name in sorted(missing_kit_names))
+            main_parts.append(
+                trf(
+                    "Missing kit{plural}: {kits}",
+                    plural="s" if len(missing_kit_names) != 1 else "",
+                    kits=kit_list,
+                )
+            )
+        if missing_component_pairs:
+            component_list = ", ".join(
+                f"'{comp}' ({kit})" for kit, comp in sorted(missing_component_pairs)
+            )
+            main_parts.append(
+                trf(
+                    "Missing component{plural}: {components}",
+                    plural="s" if len(missing_component_pairs) != 1 else "",
+                    components=component_list,
+                )
+            )
+
+        main_text = trf(
+            "{count} room{plural} failed to load.\n\n{details}",
+            count=room_count,
+            plural="s" if room_count != 1 else "",
+            details="\n".join(main_parts),
+        )
+
+        detailed_lines: list[str] = []
+        kits_base = get_kits_path()
+        if missing_kits:
+            detailed_lines.append("=== Missing Kits ===")
+            for room_info in missing_kits:
+                kit_name = room_info.kit_name
+                kit_json_path = kits_base / f"{kit_name}.json"
+                detailed_lines.append(f"\nRoom: Kit '{kit_name}'")
+                if room_info.component_name:
+                    detailed_lines.append(f"  Component: {room_info.component_name}")
+                detailed_lines.append(f"  Expected Kit JSON: {kit_json_path}")
+                detailed_lines.append(f"  Expected Kit Directory: {kits_base / kit_name}")
+
+        if missing_components:
+            detailed_lines.append("\n=== Missing Components ===")
+            for room_info in missing_components:
+                kit_name = room_info.kit_name
+                component_name = room_info.component_name or "Unknown"
+                component_path = kits_base / kit_name / "components" / component_name
+                detailed_lines.append(f"\nRoom: Kit '{kit_name}', Component '{component_name}'")
+                detailed_lines.append(f"  Expected Component Directory: {component_path}")
+
+        msg_box = QMessageBox(
+            QMessageBox.Icon.Warning,
+            tr("Some Rooms Failed to Load"),
+            main_text,
+            parent=self,
+        )
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.setDetailedText("\n".join(detailed_lines))
+        msg_box.exec()
 
     def _indoor_open(self):
         """Open an .indoor file, prompting to save if dirty."""
@@ -2701,16 +3234,157 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self.undo_stack.clear()
             self.undo_stack.setClean()
             self._refresh_window_title()
+            self._update_indoor_map_settings_ui()
 
             if missing_rooms:
-                details = "\n".join(
-                    f"- {r.kit_name}/{r.component_name} ({r.reason})" for r in missing_rooms
-                )
-                self._show_warning_message(
-                    "Missing Rooms", f"Some rooms failed to load:\n\n{details}"
-                )
+                self._show_indoor_missing_rooms_dialog(missing_rooms)
+            self._refresh_tile_gl_view()
         except Exception as e:
             self._show_error_message("Failed to Load", f"Failed to load indoor map:\n{e}")
+
+    @staticmethod
+    def _resolve_installation_and_module_from_mod_path(
+        file_path: Path,
+    ) -> tuple[str | None, str | None]:
+        """If ``file_path`` is a ``.mod`` under a configured installation's Modules dir, return (installation key, module stem)."""
+        from toolset.gui.widgets.settings.installations import GlobalSettings
+
+        try:
+            resolved = file_path.resolve()
+            if resolved.suffix.lower() != ".mod":
+                return (None, None)
+            modules_dir = resolved.parent
+            settings = GlobalSettings()
+            for name, config in settings.installations().items():
+                inst_path = Path(config["path"]).resolve()
+                expected_modules = inst_path / "Modules"
+                try:
+                    if modules_dir == expected_modules.resolve():
+                        return (name, resolved.stem)
+                except (OSError, RuntimeError):
+                    continue
+        except Exception:
+            pass
+        return (None, None)
+
+    def _ht_installation_from_settings_key(self, installation_key: str) -> HTInstallation | None:
+        from toolset.gui.widgets.settings.installations import GlobalSettings
+
+        cfg = GlobalSettings().installations().get(installation_key)
+        if cfg is None:
+            return None
+        try:
+            return HTInstallation(
+                str(cfg["path"]),
+                str(cfg["name"]),
+                tsl=bool(cfg.get("tsl")),
+            )
+        except Exception:
+            return None
+
+    def _open_indoor_kit_downloader(self) -> None:
+        from toolset.gui.common.localization import translate as tr
+        from toolset.gui.windows.indoor_builder.kit_downloader import KitDownloader
+
+        if self._installation is None:
+            QMessageBox.information(
+                self,
+                tr("Download Kits"),
+                tr("Select an installation first using the Installation dropdown above."),
+            )
+            return
+
+        KitDownloader(self).exec()
+        self._setup_indoor_kits()
+        self._refresh_tile_gl_view()
+
+    def _indoor_open_mod(self) -> None:
+        """Open a ``.mod`` from disk and load it into Module Designer (installation resolved from path)."""
+        from toolset.gui.common.localization import translate as tr
+        from toolset.gui.helpers.message_box import ask_question
+
+        filepath, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("Open Module"),
+            "",
+            tr("Module (*.mod);;All Files (*)"),
+        )
+        if not filepath or not str(filepath).strip():
+            return
+        mod_path = Path(filepath)
+        if not mod_path.is_file():
+            from toolset.gui.common.localization import translate_format as trf
+
+            QMessageBox.warning(
+                self,
+                tr("Invalid File"),
+                trf("File not found:\n{path}", path=str(mod_path)),
+            )
+            return
+
+        inst_name, _module_root = self._resolve_installation_and_module_from_mod_path(mod_path)
+        if inst_name is None:
+            QMessageBox.warning(
+                self,
+                tr("Cannot Open Module"),
+                tr(
+                    "This .mod is not inside any configured installation's Modules folder.\n\n"
+                    "Tip: add the installation in Settings or copy the .mod into an installation's Modules folder.",
+                ),
+            )
+            return
+
+        target_inst = self._ht_installation_from_settings_key(inst_name)
+        if target_inst is None:
+            QMessageBox.warning(
+                self,
+                tr("Cannot Open Module"),
+                tr("Resolved installation is missing from Settings."),
+            )
+            return
+
+        if self.has_unsaved_changes():
+            reply = ask_question(
+                tr("Unsaved Changes"),
+                tr("You have unsaved changes. Open another module anyway?"),
+                self,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self.set_installation(target_inst)
+
+        try:
+            self.open_module(mod_path)
+        except Exception as exc:
+            self._show_error_message(tr("Open Module"), f"{exc}")
+
+        self._module_combo_updating = True
+        try:
+            from pykotor.common.module import Module as ModuleClass
+
+            root = ModuleClass.filepath_to_root(str(mod_path))
+            casefold_full = (root + mod_path.suffix).casefold().strip()
+            idx = self.moduleCombo.findData(casefold_full)
+            if idx >= 0:
+                self.moduleCombo.setCurrentIndex(idx)
+        finally:
+            self._module_combo_updating = False
+
+    def _indoor_deselect_all(self) -> None:
+        """Clear room selection and placement cursor (same as IndoorMapBuilder)."""
+        renderer = self.ui.indoorRenderer
+        renderer.clear_selected_rooms()
+        renderer.set_cursor_component(None)
+        self._clear_list_selection(self.ui.componentList)
+        self._clear_list_selection(self.ui.moduleComponentList)
+        self._set_indoor_preview_image(None)
+
+    def _indoor_zoom_in(self) -> None:
+        self.ui.indoorRenderer.zoom_in_camera(ZOOM_STEP_FACTOR)
+
+    def _indoor_zoom_out(self) -> None:
+        self.ui.indoorRenderer.zoom_in_camera(1.0 / ZOOM_STEP_FACTOR)
 
     def _cancel_all_indoor_operations(self):
         """Cancel all active indoor operations and reset to a safe state.
@@ -2722,7 +3396,17 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             renderer,
             clear_paint_stroke=self._clear_indoor_paint_stroke,
             clear_placement_mode=self._indoor_clear_placement_mode,
+            on_marquee_cleared=self._reset_indoor_renderer_drag_mode,
+            on_finished=self._refresh_indoor_status_after_cancel,
         )
+
+    def _reset_indoor_renderer_drag_mode(self) -> None:
+        """Clear marquee drag mode on the indoor renderer (same as IndoorMapBuilder)."""
+        self.ui.indoorRenderer._drag_mode = DragMode.NONE
+
+    def _refresh_indoor_status_after_cancel(self) -> None:
+        coords = getattr(self.ui.indoorRenderer, "_mouse_prev", Vector2(0.0, 0.0))
+        self._update_indoor_status_bar(coords)
 
     def _clear_indoor_paint_stroke(self) -> None:
         if not self._indoor_paint_stroke_active:
@@ -2731,17 +3415,100 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self._indoor_paint_stroke_originals.clear()
         self._indoor_paint_stroke_new.clear()
 
-    def _update_indoor_status_bar(self, screen):
+    def _setup_layout_log_pane(self) -> None:
+        """Attach root logging to the Layout log dock (same as IndoorMapBuilder)."""
+        log_widget = self.ui.layoutLogPlainTextEdit
+        try:
+            doc = log_widget.document()
+            assert doc is not None, "layoutLogPlainTextEdit.document() is None"
+            doc.setMaximumBlockCount(5000)
+        except Exception:  # noqa: BLE001
+            pass
+        self._layout_log_emitter = LogRecordEmitter(self)
+        self._layout_log_handler = QtLogHandler(self._layout_log_emitter)
+        self._layout_log_handler.setFormatter(logging.Formatter("%(levelname)s(%(name)s): %(message)s"))
+        self._layout_log_handler.setLevel(logging.DEBUG)
+        logging.getLogger().addHandler(self._layout_log_handler)
+
+        def on_record(levelno: int, message: str, logger_name: str) -> None:
+            color = LEVEL_COLORS.get(levelno, "inherit")
+            safe_msg = html_module.escape(message)
+            line = f'<span style="color:{color}">[{logger_name}] {safe_msg}</span><br/>'
+            cursor = log_widget.textCursor()
+            cursor.movePosition(QTextCursor.MoveOperation.End)
+            log_widget.setTextCursor(cursor)
+            log_widget.insertHtml(line)
+
+        assert self._layout_log_emitter is not None
+        self._layout_log_emitter.record_emitted.connect(on_record)
+
+    def _indoor_screen_xy(self, screen: QPoint | Vector2) -> tuple[float, float]:
+        if isinstance(screen, QPoint):
+            return float(screen.x()), float(screen.y())
+        return float(screen.x), float(screen.y)
+
+    def _indoor_renderer_status_callback(
+        self,
+        screen: QPoint | Vector2 | None,
+        mouse_down: set[int | Qt.MouseButton],
+        keys_down: set[int | Qt.Key],
+    ) -> None:
+        """Bridge IndoorMapRenderer mouse/key events to the Module Designer status row (same as IndoorMapBuilder)."""
+        if self._editor_mode != EditorMode.LAYOUT:
+            return
+        renderer = self.ui.indoorRenderer
+        if screen is None:
+            _cursor = self.cursor()
+            cursor_pos = (
+                _cursor.position().toPoint() if hasattr(_cursor, "position") else _cursor.pos()
+            )
+            screen_qp = renderer.mapFromGlobal(cursor_pos)
+            resolved: QPoint | Vector2 = Vector2(float(screen_qp.x()), float(screen_qp.y()))
+        else:
+            x, y = screen.x, screen.y  # pyright: ignore[reportAttributeAccessIssue]
+            resolved = Vector2(
+                float(x) if isinstance(x, (int, float)) else float(x()),  # pyright: ignore[reportCallIssue]
+                float(y) if isinstance(y, (int, float)) else float(y()),  # pyright: ignore[reportCallIssue]
+            )
+        self._update_indoor_status_bar(
+            resolved,
+            mouse_down=set(mouse_down),
+            keys_down=set(keys_down),
+        )
+
+    def _update_indoor_status_bar(
+        self,
+        screen: QPoint | Vector2,
+        *,
+        mouse_down: set | None = None,
+        keys_down: set | None = None,
+    ):
         """Update the existing status bar labels with indoor-mode info."""
         renderer = self.ui.indoorRenderer
         colors = self._get_semantic_colors()
+        if mouse_down is None:
+            mouse_down = set(renderer.mouse_down())
+        if keys_down is None:
+            keys_down = set(renderer.keys_down())
+
+        sx, sy = self._indoor_screen_xy(screen)
 
         # World coordinates
-        world = renderer.to_world_coords(screen.x, screen.y)
+        world = renderer.to_world_coords(sx, sy)
         self.mouse_pos_label.setText(
             f"<b><span style='{self._emoji_style}'>🖱</span>&nbsp;Coords:</b> "
             f"<span style='color:{colors['accent1']}'>{world.x:.2f}</span>, "
             f"<span style='color:{colors['accent2']}'>{world.y:.2f}</span>",
+        )
+
+        self.buttons_keys_pressed_label.setText(
+            format_status_bar_keys_and_buttons(
+                keys_down,
+                mouse_down,
+                self._emoji_style,
+                colors["accent3"],
+                colors["accent2"],
+            )
         )
 
         # Selection / hover info
@@ -2792,6 +3559,25 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             f"Rooms: <span style='color:{colors['accent1']}'>{len(self._indoor_map.rooms)}</span>",
         )
 
+        self._update_indoor_preview_from_selection()
+
+    def _update_indoor_preview_from_selection(self) -> None:
+        """Show the active selection's component image in the layout preview (same as IndoorMapBuilder)."""
+        renderer = self.ui.indoorRenderer
+        if renderer.cursor_component is not None:
+            return
+        sel_rooms = renderer.selected_rooms()
+        if sel_rooms:
+            most_recent = sel_rooms[-1]
+            img = most_recent.component.image
+            if img is not None:
+                assert isinstance(img, QImage)
+                self._set_indoor_preview_image(img)
+            else:
+                self._set_indoor_preview_image(None)
+        else:
+            self._set_indoor_preview_image(None)
+
     # --- Indoor Renderer Event Stubs ---
     # These forward to the indoor renderer's internal handling or
     # will be expanded as the merge progresses.
@@ -2817,6 +3603,17 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             default_camera_zoom=DEFAULT_CAMERA_ZOOM,
         )
 
+    def _indoor_content_bounds(self):
+        return aabb_from_points(
+            (float(room.position.x), float(room.position.y)) for room in self._indoor_map.rooms
+        )
+
+    def _indoor_selection_bounds(self):
+        return aabb_from_points(
+            (float(room.position.x), float(room.position.y))
+            for room in self.ui.indoorRenderer.selected_rooms()
+        )
+
     def _indoor_center_on_selection(self):
         """Center the indoor camera on the selected rooms."""
         center_indoor_camera_on_selected_rooms(self.ui.indoorRenderer)
@@ -2834,6 +3631,32 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.indoorRenderer.invalidate_rooms(rooms)
         self._refresh_indoor_vis_matrix()
         self._sync_lyt_from_indoor_map()
+        self._refresh_tile_gl_view()
+
+    def sync_room_to_blender(self, room: IndoorMapRoom) -> None:
+        """Push one indoor room's position to Blender (same naming as IndoorMapBuilder)."""
+        if not self.is_blender_mode() or self._blender_controller is None:
+            return
+        if not self._blender_controller.session:
+            return
+        object_name = f"Room_{id(room)}"
+        self._blender_controller.update_room_position(
+            object_name,
+            room.position.x,
+            room.position.y,
+            room.position.z,
+        )
+
+    def _sync_indoor_rooms_to_blender_if_enabled(self, rooms: list[IndoorMapRoom]) -> None:
+        """After indoor drag/edit undo, mirror positions to Blender when bridge is active."""
+        if (
+            not self.is_blender_mode()
+            or self._blender_controller is None
+            or self._transform_sync_in_progress
+        ):
+            return
+        for room in rooms:
+            self.sync_room_to_blender(room)
 
     def _sync_lyt_from_indoor_map(self) -> None:
         """Sync IndoorMap rooms -> module LYT (in-memory) and refresh layout tree."""
@@ -2944,6 +3767,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self.ui.indoorRenderer,
             self.ui.componentList,
             self.ui.moduleComponentList,
+            on_cleared=self._update_indoor_preview_from_selection,
         )
 
     # =========================================================================
@@ -2968,6 +3792,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             mouse_down,
             keys_down,
             is_indoor_builder=True,
+            settings=self.settings,
         )
 
         if (
@@ -3002,6 +3827,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             place_new_room=self._indoor_place_new_room,
             start_marquee=lambda: renderer.start_marquee(coords),
         )
+        self._update_indoor_status_bar(coords, mouse_down=mouse_down, keys_down=keys_down)
 
     def _on_indoor_mouse_released(
         self, coords: QPoint, mouse_down: set[Qt.MouseButton], keys_down: set[Qt.Key]
@@ -3014,6 +3840,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             renderer._dragging_hook = False  # noqa: SLF001
             self._indoor_map.rebuild_room_connections()
         renderer.end_drag()
+        self._update_indoor_status_bar(coords, mouse_down=mouse_down, keys_down=keys_down)
 
     def _on_indoor_mouse_double_clicked(
         self, coords: QPoint, mouse_down: set[Qt.MouseButton], keys_down: set[Qt.Key]
@@ -3024,6 +3851,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             left_pressed=Qt.MouseButton.LeftButton in mouse_down,
             add_connected_to_selection=self._indoor_add_connected_to_selection,
         )
+        self._update_indoor_status_bar(coords, mouse_down=mouse_down, keys_down=keys_down)
 
     def _on_indoor_mouse_scrolled(
         self, delta: QPoint, mouse_down: set[Qt.MouseButton], keys_down: set[Qt.Key]
@@ -3031,12 +3859,24 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         """Handle scroll — zoom (Ctrl+scroll), drag rotation, or placement rotation."""
         renderer = self.ui.indoorRenderer
 
+        ctrl_from_keys = Qt.Key.Key_Control in keys_down
+        ctrl_from_mods = bool(
+            QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier
+        )
+
+        def zoom_factor_from_wheel(delta_y: float) -> float:
+            step = delta_y / 120.0 if delta_y else 0.0
+            raw = 1.0 + ZOOM_WHEEL_SENSITIVITY * step
+            return max(0.5, min(2.0, raw))
+
         handle_indoor_scroll(
             renderer,
             delta_y=delta.y,
-            ctrl_pressed=Qt.Key.Key_Control in keys_down,
-            zoom_factor_from_delta=lambda value: (1.0 + ZOOM_WHEEL_SENSITIVITY) ** (value / 120.0),
+            ctrl_pressed=ctrl_from_keys or ctrl_from_mods,
+            zoom_factor_from_delta=zoom_factor_from_wheel,
         )
+        prev = getattr(renderer, "_mouse_prev", Vector2(0.0, 0.0))
+        self._update_indoor_status_bar(prev, mouse_down=mouse_down, keys_down=keys_down)
 
     def _on_indoor_rooms_moved(
         self, rooms: list[IndoorMapRoom], old_positions: list[Vector3], new_positions: list[Vector3]
@@ -3052,12 +3892,14 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             position_change_epsilon=POSITION_CHANGE_EPSILON,
         ):
             self._sync_main_renderer_vis_overlay()
+            self._refresh_window_title()
+            self._sync_indoor_rooms_to_blender_if_enabled(rooms)
 
     def _on_indoor_rooms_rotated(
         self, rooms: list[IndoorMapRoom], old_rotations: list[float], new_rotations: list[float]
     ):
         """Handle room rotation during drag — create undo command."""
-        push_rooms_rotated_undo(
+        if push_rooms_rotated_undo(
             self._indoor_map,
             rooms,
             old_rotations,
@@ -3065,11 +3907,33 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             self.undo_stack,
             self._invalidate_indoor_rooms,
             rotation_change_epsilon=ROTATION_CHANGE_EPSILON,
-        )
+        ):
+            self._refresh_window_title()
+            self._sync_indoor_rooms_to_blender_if_enabled(rooms)
 
     def _on_indoor_warp_moved(self, old_pos: Vector3, new_pos: Vector3):
         """Handle warp point drag."""
         push_warp_moved_undo(self._indoor_map, old_pos, new_pos, self.undo_stack)
+
+    def _on_indoor_marquee_select(self, rooms: list[IndoorMapRoom], additive: bool) -> None:
+        """Apply marquee rectangle selection (``IndoorMapBuilder.on_marquee_select``)."""
+        renderer = self.ui.indoorRenderer
+        if not additive:
+            renderer.clear_selected_rooms()
+        for room in rooms:
+            renderer.select_room(room, clear_existing=False)
+
+    def _set_indoor_warp_point_at(self, world: Vector3) -> None:
+        """Context menu: set module entry / warp point (undoable; same as IndoorMapBuilder)."""
+        old_pos = Vector3(
+            self._indoor_map.warp_point.x,
+            self._indoor_map.warp_point.y,
+            self._indoor_map.warp_point.z,
+        )
+        new_pos = Vector3(world.x, world.y, world.z)
+        if push_warp_moved_undo(self._indoor_map, old_pos, new_pos, self.undo_stack):
+            self.ui.indoorRenderer.mark_dirty()
+            self._refresh_window_title()
 
     # =========================================================================
     # Indoor Context Menu
@@ -3097,6 +3961,7 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             on_flip=self._indoor_flip_selected,
             on_merge=self._indoor_merge_selected,
             on_add_hook_at=renderer.add_hook_at,
+            on_set_warp_point=self._set_indoor_warp_point_at,
         )
 
         if renderer.selected_rooms():
@@ -3687,6 +4552,9 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         renderer: WalkmeshRenderer | ModuleRenderer,
     ):
         """Update the status bar, using rich text formatting for improved clarity."""
+        if self._editor_mode == EditorMode.LAYOUT:
+            return
+
         if isinstance(mouse_pos, QPoint):
             assert not isinstance(mouse_pos, Vector2)
             norm_mouse_pos = Vector2(float(mouse_pos.x()), float(mouse_pos.y()))
@@ -4152,14 +5020,23 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
         self.ui.mainRenderer.shutdown_renderer()
 
     def show_help_window(self):
-        window = HelpWindow(self, "./help/tools/1-moduleEditor.md")
+        path = (
+            "./wiki/Indoor-Map-Builder-User-Guide.md"
+            if self._editor_mode == EditorMode.LAYOUT
+            else "./help/tools/1-moduleEditor.md"
+        )
+        window = HelpWindow(self, path)
+        window.setWindowIcon(self.windowIcon())
         window.show()
+        window.activateWindow()
 
     def open_settings_dialog(self):
         """Open the settings dialog for the module designer."""
+        from toolset.gui.common.localization import translate as tr
         from toolset.gui.dialogs.settings import SettingsDialog
 
         dialog = SettingsDialog(self)
+        dialog.setWindowTitle(tr("Settings"))
         # Navigate directly to the Module Designer settings page
         for i in range(dialog.ui.settingsTree.topLevelItemCount()):
             item = dialog.ui.settingsTree.topLevelItem(i)
@@ -7629,10 +8506,11 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
 
         # Route keyboard shortcuts based on active editor mode
         if self._editor_mode == EditorMode.LAYOUT:
-            if self._handle_indoor_key_press(e):
-                return
-            # Forward unhandled keys to the indoor renderer for its internal handling
-            self.ui.indoorRenderer.keyPressEvent(e)
+            handled_shortcut = self._handle_indoor_key_press(e)
+            if not handled_shortcut:
+                self.ui.indoorRenderer.keyPressEvent(e)
+            coords = getattr(self.ui.indoorRenderer, "_mouse_prev", Vector2(0.0, 0.0))
+            self._update_indoor_status_bar(coords)
             return
 
         # Handle Object/Walkmesh mode shortcuts
@@ -7649,6 +8527,8 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
 
         if self._editor_mode == EditorMode.LAYOUT:
             self.ui.indoorRenderer.keyReleaseEvent(e)
+            coords = getattr(self.ui.indoorRenderer, "_mouse_prev", Vector2(0.0, 0.0))
+            self._update_indoor_status_bar(coords)
             return
 
         super().keyReleaseEvent(e)
@@ -7907,6 +8787,20 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
                     mode_label=mode_label,
                 )
 
+        keys_nav: set[Qt.Key] = {key}
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            keys_nav.add(Qt.Key.Key_Control)
+        if modifiers & Qt.KeyboardModifier.ShiftModifier:
+            keys_nav.add(Qt.Key.Key_Shift)
+        if modifiers & Qt.KeyboardModifier.AltModifier:
+            keys_nav.add(Qt.Key.Key_Alt)
+        if self._indoor_nav_helper.handle_key_pressed(
+            keys_nav,
+            buttons=set(),
+            pan_step=max(1.0, 48.0 / max(1.0, renderer.camera.zoom())),
+        ):
+            return True
+
         return handle_indoor_key_press_shortcuts(
             key,
             has_ctrl=has_ctrl,
@@ -7926,8 +8820,8 @@ class ModuleDesigner(QMainWindow, BlenderEditorMixin, StandaloneWindowMixin):
             key_duplicate=Qt.Key.Key_D,
             key_cancel_placement=Qt.Key.Key_Space,
             key_toggle_paint=Qt.Key.Key_P,
-            key_reset_home=Qt.Key.Key_Home,
-            key_reset_zero=Qt.Key.Key_0,
+            key_reset_home=None,
+            key_reset_zero=None,
             key_refresh=Qt.Key.Key_F5,
             key_save=Qt.Key.Key_S,
             key_new=Qt.Key.Key_N,

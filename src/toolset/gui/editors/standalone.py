@@ -111,9 +111,9 @@ APP_REGISTRY: dict[str, tuple[str, str, str, bool]] = {
         False,
     ),
     "indoor-builder": (
-        "toolset.gui.windows.indoor_builder.builder",
-        "IndoorMapBuilder",
-        "Indoor Builder",
+        "toolset.gui.windows.module_designer",
+        "ModuleDesigner",
+        "Module Designer (Layout / indoor)",
         False,
     ),
 }
@@ -350,7 +350,7 @@ def create_app(
     module = importlib.import_module(module_path)
     app_class = getattr(module, class_name)
 
-    if app_name == "module-designer":
+    if app_name in ("module-designer", "indoor-builder"):
         mod_filepath = Path(file_path).resolve() if file_path is not None else None
         window = app_class(parent, installation, mod_filepath)
         if hasattr(window, "enable_standalone_mode"):
@@ -363,12 +363,10 @@ def create_app(
             toolbar = window._installation_toolbar
             if hasattr(toolbar, "set_override_installation"):
                 toolbar.set_override_installation(installation)
-        return window
+        if app_name == "indoor-builder":
+            from qtpy.QtCore import QTimer  # noqa: PLC0415
 
-    if app_name == "indoor-builder":
-        window = app_class(parent, installation)
-        if hasattr(window, "enable_standalone_mode"):
-            window.enable_standalone_mode()
+            QTimer.singleShot(33, window.enter_layout_mode)
         return window
 
     raise ValueError(f"Unsupported app key: {app_name}")

@@ -1527,9 +1527,6 @@ class TwoDAEditor(Editor):
     - JSON format (ToolsetFormat.TwoDA_JSON)
     """
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.TwoDA]
-
     def __init__(
         self,
         parent: QWidget | None,

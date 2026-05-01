@@ -95,7 +95,6 @@ from toolset.gui.editors.utw import UTWEditor
 from toolset.gui.widgets.main_widgets import ResourceList, ResourceStandardItem
 from toolset.gui.widgets.settings.widgets.misc import GlobalSettings
 from toolset.gui.windows.help import HelpWindow, get_help_path
-from toolset.gui.windows.indoor_builder import IndoorMapBuilder
 from toolset.gui.windows.kotordiff import KotorDiffWindow
 from toolset.gui.windows.module_designer import ModuleDesigner
 from toolset.gui.windows.update_manager import UpdateManager
@@ -913,8 +912,8 @@ class ToolWindow(QMainWindow):
 
         self.ui.specialActionButton.clicked.connect(open_module_designer)
 
-        def open_indoor_map_builder_with_module(*args) -> IndoorMapBuilder | None:
-            """Open the Indoor Map Builder with the selected module."""
+        def open_indoor_map_builder_with_module(*args) -> ModuleDesigner | None:
+            """Open Module Designer in Layout mode with the selected module (unified level editor)."""
             assert self.active is not None
             module_data = self.ui.modulesWidget.ui.sectionCombo.currentData(
                 Qt.ItemDataRole.UserRole
@@ -930,21 +929,30 @@ class ToolWindow(QMainWindow):
                 )
                 return None
 
-            # Use the selected module file name and strip extension robustly.
-            module_name = PurePath(str(module_data)).stem
+            module_path: Path | None = self.active.module_path() / Path(str(module_data))
+            try:
+                designer_window = ModuleDesigner(
+                    None,
+                    self.active,
+                    mod_filepath=module_path,
+                )
+            except TypeError as exc:
+                RobustLogger().warning(
+                    f"ModuleDesigner signature mismatch: {exc}. Falling back without module path."
+                )
+                designer_window = ModuleDesigner(None, self.active)
+                if module_path is not None:
+                    QTimer.singleShot(33, lambda: designer_window.open_module(module_path))
 
-            builder = IndoorMapBuilder(None, self.active)
-            builder.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-            builder.show()
-            builder.activateWindow()  # Bring the window to the front
-            add_window(builder)
-
-            # Load the selected module (use QTimer to ensure window is fully initialized)
-            QTimer.singleShot(
-                33, lambda: builder.load_module_from_name(module_name)
-            )  # Load the module after the window is fully initialized
-
-            return builder
+            designer_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            designer_window.setWindowIcon(
+                cast("QApplication", QApplication.instance()).windowIcon()
+            )
+            add_window(designer_window)
+            designer_window.show()
+            designer_window.activateWindow()
+            QTimer.singleShot(33, designer_window.enter_layout_mode)
+            return designer_window
 
         self.ui.levelBuilderButton.clicked.connect(open_indoor_map_builder_with_module)
 
@@ -1217,7 +1225,7 @@ class ToolWindow(QMainWindow):
                 ("actionEditTLK", "Edit Talk Table"),
                 ("actionEditJRL", "Edit Journal"),
                 ("actionModuleDesigner", "Module Designer"),
-                ("actionIndoorMapBuilder", "Indoor Map Builder"),
+                ("actionIndoorMapBuilder", "Layout Editor"),
                 ("actionKotorDiff", "KotorDiff"),
                 ("actionTSLPatchDataEditor", "TSLPatchData Editor"),
                 ("actionFileSearch", "File Search"),
@@ -2250,17 +2258,39 @@ class ToolWindow(QMainWindow):
         self,
         checked: bool = False,  # pyright: ignore[reportUnusedParameter]
     ):
-        """Open the indoor map builder.
+        """Open Module Designer in Layout mode (indoor map + Area Designer — unified editor).
+
+        Uses the same optional module selection as Module Designer: when a module is
+        selected in the Modules tab, it is opened in Layout mode; otherwise Layout
+        starts without a preloaded module.
 
         Args:
         ----
             checked: Whether the action was checked (from triggered signal, ignored).
         """
-        builder = IndoorMapBuilder(None, self.active)
-        builder.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        builder.show()
-        builder.activateWindow()
-        add_window(builder)
+        assert self.active is not None, "No installation loaded."
+        selected_module: Path | None = None
+        try:
+            combo_data = self.ui.modulesWidget.ui.sectionCombo.currentData(Qt.ItemDataRole.UserRole)
+        except Exception:  # noqa: BLE001
+            combo_data = None
+        if combo_data:
+            selected_module = self.active.module_path() / Path(str(combo_data))
+        try:
+            designer = ModuleDesigner(None, self.active, mod_filepath=selected_module)  # pyright: ignore[call-arg]
+        except TypeError as exc:
+            RobustLogger().warning(
+                f"ModuleDesigner signature mismatch: {exc}. Falling back without module path."
+            )
+            designer = ModuleDesigner(None, self.active)
+            if selected_module is not None:
+                QTimer.singleShot(33, lambda: designer.open_module(selected_module))
+        designer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        designer.setWindowIcon(cast("QApplication", QApplication.instance()).windowIcon())
+        add_window(designer)
+        designer.show()
+        designer.activateWindow()
+        QTimer.singleShot(33, designer.enter_layout_mode)
 
     @Slot(bool)
     def open_kotordiff(

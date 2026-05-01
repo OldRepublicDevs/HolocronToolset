@@ -155,9 +155,6 @@ class UTCEditor(Editor):
         self.ui.portraitPicture.customContextMenuRequested.connect(self._portrait_context_menu)
         self.ui.portraitPicture.setToolTip(self._generate_portrait_tooltip(as_html=True))
 
-    def _nav_resource_types(self) -> list[ResourceType]:
-        return [ResourceType.UTC]
-
     def _on_installation_changed(self, installation: HTInstallation | None) -> None:
         if installation is None or not self._ui_ready:
             return
