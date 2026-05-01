@@ -8,19 +8,19 @@ For this tutorial we will:
 
 ---
 
-Let us begin with creating a simple module with the Map Builder. The map builder can be accessed through the main window via **File** -> **Indoor Map Builder**. You can view a list of controls through the Map Builder window via **Help** -> **Instructions**.
+Let us begin with creating a simple module with the Map Builder. Open **Tools** → **Layout Editor...** from the main window (Module Designer in Layout mode — indoor kits and Area Designer). Use **Help** in that window for the relevant guide.
 
-If you do not have any kits installed you will be prompted to download some. Otherwise, you can access the download window via **File** -> **Download Kits**. Download the **Enclave Surface** kit.
+If you do not have any kits installed you will be prompted to download some. Otherwise use **Indoor** → **Download Kits...** (or the **Download/Update Kits...** button on the layout toolbar). Download the **Enclave Surface** kit.
 
 Create a simple layout like so:
 
 ![3a.png](3a.png)
 
-Go to the settings via **File** -> **Settings**. Change the values appropriately and make a note of the warp code as this is needed for the area transitions. The warp code used in this tutorial is _nthenc_.
+Configure module metadata from the Layout editor (module name, warp code, and related indoor settings). The warp code used in this tutorial is _nthenc_. Global Holocron paths remain under **File** → **Settings** on the main window if needed.
 
 ![3b.png](3b.png)
 
-You can build the module via **File** -> **Build**. You should now be able to open up the game and warp to _nthenc_.
+Build the module via **Indoor** → **Build Module...**. You should now be able to open up the game and warp to _nthenc_.
 
 ![3c.png](3c.png)
 
