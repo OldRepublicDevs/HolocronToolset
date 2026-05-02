@@ -53,7 +53,6 @@ else:
 
 from pykotor.common.indoorkit import Kit
 from pykotor.common.indoormap import EmbeddedKit, IndoorMap, IndoorMapRoom
-from pykotor.common.tilekit import TileKit
 from pykotor.common.modulekit import ModuleKitManager
 from pykotor.common.stream import BinaryWriter  # type: ignore[reportPrivateImportUsage]
 from pykotor.tools import indoorkit as indoorkit_tools
@@ -217,7 +216,6 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
         self._installation: HTInstallation | None = installation
         self._kits: list[Kit] = []
-        self._tile_kits: list[TileKit] = []
         self._map: IndoorMap = IndoorMap()
         # Synthetic components (e.g. merged rooms) are stored in an embedded kit so they
         # can be serialized into `.indoor` and restored on load.
@@ -243,16 +241,6 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
         self.ui: Ui_MainWindow = Ui_MainWindow()
         self.ui.setupUi(self)
-        from toolset.gui.windows.indoor_builder.tile_editor_3d import (  # noqa: PLC0415
-            setup_indoor_builder_tile_3d,
-        )
-
-        setup_indoor_builder_tile_3d(
-            main_splitter=self.ui.mainViewSplitter,
-            host=self.ui.tileGrid3DHost,
-            host_layout=self.ui.tileGrid3DHostLayout,
-            fallback_label=self.ui.tileGrid3DFallbackLabel,
-        )
 
         # Add a missing "Open .mod" action at runtime (UI code is generated; do not edit it).
         self._action_open_mod: QAction = QAction(tr("Open .mod..."), self)
@@ -810,18 +798,9 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
         self.ui.mapRenderer.invalidate_rooms(rooms)
         self._refresh_status_bar()
 
-    def _kits_for_build(self) -> list[Kit]:
-        """K1 room kits plus v2 tile kit shells (textures/skyboxes) for `IndoorMap.build`."""
-        out: list[Kit] = list(self._kits)
-        for tk in self._tile_kits:
-            out.append(tk.as_runtime_kit())
-        return out
-
     def _setup_kits(self):
         self.ui.kitSelect.clear()
-        self._kits, self._tile_kits, missing_files = indoorkit_tools.load_kits_unified_with_missing(
-            get_kits_path()
-        )
+        self._kits, missing_files = indoorkit_tools.load_kits_with_missing_files(get_kits_path())
 
         # Kits are deprecated and optional - modules provide the same functionality
         # No need to show a dialog when kits are missing since modules can be used instead
@@ -830,8 +809,6 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
         for kit in self._kits:
             self.ui.kitSelect.addItem(kit.name, kit)
-        # v2 tile kits are loaded into `_tile_kits` for tile-layout / 3D workflows; the v1
-        # component listbox remains for classic room components only.
 
     def _show_no_kits_dialog(self):
         """Show dialog asking if user wants to open kit downloader.
@@ -1590,7 +1567,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
             def task():
                 assert isinstance(self._installation, HTInstallation)
-                return self._map.build(self._installation, self._kits_for_build(), path)
+                return self._map.build(self._installation, self._kits, path)
 
             loader = AsyncLoader(
                 self,
@@ -1828,7 +1805,7 @@ class IndoorMapBuilder(Editor, BlenderEditorMixin):
 
         def task():
             assert isinstance(self._installation, HTInstallation)
-            return self._map.build(self._installation, self._kits_for_build(), path)
+            return self._map.build(self._installation, self._kits, path)
 
         msg = f"You can warp to the game using the code 'warp {self._map.module_id}'. "
         msg += f"Map files can be found in:\n{path}"
