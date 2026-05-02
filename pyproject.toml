@@ -285,21 +285,6 @@ Repository = "https://github.com/OpenKotOR/PyKotor.git"
 Issues = "https://github.com/OpenKotOR/PyKotor/issues"
 Changelog = "https://github.com/OpenKotOR/PyKotor/releases"
 
-########################################################
-## UV workspace configuration                         ##
-## Path-based uv.sources are omitted: when installing holocrontoolset from
-## git (e.g. uvx --from git+...), uv would serialize them as invalid
-## git+#subdirectory URLs on Windows. The PyKotor monorepo root overrides
-## sources via [tool.uv.sources]; standalone installs use PyPI.
-########################################################
-
-[tool.uv.sources]
-# Standalone git installs should resolve pykotor from the monorepo checkout when
-# the requested version has not been published to PyPI yet. Keep this aligned
-# with the root workspace source so uv does not see conflicting direct URLs when
-# holocrontoolset is installed through git+https://github.com/OpenKotOR/PyKotor.
-pykotor = { git = "https://github.com/OpenKotOR/PyKotor", subdirectory = "Libraries/PyKotor" }
-
 [dependency-groups]
 dev = []
 
