@@ -58,7 +58,7 @@ class ResourceNavigationWidget(QWidget):
         layout.addWidget(self.containerLabel)
 
         self.containerCombo = QComboBox(self)
-        self.containerCombo.setMinimumWidth(260)
+        self.containerCombo.setMinimumWidth(140)
         self.containerCombo.setSizePolicy(
             QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         )
@@ -68,7 +68,7 @@ class ResourceNavigationWidget(QWidget):
         layout.addWidget(self.resourceLabel)
 
         self.resourceCombo = QComboBox(self)
-        self.resourceCombo.setMinimumWidth(320)
+        self.resourceCombo.setMinimumWidth(180)
         self.resourceCombo.setMaxVisibleItems(30)
         self.resourceCombo.setSizePolicy(
             QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)

@@ -44,7 +44,7 @@ dependencies = [
   # The workspace resolves `pykotor` from `Libraries/PyKotor`; wheel users get
   # the package from PyPI; `uvx --from git+...#subdirectory=Libraries/PyKotor`
   # still works because uv unifies same-named editable/path requirements.
-  "pykotor[encodings,extra,font,gl,updater]>=2.3.12",
+  "pykotor[encodings,extra,font,gl,updater]>=2.3.13",
   "PyQt5>=5.15,<6; python_version < \"3.9\"",
   "PyQt5-sip>=12.10,<13; python_version < \"3.9\"",
   "PyQt6-Qt6>=6.10.1; python_version >= \"3.9\"",
@@ -193,7 +193,7 @@ keywords = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.14"
 bioware-kaitai-formats = ">=0.1.0"
-pykotor = { version = ">=2.3.12", extras = ["encodings", "extra", "font", "gl", "updater"] }
+pykotor = { version = ">=2.3.13", extras = ["encodings", "extra", "font", "gl", "updater"] }
 certifi = ">=2026.4.22"
 comtypes = { version = ">=1.4.0", markers = "sys_platform == 'win32'" }
 idna = ">=3.11"
@@ -287,18 +287,15 @@ Changelog = "https://github.com/OpenKotOR/PyKotor/releases"
 
 ########################################################
 ## UV workspace configuration                         ##
-## Path-based uv.sources are omitted: when installing holocrontoolset from
-## git (e.g. uvx --from git+...), uv would serialize them as invalid
-## git+#subdirectory URLs on Windows. The PyKotor monorepo root overrides
-## sources via [tool.uv.sources]; standalone installs use PyPI.
+## Default: resolve pykotor from the sibling Libraries/PyKotor checkout when this
+## repo lives under PyKotor at Tools/HolocronToolset (tilekit and other APIs may
+## exist locally before a PyPI release). Standalone-only clones without that path
+## should install pykotor>=2.3.13 from PyPI or temporarily set:
+##   pykotor = { git = "https://github.com/OpenKotOR/PyKotor", subdirectory = "Libraries/PyKotor" }
 ########################################################
 
 [tool.uv.sources]
-# Standalone git installs should resolve pykotor from the monorepo checkout when
-# the requested version has not been published to PyPI yet. Keep this aligned
-# with the root workspace source so uv does not see conflicting direct URLs when
-# holocrontoolset is installed through git+https://github.com/OpenKotOR/PyKotor.
-pykotor = { git = "https://github.com/OpenKotOR/PyKotor", subdirectory = "Libraries/PyKotor" }
+pykotor = { path = "../../Libraries/PyKotor" }
 
 [dependency-groups]
 dev = []

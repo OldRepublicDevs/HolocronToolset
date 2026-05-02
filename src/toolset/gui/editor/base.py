@@ -135,7 +135,13 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         self._editor_toolbar: QToolBar = QToolBar(self)
         self._editor_toolbar.setObjectName("editorToolbar")
         self._editor_toolbar.setWindowTitle("Installation")
+        self._editor_toolbar.setMovable(False)
+        self._editor_toolbar.setFloatable(False)
+        self._editor_toolbar.setAllowedAreas(Qt.ToolBarArea.TopToolBarArea)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._editor_toolbar)
+        # Reserve this first row for shared install/location/resource controls so
+        # editor-specific toolbars (e.g. TwoDA actions) do not collapse nav widgets.
+        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
         self._installation_toolbar = InstallationToolbar(
             self,
             folder_path_specs=list(self.STANDALONE_FOLDER_PATHS),
@@ -199,13 +205,15 @@ class Editor(QMainWindow, StandaloneWindowMixin):
         """Create the shared location/resource selectors in the main editor toolbar."""
         if not self._nav_resource_types():
             return
-        self._editor_toolbar.addSeparator()
         self._nav_widget = ResourceNavigationWidget(self)
         self._nav_widget.resource_selected.connect(self._on_nav_selection_changed)
         self._nav_widget.containerCombo.currentIndexChanged.connect(
             lambda _index: self._nav_sync_combo()
         )
-        self._editor_toolbar.addWidget(self._nav_widget)
+        top_row = self._installation_toolbar.ui.topRow
+        reload_index = top_row.indexOf(self._installation_toolbar.ui.reloadBtn)
+        insert_index = reload_index if reload_index >= 0 else top_row.count()
+        top_row.insertWidget(insert_index, self._nav_widget, 1)
 
         if self._installation is not None:
             self._refresh_nav_bar(self._installation)

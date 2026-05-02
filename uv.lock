@@ -14,10 +14,18 @@ resolution-markers = [
 [[package]]
 name = "bioware-kaitai-formats"
 version = "0.1.0"
-source = { git = "https://github.com/OpenKotOR/PyKotor?subdirectory=Libraries%2Fbioware-kaitai-formats#4f83fef5d30e5efc20c35f4c7a438a1bc42555b3" }
+source = { editable = "../../Libraries/bioware-kaitai-formats" }
 dependencies = [
     { name = "kaitaistruct" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "kaitaistruct", specifier = ">=0.11" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
+    { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.4.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "certifi"
@@ -370,7 +378,7 @@ requires-dist = [
     { name = "numpy", marker = "python_full_version >= '3.9'", specifier = ">=1.25" },
     { name = "pillow", marker = "python_full_version < '3.10'", specifier = ">=10.0.0,<11" },
     { name = "pillow", marker = "python_full_version >= '3.10'", specifier = ">=12.1.1" },
-    { name = "pykotor", extras = ["encodings", "extra", "font", "gl", "updater"], git = "https://github.com/OpenKotOR/PyKotor?subdirectory=Libraries%2FPyKotor" },
+    { name = "pykotor", extras = ["encodings", "extra", "font", "gl", "updater"], directory = "../../Libraries/PyKotor" },
     { name = "pyqt5", marker = "python_full_version < '3.9'", specifier = ">=5.15,<6" },
     { name = "pyqt5-sip", marker = "python_full_version < '3.9'", specifier = ">=12.10,<13" },
     { name = "pyqt6", marker = "python_full_version >= '3.9'", specifier = ">=6.10.1" },
@@ -1110,8 +1118,8 @@ wheels = [
 
 [[package]]
 name = "pykotor"
-version = "2.3.12"
-source = { git = "https://github.com/OpenKotOR/PyKotor?subdirectory=Libraries%2FPyKotor#4f83fef5d30e5efc20c35f4c7a438a1bc42555b3" }
+version = "2.3.13"
+source = { directory = "../../Libraries/PyKotor" }
 dependencies = [
     { name = "bioware-kaitai-formats" },
     { name = "defusedxml" },
@@ -1151,6 +1159,80 @@ updater = [
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "requests", version = "2.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "astroid", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=3.2.0" },
+    { name = "astroid", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=3.2.0,<3.5.0" },
+    { name = "autoflake", marker = "extra == 'dev'", specifier = ">=2.3.1" },
+    { name = "bioware-kaitai-formats", editable = "../../Libraries/bioware-kaitai-formats" },
+    { name = "certifi", marker = "extra == 'updater'", specifier = ">=2021.10.8" },
+    { name = "charset-normalizer", marker = "python_full_version >= '3.9' and extra == 'encodings'", specifier = ">=2.0" },
+    { name = "charset-normalizer", marker = "python_full_version < '3.9' and extra == 'encodings'", specifier = ">=2.0,<3.4" },
+    { name = "colorama", marker = "extra == 'extra'", specifier = ">=0.4.6" },
+    { name = "comtypes", marker = "sys_platform == 'win32' and extra == 'extra'", specifier = ">=1.4.0" },
+    { name = "defusedxml", specifier = ">=0.7" },
+    { name = "fusepy", marker = "extra == 'exp'", specifier = ">=3.0.1" },
+    { name = "gputil", marker = "extra == 'extra'", specifier = ">=1.4.0" },
+    { name = "kaitaistruct", specifier = ">=0.11" },
+    { name = "matplotlib", marker = "extra == 'render'", specifier = ">=3.5" },
+    { name = "moderngl", marker = "extra == 'gl-exp'" },
+    { name = "mypy", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=1.19.1" },
+    { name = "mypy", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=1.0.0,<1.10.0" },
+    { name = "mypy-extensions", marker = "python_full_version >= '3.8' and extra == 'dev'", specifier = ">=1.1.0" },
+    { name = "numpy", marker = "python_full_version >= '3.9' and extra == 'gl'", specifier = ">=1.25" },
+    { name = "numpy", marker = "python_full_version < '3.9' and extra == 'gl'", specifier = ">=1.22,<1.25" },
+    { name = "pillow", marker = "python_full_version >= '3.10' and extra == 'font'", specifier = ">=12.1.1" },
+    { name = "pillow", marker = "python_full_version < '3.10' and extra == 'font'", specifier = ">=10.0.0,<11" },
+    { name = "ply", specifier = ">=3.11,<4" },
+    { name = "psutil", marker = "extra == 'extra'", specifier = ">=7.2.2" },
+    { name = "pycryptodome", marker = "extra == 'updater'", specifier = ">=3.19.0" },
+    { name = "pyflakes", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=2.0.0,<3.4.0" },
+    { name = "pyglm", marker = "extra == 'gl'", specifier = ">=2.0,<2.9" },
+    { name = "pykotor", extras = ["encodings", "exp", "extra", "font", "gl", "updater"], marker = "extra == 'all'", editable = "../../Libraries/PyKotor" },
+    { name = "pylint", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=2.0.0,<3.3.9" },
+    { name = "pyopengl", marker = "extra == 'gl'", specifier = ">=3.1" },
+    { name = "pytest", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "pytest", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=7.0.0,<8.0.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "pytest-html", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=4.2.0" },
+    { name = "pytest-html", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "pytest-json-report", marker = "extra == 'dev'", specifier = ">=1.5.0" },
+    { name = "pytest-metadata", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=3.1.1" },
+    { name = "pytest-metadata", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "pytest-xdist", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=3.8.0" },
+    { name = "pytest-xdist", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=2.0.0,<3.8.0" },
+    { name = "python-dateutil", marker = "extra == 'dev'", specifier = ">=2.9.0.post0" },
+    { name = "python-dotenv", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=1.2.1" },
+    { name = "python-dotenv", marker = "python_full_version < '3.9' and extra == 'dev'" },
+    { name = "python-multipart", marker = "python_full_version >= '3.10' and extra == 'dev'", specifier = ">=0.0.22" },
+    { name = "python-multipart", marker = "python_full_version < '3.10' and extra == 'dev'", specifier = ">=0.0.9,<0.0.21" },
+    { name = "pywin32", marker = "sys_platform == 'win32' and extra == 'exp'", specifier = ">=38" },
+    { name = "pyyaml", marker = "extra == 'extra'", specifier = ">=6.0" },
+    { name = "requests", marker = "python_full_version >= '3.9' and extra == 'updater'", specifier = ">=2.32.4" },
+    { name = "requests", marker = "python_full_version < '3.9' and extra == 'updater'", specifier = ">=2.23.0,<2.32.5" },
+    { name = "ruff", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=0.5.3" },
+    { name = "ruff", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=0.5.3,<0.6.0" },
+    { name = "snakeviz", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=2.2.2" },
+    { name = "snakeviz", marker = "python_full_version < '3.9' and extra == 'dev'" },
+    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'dev'", specifier = ">=2.4.0" },
+    { name = "tomli", marker = "python_full_version >= '3.12' and extra == 'dev'", specifier = ">=2.4.0" },
+    { name = "tomli-w", marker = "python_full_version >= '3.12' and extra == 'dev'", specifier = ">=1.2.0" },
+    { name = "types-cffi", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=1.17.0.20250915" },
+    { name = "types-colorama", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=0.4.15.20250801" },
+    { name = "types-defusedxml", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=0.7.0.20250822" },
+    { name = "types-pillow", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=10.2.0.20240822" },
+    { name = "types-psutil", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=7.2.2.20260130" },
+    { name = "types-pywin32", marker = "python_full_version >= '3.9' and sys_platform == 'win32' and extra == 'dev'", specifier = ">=38" },
+    { name = "types-pyyaml", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=6.0.12.20250915" },
+    { name = "types-requests", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=2.32.4.20260107" },
+    { name = "types-send2trash", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=2.1.0.20260117" },
+    { name = "types-setuptools", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=80.10.0.20260124" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=4.15.0" },
+    { name = "typing-extensions", marker = "python_full_version < '3.9' and extra == 'dev'", specifier = ">=4.5.0,<4.9.0" },
+    { name = "typing-inspection", marker = "python_full_version >= '3.9' and extra == 'dev'", specifier = ">=0.4.2" },
+]
+provides-extras = ["all", "dev", "encodings", "exp", "extra", "font", "gl", "gl-exp", "updater", "render"]
 
 [[package]]
 name = "pyopengl"
